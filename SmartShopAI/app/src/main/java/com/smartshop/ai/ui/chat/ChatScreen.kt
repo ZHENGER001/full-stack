@@ -8,6 +8,9 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,11 +34,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
@@ -47,6 +54,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,77 +65,40 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import com.smartshop.ai.data.mock.MockData
-import com.smartshop.ai.data.model.ChatMessage
 import com.smartshop.ai.ui.components.ChatBubble
 import com.smartshop.ai.ui.navigation.Screen
 import com.smartshop.ai.ui.theme.Primary
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-
-class ChatViewModel : ViewModel() {
-
-    private val _messages = MutableStateFlow(
-        listOf(
-            ChatMessage(
-                content = "你好！我是SmartShop AI智能导购助手 🛍️ 我可以帮你：\n\n" +
-                        "• 根据需求推荐商品\n" +
-                        "• 对比不同产品\n" +
-                        "• 解答购物疑问\n\n" +
-                        "试试告诉我你想买什么吧！",
-                isUser = false
-            )
-        )
-    )
-    val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
-
-    private val _inputText = MutableStateFlow("")
-    val inputText: StateFlow<String> = _inputText.asStateFlow()
-
-    private val _isTyping = MutableStateFlow(false)
-    val isTyping: StateFlow<Boolean> = _isTyping.asStateFlow()
-
-    fun updateInput(text: String) {
-        _inputText.value = text
-    }
-
-    fun sendMessage(text: String) {
-        if (text.isBlank()) return
-
-        val userMessage = ChatMessage(
-            content = text.trim(),
-            isUser = true
-        )
-        _messages.value = _messages.value + userMessage
-        _inputText.value = ""
-        _isTyping.value = true
-
-        viewModelScope.launch {
-            delay((1000L..1500L).random())
-            val aiResponse = MockData.getAiResponse(text)
-            _isTyping.value = false
-            _messages.value = _messages.value + aiResponse
-        }
-    }
-}
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     navController: NavController,
-    viewModel: ChatViewModel = viewModel()
+    viewModel: ChatViewModel = hiltViewModel()
 ) {
     val messages by viewModel.messages.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val isTyping by viewModel.isTyping.collectAsState()
     val listState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.sendMessage(imageUri = it) }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            pendingCameraUri?.let { viewModel.sendMessage(imageUri = it) }
+        }
+    }
 
     // Auto-scroll to bottom when messages change
     LaunchedEffect(messages.size, isTyping) {
@@ -134,7 +108,14 @@ fun ChatScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -185,6 +166,18 @@ fun ChatScreen(
             ChatInputBar(
                 inputText = inputText,
                 onInputChange = { viewModel.updateInput(it) },
+                onPickImage = { imagePickerLauncher.launch("image/*") },
+                onTakePhoto = {
+                    val imageDir = File(context.cacheDir, "chat_images").apply { mkdirs() }
+                    val imageFile = File(imageDir, "chat_${System.currentTimeMillis()}.jpg")
+                    val uri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        imageFile
+                    )
+                    pendingCameraUri = uri
+                    cameraLauncher.launch(uri)
+                },
                 onSend = { viewModel.sendMessage(inputText) }
             )
         }
@@ -256,7 +249,9 @@ fun ChatScreen(
                         message = message,
                         onProductClick = { productId ->
                             navController.navigate(Screen.ProductDetail.createRoute(productId))
-                        }
+                        },
+                        onAddToCart = { productId -> viewModel.addToCart(productId) },
+                        onActionClick = { action -> viewModel.sendMessage(action) }
                     )
                 }
             }
@@ -315,6 +310,8 @@ private fun TypingIndicator() {
 private fun ChatInputBar(
     inputText: String,
     onInputChange: (String) -> Unit,
+    onPickImage: () -> Unit,
+    onTakePhoto: () -> Unit,
     onSend: () -> Unit
 ) {
     Row(
@@ -325,6 +322,28 @@ private fun ChatInputBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        IconButton(
+            onClick = onPickImage,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Image,
+                contentDescription = "选择图片",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        IconButton(
+            onClick = onTakePhoto,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.PhotoCamera,
+                contentDescription = "拍照",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
         TextField(
             value = inputText,
             onValueChange = onInputChange,

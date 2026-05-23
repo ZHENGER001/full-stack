@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -35,6 +36,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -45,14 +49,52 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.smartshop.ai.data.account.AccountRepository
+import com.smartshop.ai.data.model.ProfileSummary
 import com.smartshop.ai.ui.navigation.Screen
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+
+data class ProfileUiState(
+    val summary: ProfileSummary = ProfileSummary(),
+    val isLoading: Boolean = true
+)
+
+@HiltViewModel
+class ProfileViewModel @Inject constructor(
+    private val accountRepository: AccountRepository
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(ProfileUiState())
+    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+    fun load() {
+        viewModelScope.launch {
+            runCatching { accountRepository.getSummary() }
+                .onSuccess { _uiState.value = ProfileUiState(summary = it, isLoading = false) }
+                .onFailure { _uiState.value = ProfileUiState(isLoading = false) }
+        }
+    }
+}
 
 @Composable
-fun ProfileScreen(navController: NavHostController) {
+fun ProfileScreen(
+    navController: NavHostController,
+    viewModel: ProfileViewModel = hiltViewModel()
+) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val nickname = "购物达人"
+    val uiState by viewModel.uiState.collectAsState()
+    LaunchedEffect(Unit) {
+        viewModel.load()
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
@@ -116,9 +158,9 @@ fun ProfileScreen(navController: NavHostController) {
                         .padding(vertical = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    StatItem(label = "收藏", count = "12")
-                    StatItem(label = "足迹", count = "48")
-                    StatItem(label = "订单", count = "3")
+                    StatItem(label = "收藏", count = uiState.summary.favoriteCount.toString())
+                    StatItem(label = "足迹", count = uiState.summary.footprintCount.toString())
+                    StatItem(label = "订单", count = uiState.summary.orderCount.toString())
                 }
             }
 
@@ -144,17 +186,25 @@ fun ProfileScreen(navController: NavHostController) {
                     ProfileMenuItem(
                         icon = Icons.Outlined.Inventory2,
                         title = "我的订单",
-                        onClick = {
-                            scope.launch { snackbarHostState.showSnackbar("功能开发中") }
-                        }
+                        onClick = { navController.navigate(Screen.Orders.route) }
+                    )
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    ProfileMenuItem(
+                        icon = Icons.Outlined.ShoppingCart,
+                        title = "购物车",
+                        onClick = { navController.navigate(Screen.Cart.route) }
                     )
                     Divider(modifier = Modifier.padding(horizontal = 16.dp))
                     ProfileMenuItem(
                         icon = Icons.Outlined.History,
                         title = "浏览历史",
-                        onClick = {
-                            scope.launch { snackbarHostState.showSnackbar("功能开发中") }
-                        }
+                        onClick = { navController.navigate(Screen.Footprints.route) }
+                    )
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    ProfileMenuItem(
+                        icon = Icons.Outlined.Info,
+                        title = "我的地址",
+                        onClick = { navController.navigate(Screen.Addresses.route) }
                     )
                     Divider(modifier = Modifier.padding(horizontal = 16.dp))
                     ProfileMenuItem(
@@ -163,13 +213,6 @@ fun ProfileScreen(navController: NavHostController) {
                         onClick = { navController.navigate(Screen.Settings.route) }
                     )
                     Divider(modifier = Modifier.padding(horizontal = 16.dp))
-                    ProfileMenuItem(
-                        icon = Icons.Outlined.Info,
-                        title = "关于我们",
-                        onClick = {
-                            scope.launch { snackbarHostState.showSnackbar("功能开发中") }
-                        }
-                    )
                 }
             }
 

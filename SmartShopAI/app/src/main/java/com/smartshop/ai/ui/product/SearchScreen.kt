@@ -44,42 +44,110 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import com.smartshop.ai.data.mock.MockData
+import com.smartshop.ai.data.model.Category
 import com.smartshop.ai.data.model.Product
+import com.smartshop.ai.data.product.ProductRepository
 import com.smartshop.ai.ui.components.CategoryChip
 import com.smartshop.ai.ui.components.ProductCard
 import com.smartshop.ai.ui.components.SmartShopSearchBar
 import com.smartshop.ai.ui.navigation.Screen
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 // ==================== ViewModel ====================
 
 data class SearchUiState(
     val query: String = "",
+    val allProducts: List<Product> = emptyList(),
     val results: List<Product> = emptyList(),
     val searchHistory: List<String> = listOf("蓝牙耳机", "华为手机", "咖啡机", "瑜伽垫"),
-    val selectedCategoryId: String? = null
+    val categories: List<Category> = emptyList(),
+    val selectedCategoryId: String? = null,
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null
 )
 
-class SearchViewModel : ViewModel() {
+@HiltViewModel
+class SearchViewModel @Inject constructor(
+    private val productRepository: ProductRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+    private var searchJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            val cachedProducts = productRepository.cachedProducts()
+            val cachedCategories = productRepository.cachedCategories()
+            if (cachedProducts.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(
+                    categories = cachedCategories,
+                    allProducts = cachedProducts,
+                    isLoading = false,
+                    errorMessage = null
+                )
+            }
+            runCatching {
+                val categories = productRepository.getCategories()
+                val products = productRepository.getProducts(sort = "rating")
+                categories to products
+            }.onSuccess { (categories, products) ->
+                _uiState.value = _uiState.value.copy(
+                    categories = categories,
+                    allProducts = products,
+                    isLoading = false,
+                    errorMessage = null
+                )
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = error.message ?: "商品接口暂不可用"
+                )
+            }
+        }
+    }
+
+    fun showAllProducts() {
+        searchJob?.cancel()
+        val category = _uiState.value.selectedCategoryId
+        val baseProducts = productRepository.cachedProducts()
+        val visibleProducts = if (category == null) {
+            baseProducts
+        } else {
+            baseProducts.filter { it.categoryId == category || it.category == category }
+        }
+        _uiState.value = _uiState.value.copy(
+            query = "",
+            allProducts = visibleProducts,
+            results = emptyList(),
+            isLoading = false,
+            errorMessage = null
+        )
+    }
 
     fun updateQuery(newQuery: String) {
-        val results = if (newQuery.isBlank()) {
-            emptyList()
-        } else {
-            val filtered = MockData.searchProducts(newQuery)
-            val catId = _uiState.value.selectedCategoryId
-            if (catId != null) filtered.filter { it.categoryId == catId } else filtered
+        _uiState.value = _uiState.value.copy(query = newQuery)
+        searchJob?.cancel()
+        if (newQuery.isBlank()) {
+            showAllProducts()
+            return
         }
-        _uiState.value = _uiState.value.copy(query = newQuery, results = results)
+        searchJob = viewModelScope.launch {
+            delay(250)
+            runSearch(newQuery)
+        }
     }
 
     fun search(query: String) {
@@ -88,9 +156,11 @@ class SearchViewModel : ViewModel() {
         currentHistory.remove(query)
         currentHistory.add(0, query)
         _uiState.value = _uiState.value.copy(
+            query = query,
             searchHistory = currentHistory.take(10)
         )
-        updateQuery(query)
+        searchJob?.cancel()
+        viewModelScope.launch { runSearch(query) }
     }
 
     fun clearHistory() {
@@ -100,8 +170,42 @@ class SearchViewModel : ViewModel() {
     fun selectCategory(categoryId: String?) {
         val newCatId = if (_uiState.value.selectedCategoryId == categoryId) null else categoryId
         _uiState.value = _uiState.value.copy(selectedCategoryId = newCatId)
-        // Re-filter with current query
-        updateQuery(_uiState.value.query)
+        searchJob?.cancel()
+        val query = _uiState.value.query
+        if (query.isNotBlank()) {
+            viewModelScope.launch { runSearch(query) }
+        } else {
+            showAllProducts()
+        }
+    }
+
+    private suspend fun runSearch(query: String) {
+        val category = _uiState.value.selectedCategoryId
+        val localResults = productRepository.searchCachedProducts(query, category)
+        _uiState.value = _uiState.value.copy(
+            results = localResults,
+            isLoading = localResults.isEmpty(),
+            errorMessage = null
+        )
+        runCatching {
+            productRepository.searchProducts(query, category)
+        }.onSuccess { results ->
+            _uiState.value = _uiState.value.copy(
+                results = results,
+                isLoading = false,
+                errorMessage = null
+            )
+        }.onFailure { error ->
+            _uiState.value = _uiState.value.copy(
+                results = localResults,
+                isLoading = false,
+                errorMessage = if (localResults.isEmpty()) {
+                    error.message ?: "搜索接口暂不可用"
+                } else {
+                    null
+                }
+            )
+        }
     }
 }
 
@@ -111,7 +215,7 @@ class SearchViewModel : ViewModel() {
 @Composable
 fun SearchScreen(
     navController: NavHostController,
-    viewModel: SearchViewModel = viewModel()
+    viewModel: SearchViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusRequester = remember { FocusRequester() }
@@ -157,21 +261,80 @@ fun SearchScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             if (uiState.query.isBlank()) {
-                // Empty state: show history + suggestions
-                SearchEmptyContent(
-                    history = uiState.searchHistory,
-                    suggestions = MockData.quickSuggestions,
-                    onHistoryClick = { viewModel.search(it) },
-                    onSuggestionClick = { viewModel.search(it) },
-                    onClearHistory = { viewModel.clearHistory() }
-                )
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item(span = { GridItemSpan(2) }) {
+                        SearchEmptyContent(
+                            history = uiState.searchHistory,
+                            suggestions = MockData.quickSuggestions,
+                            onHistoryClick = { viewModel.search(it) },
+                            onSuggestionClick = { viewModel.search(it) },
+                            onClearHistory = { viewModel.clearHistory() }
+                        )
+                    }
+                    item(span = { GridItemSpan(2) }) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(uiState.categories, key = { it.id }) { category ->
+                                CategoryChip(
+                                    category = category,
+                                    selected = uiState.selectedCategoryId == category.id,
+                                    onClick = { viewModel.selectCategory(category.id) }
+                                )
+                            }
+                        }
+                    }
+                    item(span = { GridItemSpan(2) }) {
+                        Text(
+                            text = if (uiState.selectedCategoryId == null) {
+                                "全部数据集商品 ${uiState.allProducts.size} 件"
+                            } else {
+                                "${uiState.selectedCategoryId} ${uiState.allProducts.size} 件"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                    if (uiState.isLoading) {
+                        item(span = { GridItemSpan(2) }) {
+                            Text(
+                                text = "正在加载数据集商品...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 24.dp)
+                            )
+                        }
+                    } else {
+                        items(
+                            uiState.allProducts,
+                            key = { it.id },
+                            contentType = { "product" }
+                        ) { product ->
+                            ProductCard(
+                                product = product,
+                                onClick = {
+                                    navController.navigate(
+                                        Screen.ProductDetail.createRoute(product.id)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
             } else {
                 // Category filter row
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(MockData.categories, key = { it.id }) { category ->
+                    items(uiState.categories, key = { it.id }) { category ->
                         CategoryChip(
                             category = category,
                             selected = uiState.selectedCategoryId == category.id,
@@ -183,7 +346,7 @@ fun SearchScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Results grid
-                if (uiState.results.isEmpty()) {
+                if (uiState.isLoading) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -191,7 +354,20 @@ fun SearchScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "未找到相关商品",
+                            text = "正在搜索数据集商品...",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else if (uiState.results.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 60.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = uiState.errorMessage ?: "未找到相关商品",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -205,6 +381,7 @@ fun SearchScreen(
                 } else {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
+                        modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -217,7 +394,11 @@ fun SearchScreen(
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
                         }
-                        items(uiState.results, key = { it.id }) { product ->
+                        items(
+                            uiState.results,
+                            key = { it.id },
+                            contentType = { "product" }
+                        ) { product ->
                             ProductCard(
                                 product = product,
                                 onClick = {

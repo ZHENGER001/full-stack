@@ -19,10 +19,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.smartshop.ai.data.model.ChatMessage
 import com.smartshop.ai.data.model.Product
 import com.smartshop.ai.ui.theme.AiBubble
@@ -53,7 +57,9 @@ import java.util.Locale
 fun ChatBubble(
     message: ChatMessage,
     modifier: Modifier = Modifier,
-    onProductClick: (String) -> Unit = {}
+    onProductClick: (String) -> Unit = {},
+    onAddToCart: (String) -> Unit = {},
+    onActionClick: (String) -> Unit = {}
 ) {
     val isUser = message.isUser
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
@@ -105,20 +111,33 @@ fun ChatBubble(
                         )
                         .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
-                    if (message.isLoading) {
-                        // Loading dots animation placeholder
-                        Text(
-                            text = "正在思考...",
-                            color = if (isUser) UserBubbleText else AiBubbleText,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    } else {
-                        Text(
-                            text = message.content,
-                            color = if (isUser) UserBubbleText else AiBubbleText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            lineHeight = 22.sp
-                        )
+                    Column {
+                        message.imageUri?.let { imageUri ->
+                            AsyncImage(
+                                model = imageUri,
+                                contentDescription = "用户图片",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(160.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        if (message.isLoading && message.content.isBlank()) {
+                            Text(
+                                text = "正在思考...",
+                                color = if (isUser) UserBubbleText else AiBubbleText,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        } else {
+                            Text(
+                                text = message.content,
+                                color = if (isUser) UserBubbleText else AiBubbleText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                lineHeight = 22.sp
+                            )
+                        }
                     }
                 }
 
@@ -141,7 +160,28 @@ fun ChatBubble(
                         items(message.productRecommendations, key = { it.id }) { product ->
                             MiniProductCard(
                                 product = product,
-                                onClick = { onProductClick(product.id) }
+                                onClick = { onProductClick(product.id) },
+                                onAddToCart = { onAddToCart(product.id) }
+                            )
+                        }
+                    }
+                }
+
+                if (message.actionSuggestions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(end = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(message.actionSuggestions) { action ->
+                            AssistChip(
+                                onClick = { onActionClick(action) },
+                                label = {
+                                    Text(
+                                        text = action,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
                             )
                         }
                     }
@@ -155,6 +195,7 @@ fun ChatBubble(
 private fun MiniProductCard(
     product: Product,
     onClick: () -> Unit,
+    onAddToCart: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -199,20 +240,39 @@ private fun MiniProductCard(
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = "¥${"%.0f".format(product.price)}",
-                        color = PriceColor,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    product.originalPrice?.let {
-                        Spacer(modifier = Modifier.width(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
                         Text(
-                            text = "¥${"%.0f".format(it)}",
-                            color = Color(0xFF9AA0A6),
-                            fontSize = 10.sp,
-                            textDecoration = TextDecoration.LineThrough
+                            text = "¥${"%.0f".format(product.price)}",
+                            color = PriceColor,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        product.originalPrice?.let {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "¥${"%.0f".format(it)}",
+                                color = Color(0xFF9AA0A6),
+                                fontSize = 10.sp,
+                                textDecoration = TextDecoration.LineThrough
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = onAddToCart,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AddShoppingCart,
+                            contentDescription = "加入购物车",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }

@@ -1,0 +1,2 @@
+"""SmartShopAI backend package."""
+

@@ -7,12 +7,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
@@ -38,12 +36,16 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.smartshop.ai.ui.camera.CameraScreen
 import com.smartshop.ai.ui.camera.ImageResultScreen
+import com.smartshop.ai.ui.cart.CartScreen
 import com.smartshop.ai.ui.chat.ChatScreen
 import com.smartshop.ai.ui.home.HomeScreen
 import com.smartshop.ai.ui.product.CategoryProductsScreen
 import com.smartshop.ai.ui.product.ProductDetailScreen
 import com.smartshop.ai.ui.product.SearchScreen
 import com.smartshop.ai.ui.profile.FavoritesScreen
+import com.smartshop.ai.ui.profile.FootprintsScreen
+import com.smartshop.ai.ui.profile.OrdersScreen
+import com.smartshop.ai.ui.profile.AddressesScreen
 import com.smartshop.ai.ui.profile.ProfileScreen
 import com.smartshop.ai.ui.settings.SettingsScreen
 
@@ -57,7 +59,6 @@ data class BottomNavItem(
 val bottomNavItems = listOf(
     BottomNavItem(Screen.Home, "首页", Icons.Filled.Home, Icons.Outlined.Home),
     BottomNavItem(Screen.Chat, "AI导购", Icons.Filled.Chat, Icons.Outlined.Chat),
-    BottomNavItem(Screen.Camera, "拍照识物", Icons.Filled.CameraAlt, Icons.Outlined.CameraAlt),
     BottomNavItem(Screen.Search, "发现", Icons.Filled.Search, Icons.Outlined.Search),
     BottomNavItem(Screen.Profile, "我的", Icons.Filled.Person, Icons.Outlined.Person),
 )
@@ -171,6 +172,22 @@ fun SmartShopNavGraph(
 
         composable(Screen.Favorites.route) {
             FavoritesScreen(navController = navController)
+        }
+
+        composable(Screen.Footprints.route) {
+            FootprintsScreen(navController = navController)
+        }
+
+        composable(Screen.Orders.route) {
+            OrdersScreen(navController = navController)
+        }
+
+        composable(Screen.Addresses.route) {
+            AddressesScreen(navController = navController)
+        }
+
+        composable(Screen.Cart.route) {
+            CartScreen(navController = navController)
         }
 
         composable(Screen.ImageResult.route) {

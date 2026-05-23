@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.BottomAppBar
@@ -38,32 +39,211 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
+import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
-import com.smartshop.ai.data.mock.MockData
+import com.smartshop.ai.data.model.Product
+import com.smartshop.ai.data.account.AccountRepository
+import com.smartshop.ai.data.cart.CartRepository
+import com.smartshop.ai.data.product.ProductRepository
+import com.smartshop.ai.ui.components.PaymentPasswordDialog
 import com.smartshop.ai.ui.components.ProductCard
 import com.smartshop.ai.ui.components.RatingBar
 import com.smartshop.ai.ui.navigation.Screen
 import com.smartshop.ai.ui.theme.Discount
 import com.smartshop.ai.ui.theme.OriginalPriceColor
 import com.smartshop.ai.ui.theme.PriceColor
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class ProductDetailUiState(
+    val product: Product? = null,
+    val relatedProducts: List<Product> = emptyList(),
+    val isLoading: Boolean = false,
+    val isCartActionLoading: Boolean = false,
+    val isFavoriteActionLoading: Boolean = false,
+    val isFavorited: Boolean = false,
+    val pendingOrderId: String? = null,
+    val pendingPaymentAmount: Double = 0.0,
+    val isPaymentLoading: Boolean = false,
+    val paymentError: String? = null,
+    val errorMessage: String? = null
+)
+
+@HiltViewModel
+class ProductDetailViewModel @Inject constructor(
+    private val productRepository: ProductRepository,
+    private val cartRepository: CartRepository,
+    private val accountRepository: AccountRepository
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(ProductDetailUiState(isLoading = true))
+    val uiState: StateFlow<ProductDetailUiState> = _uiState.asStateFlow()
+
+    fun load(productId: String) {
+        if (_uiState.value.product?.id == productId) return
+        viewModelScope.launch {
+            val cachedProduct = productRepository.getCachedProduct(productId)
+            _uiState.value = ProductDetailUiState(product = cachedProduct, isLoading = true)
+            runCatching { productRepository.getProductDetail(productId) }.onSuccess { product ->
+                _uiState.value = _uiState.value.copy(
+                    product = product,
+                    isLoading = false,
+                    errorMessage = null
+                )
+                recordFootprint(product.id)
+                loadRelated(product)
+            }.onFailure { error ->
+                _uiState.value = ProductDetailUiState(
+                    product = cachedProduct,
+                    isLoading = false,
+                    errorMessage = error.message ?: "商品详情接口暂不可用"
+                )
+            }
+        }
+    }
+
+    private fun recordFootprint(productId: String) {
+        viewModelScope.launch {
+            runCatching { accountRepository.addFootprint(productId) }
+        }
+    }
+
+    private fun loadRelated(product: Product) {
+        viewModelScope.launch {
+            runCatching {
+                productRepository.getProducts(category = product.category, limit = 12)
+                    .filter { it.id != product.id }
+                    .take(10)
+            }.onSuccess { related ->
+                _uiState.value = _uiState.value.copy(relatedProducts = related)
+            }
+        }
+    }
+
+    fun addToCart(
+        productId: String,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        if (_uiState.value.isCartActionLoading) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isCartActionLoading = true)
+            runCatching { cartRepository.addProduct(productId) }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(isCartActionLoading = false)
+                    onSuccess()
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(isCartActionLoading = false)
+                    onError(error.message ?: "购物车接口暂不可用")
+                }
+        }
+    }
+
+    fun addFavorite(productId: String, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+        if (_uiState.value.isFavoriteActionLoading) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isFavoriteActionLoading = true)
+            runCatching { accountRepository.addFavorite(productId) }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isFavoriteActionLoading = false,
+                        isFavorited = true
+                    )
+                    onSuccess()
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(isFavoriteActionLoading = false)
+                    onError(error.message ?: "收藏接口暂不可用")
+                }
+        }
+    }
+
+    fun buyNow(productId: String, onError: (String) -> Unit = {}) {
+        if (_uiState.value.isCartActionLoading) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isCartActionLoading = true, paymentError = null)
+            runCatching { accountRepository.createOrderForProduct(productId) }
+                .onSuccess { order ->
+                    _uiState.value = _uiState.value.copy(
+                        isCartActionLoading = false,
+                        pendingOrderId = order.id,
+                        pendingPaymentAmount = order.totalAmount
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(isCartActionLoading = false)
+                    onError(error.message ?: "创建订单失败")
+                }
+        }
+    }
+
+    fun dismissPayment() {
+        _uiState.value = _uiState.value.copy(
+            pendingOrderId = null,
+            pendingPaymentAmount = 0.0,
+            paymentError = null,
+            isPaymentLoading = false
+        )
+    }
+
+    fun payPendingOrder(password: String, onSuccess: () -> Unit = {}) {
+        val orderId = _uiState.value.pendingOrderId ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isPaymentLoading = true, paymentError = null)
+            runCatching { accountRepository.payOrder(orderId, password) }
+                .onSuccess {
+                    dismissPayment()
+                    onSuccess()
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isPaymentLoading = false,
+                        paymentError = error.message ?: "支付失败"
+                    )
+                }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailScreen(
     productId: String,
-    navController: NavHostController
+    navController: NavHostController,
+    viewModel: ProductDetailViewModel = hiltViewModel()
 ) {
-    val product = MockData.getProductById(productId)
+    LaunchedEffect(productId) {
+        viewModel.load(productId)
+    }
+    val uiState by viewModel.uiState.collectAsState()
+    val product = uiState.product
+    val context = LocalContext.current
 
     if (product == null) {
         Box(
@@ -71,7 +251,7 @@ fun ProductDetailScreen(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "商品不存在",
+                text = if (uiState.isLoading) "正在加载商品..." else uiState.errorMessage ?: "商品不存在",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -79,8 +259,30 @@ fun ProductDetailScreen(
         return
     }
 
-    val relatedProducts = MockData.getProductsByCategory(product.categoryId)
-        .filter { it.id != product.id }
+    val relatedProducts = uiState.relatedProducts
+    if (uiState.pendingOrderId != null) {
+        PaymentPasswordDialog(
+            amount = uiState.pendingPaymentAmount,
+            isLoading = uiState.isPaymentLoading,
+            errorMessage = uiState.paymentError,
+            onDismiss = { viewModel.dismissPayment() },
+            onConfirm = { password ->
+                viewModel.payPendingOrder(password) {
+                    Toast.makeText(context, "支付成功，订单已生成", Toast.LENGTH_SHORT).show()
+                    navController.navigate(Screen.Orders.route)
+                }
+            }
+        )
+    }
+    val detailImageRequest = remember(product.imageUrl) {
+        ImageRequest.Builder(context)
+            .data(product.imageUrl)
+            .crossfade(false)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .size(900, 900)
+            .build()
+    }
 
     Scaffold(
         topBar = {
@@ -127,11 +329,22 @@ fun ProductDetailScreen(
                 ) {
                     // Favorite button
                     OutlinedButton(
-                        onClick = { /* favorite */ },
-                        modifier = Modifier.weight(1f)
+                        onClick = {
+                            viewModel.addFavorite(
+                                product.id,
+                                onSuccess = {
+                                    Toast.makeText(context, "已添加到我的收藏", Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { message ->
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = !uiState.isFavoriteActionLoading
                     ) {
                         Icon(
-                            imageVector = Icons.Default.FavoriteBorder,
+                            imageVector = if (uiState.isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = null,
                             modifier = Modifier.height(18.dp)
                         )
@@ -141,8 +354,19 @@ fun ProductDetailScreen(
 
                     // Add to cart
                     Button(
-                        onClick = { /* add to cart */ },
+                        onClick = {
+                            viewModel.addToCart(
+                                productId = product.id,
+                                onSuccess = {
+                                    Toast.makeText(context, "已加入购物车", Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { message ->
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        },
                         modifier = Modifier.weight(1.5f),
+                        enabled = !uiState.isCartActionLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
                         )
@@ -152,8 +376,13 @@ fun ProductDetailScreen(
 
                     // Buy now
                     Button(
-                        onClick = { /* buy now */ },
+                        onClick = {
+                            viewModel.buyNow(product.id) { message ->
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            }
+                        },
                         modifier = Modifier.weight(1.5f),
+                        enabled = !uiState.isCartActionLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PriceColor
                         )
@@ -185,17 +414,17 @@ fun ProductDetailScreen(
                     ),
                 contentAlignment = Alignment.Center
             ) {
+                AsyncImage(
+                    model = detailImageRequest,
+                    contentDescription = product.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize()
+                )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = product.name.take(2),
-                        style = MaterialTheme.typography.displayMedium,
-                        color = Color(0xFF1A73E8).copy(alpha = 0.2f)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
                     Box(
                         modifier = Modifier
                             .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 4.dp)
@@ -419,6 +648,27 @@ fun ProductDetailScreen(
                 }
             }
 
+            if (product.skuSummaries.isNotEmpty()) {
+                DetailTextSection(
+                    title = "可选 SKU",
+                    lines = product.skuSummaries.take(6)
+                )
+            }
+
+            if (product.faqSummaries.isNotEmpty()) {
+                DetailTextSection(
+                    title = "官方 FAQ",
+                    lines = product.faqSummaries.take(3)
+                )
+            }
+
+            if (product.reviewSummaries.isNotEmpty()) {
+                DetailTextSection(
+                    title = "用户评价",
+                    lines = product.reviewSummaries.take(3)
+                )
+            }
+
             // Related products
             if (relatedProducts.isNotEmpty()) {
                 Divider(
@@ -448,7 +698,8 @@ fun ProductDetailScreen(
                                     navController.navigate(
                                         Screen.ProductDetail.createRoute(relatedProduct.id)
                                     )
-                                }
+                                },
+                                fixedWidth = 180.dp
                             )
                         }
                     }
@@ -457,6 +708,35 @@ fun ProductDetailScreen(
 
             // Bottom spacing
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun DetailTextSection(
+    title: String,
+    lines: List<String>
+) {
+    Divider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        color = MaterialTheme.colorScheme.outlineVariant
+    )
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        lines.forEach { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 21.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
         }
     }
 }

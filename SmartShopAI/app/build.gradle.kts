@@ -6,6 +6,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val smartshopBaseUrl = providers.gradleProperty("smartshopBaseUrl")
+    .orElse(providers.environmentVariable("SMARTSHOP_BASE_URL"))
+    .orElse("http://10.0.2.2:8000/")
+
 android {
     namespace = "com.smartshop.ai"
     compileSdk = 34
@@ -16,6 +20,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
+        buildConfigField("String", "SMARTSHOP_BASE_URL", "\"${smartshopBaseUrl.get()}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -45,6 +50,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -54,6 +60,12 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            assets.srcDir("ecommerce_agent_dataset")
         }
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -29,13 +30,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import com.smartshop.ai.data.mock.MockData
 import com.smartshop.ai.data.model.Banner
 import com.smartshop.ai.data.model.Category
 import com.smartshop.ai.data.model.Product
+import com.smartshop.ai.data.product.ProductRepository
 import com.smartshop.ai.ui.components.BannerCarousel
 import com.smartshop.ai.ui.components.CategoryChip
 import com.smartshop.ai.ui.components.ProductCard
@@ -45,18 +48,26 @@ import com.smartshop.ai.ui.navigation.Screen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
 // ==================== ViewModel ====================
 
 data class HomeUiState(
+    val allProducts: List<Product> = emptyList(),
     val products: List<Product> = emptyList(),
     val categories: List<Category> = emptyList(),
     val banners: List<Banner> = emptyList(),
     val isLoading: Boolean = false,
-    val selectedCategory: String? = null
+    val selectedCategory: String? = null,
+    val errorMessage: String? = null
 )
 
-class HomeViewModel : ViewModel() {
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val productRepository: ProductRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -66,26 +77,55 @@ class HomeViewModel : ViewModel() {
     }
 
     private fun loadData() {
-        _uiState.value = HomeUiState(
-            products = MockData.getHotProducts(10),
-            categories = MockData.categories,
-            banners = MockData.banners,
-            isLoading = false,
-            selectedCategory = null
-        )
+        viewModelScope.launch {
+            val cachedProducts = productRepository.cachedProducts()
+            val cachedCategories = productRepository.cachedCategories()
+            if (cachedProducts.isNotEmpty()) {
+                _uiState.value = HomeUiState(
+                    allProducts = cachedProducts,
+                    products = cachedProducts,
+                    categories = cachedCategories,
+                    banners = MockData.banners,
+                    isLoading = false
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            }
+            runCatching {
+                val products = productRepository.getProducts(sort = "rating")
+                val categories = productRepository.getCategories()
+                HomeUiState(
+                    allProducts = products,
+                    products = products,
+                    categories = categories,
+                    banners = MockData.banners,
+                    isLoading = false,
+                    selectedCategory = null
+                )
+            }.onSuccess { state ->
+                _uiState.value = state
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = error.message ?: "商品接口暂不可用"
+                )
+            }
+        }
     }
 
     fun selectCategory(categoryId: String?) {
         val currentState = _uiState.value
         val newSelectedId = if (currentState.selectedCategory == categoryId) null else categoryId
         val filteredProducts = if (newSelectedId == null) {
-            MockData.getHotProducts(10)
+            currentState.allProducts
         } else {
-            MockData.getProductsByCategory(newSelectedId)
+            currentState.allProducts.filter { it.categoryId == newSelectedId || it.category == newSelectedId }
         }
         _uiState.value = currentState.copy(
             selectedCategory = newSelectedId,
-            products = filteredProducts
+            products = filteredProducts,
+            isLoading = false,
+            errorMessage = null
         )
     }
 }
@@ -95,7 +135,7 @@ class HomeViewModel : ViewModel() {
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -172,7 +212,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "热门推荐",
+                    text = uiState.selectedCategory ?: "数据集商品",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -184,7 +224,7 @@ fun HomeScreen(
                     }
                 ) {
                     Text(
-                        text = "更多",
+                        text = "共 ${uiState.products.size} 件",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -200,15 +240,19 @@ fun HomeScreen(
         }
 
         // Product grid items
-        items(uiState.products, key = { it.id }) { product ->
+        itemsIndexed(
+            uiState.products,
+            key = { _, product -> product.id },
+            contentType = { _, _ -> "product" }
+        ) { index, product ->
             ProductCard(
                 product = product,
                 onClick = {
                     navController.navigate(Screen.ProductDetail.createRoute(product.id))
                 },
                 modifier = Modifier.padding(
-                    start = if (uiState.products.indexOf(product) % 2 == 0) 16.dp else 0.dp,
-                    end = if (uiState.products.indexOf(product) % 2 == 1) 16.dp else 0.dp
+                    start = if (index % 2 == 0) 16.dp else 0.dp,
+                    end = if (index % 2 == 1) 16.dp else 0.dp
                 )
             )
         }
