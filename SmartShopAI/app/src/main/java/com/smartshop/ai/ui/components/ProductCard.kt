@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -23,8 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -115,7 +114,6 @@ fun ProductCard(
             Column(
                 modifier = Modifier.padding(10.dp)
             ) {
-                // Brand tag
                 if (product.brand.isNotEmpty()) {
                     Box(
                         modifier = Modifier
@@ -135,7 +133,6 @@ fun ProductCard(
                     Spacer(modifier = Modifier.height(4.dp))
                 }
 
-                // Product name
                 Text(
                     text = product.name,
                     style = MaterialTheme.typography.bodyMedium,
@@ -174,17 +171,6 @@ fun ProductCard(
                     Spacer(modifier = Modifier.height(6.dp))
                 }
 
-                if (product.description.isNotBlank()) {
-                    Text(
-                        text = product.description,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                }
-
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -194,7 +180,7 @@ fun ProductCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${product.rating}",
+                        text = "%.1f".format(product.rating),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -206,69 +192,6 @@ fun ProductCard(
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "SKU ${product.specs["SKU"] ?: "0 个"}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "FAQ ${product.specs["FAQ"] ?: "0 条"}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "库存 ${product.specs["库存"] ?: "0"}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    product.skuSummaries.firstOrNull()?.let { skuSummary ->
-                        Text(
-                            text = skuSummary,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                product.faqSummaries.firstOrNull()?.let { faq ->
-                    Text(
-                        text = "FAQ：$faq",
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-
-                product.reviewSummaries.firstOrNull()?.let { review ->
-                    Text(
-                        text = "评价：$review",
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                }
 
                 Row(
                     verticalAlignment = Alignment.Bottom,

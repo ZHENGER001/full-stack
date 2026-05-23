@@ -523,7 +523,7 @@ fun ProductDetailScreen(
                     RatingBar(rating = product.rating, starSize = 18.dp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "${product.rating}",
+                        text = "%.1f".format(product.rating),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
