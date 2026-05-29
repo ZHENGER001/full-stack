@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -131,12 +130,6 @@ fun CameraScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(48.dp),
-                            color = Primary,
-                            strokeWidth = 4.dp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "AI正在识别中...",
                             style = MaterialTheme.typography.bodyLarge,

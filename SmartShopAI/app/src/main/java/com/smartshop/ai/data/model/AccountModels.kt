@@ -39,7 +39,14 @@ data class Order(
     val status: String,
     val totalAmount: Double,
     val address: ShippingAddress?,
-    val items: List<OrderItem>
+    val items: List<OrderItem>,
+    val userId: String = "user_001",
+    val productId: String = items.firstOrNull()?.productId.orEmpty(),
+    val skuId: String? = items.firstOrNull()?.skuId,
+    val productName: String = items.firstOrNull()?.title.orEmpty(),
+    val skuText: String = items.firstOrNull()?.skuName.orEmpty(),
+    val amount: Double = totalAmount,
+    val createdAt: String = ""
 ) {
     val statusText: String
         get() = when (status) {

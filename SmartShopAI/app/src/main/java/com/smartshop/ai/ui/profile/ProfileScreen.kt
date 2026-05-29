@@ -25,6 +25,8 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -35,12 +37,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,7 +58,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartshop.ai.data.account.AccountRepository
+import com.smartshop.ai.data.auth.AuthRepository
 import com.smartshop.ai.data.model.ProfileSummary
+import com.smartshop.ai.data.model.User
 import com.smartshop.ai.ui.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
@@ -64,21 +71,31 @@ import javax.inject.Inject
 
 data class ProfileUiState(
     val summary: ProfileSummary = ProfileSummary(),
+    val user: User = User(),
     val isLoading: Boolean = true
 )
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     fun load() {
         viewModelScope.launch {
+            val user = authRepository.currentUser()
             runCatching { accountRepository.getSummary() }
-                .onSuccess { _uiState.value = ProfileUiState(summary = it, isLoading = false) }
-                .onFailure { _uiState.value = ProfileUiState(isLoading = false) }
+                .onSuccess { _uiState.value = ProfileUiState(summary = it, user = user, isLoading = false) }
+                .onFailure { _uiState.value = ProfileUiState(user = user, isLoading = false) }
+        }
+    }
+
+    fun logout(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            authRepository.logout()
+            onComplete()
         }
     }
 }
@@ -90,10 +107,39 @@ fun ProfileScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val nickname = "购物达人"
     val uiState by viewModel.uiState.collectAsState()
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    val nickname = uiState.user.nickname
     LaunchedEffect(Unit) {
         viewModel.load()
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("退出登录") },
+            text = { Text("确认退出当前账号？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        viewModel.logout {
+                            navController.navigate(Screen.Login.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                ) {
+                    Text("确认")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -214,6 +260,18 @@ fun ProfileScreen(
                     )
                     Divider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Button(
+                onClick = { showLogoutDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(48.dp)
+            ) {
+                Text("退出登录")
             }
 
             Spacer(modifier = Modifier.height(32.dp))

@@ -23,13 +23,16 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +54,56 @@ fun SettingsScreen(navController: NavHostController) {
     val scope = rememberCoroutineScope()
     var darkModeEnabled by remember { mutableStateOf(false) }
     var notificationEnabled by remember { mutableStateOf(true) }
+    var selectedLanguage by remember { mutableStateOf("跟随系统") }
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    val languageOptions = listOf("跟随系统", "简体中文", "English")
+
+    if (showLanguageDialog) {
+        AlertDialog(
+            onDismissRequest = { showLanguageDialog = false },
+            title = { Text("选择语言") },
+            text = {
+                Column {
+                    languageOptions.forEach { language ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedLanguage = language
+                                    showLanguageDialog = false
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("已切换为 $language")
+                                    }
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedLanguage == language,
+                                onClick = {
+                                    selectedLanguage = language
+                                    showLanguageDialog = false
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("已切换为 $language")
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = language,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLanguageDialog = false }) {
+                    Text("关闭")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -103,6 +156,14 @@ fun SettingsScreen(navController: NavHostController) {
                         checked = notificationEnabled,
                         onCheckedChange = { notificationEnabled = it }
                     )
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SettingClickItem(
+                        title = "语言",
+                        value = selectedLanguage,
+                        onClick = { showLanguageDialog = true }
+                    )
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
 
@@ -222,6 +283,7 @@ private fun SettingSwitchItem(
 @Composable
 private fun SettingClickItem(
     title: String,
+    value: String? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -236,5 +298,12 @@ private fun SettingClickItem(
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f)
         )
+        if (value != null) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

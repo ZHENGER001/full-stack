@@ -15,6 +15,8 @@ data class Product(
     val reviewCount: Int,
     val tags: List<String> = emptyList(),
     val specs: Map<String, String> = emptyMap(),
+    val skus: List<ProductSku> = emptyList(),
+    val reviews: List<ProductReview> = emptyList(),
     val faqSummaries: List<String> = emptyList(),
     val reviewSummaries: List<String> = emptyList(),
     val skuSummaries: List<String> = emptyList(),

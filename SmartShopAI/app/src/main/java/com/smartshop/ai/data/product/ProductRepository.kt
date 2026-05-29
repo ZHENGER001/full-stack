@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import com.smartshop.ai.data.model.Category
 import com.smartshop.ai.data.model.Product
+import com.smartshop.ai.data.model.ProductReview
+import com.smartshop.ai.data.model.ProductSku
 import com.smartshop.ai.data.remote.SmartShopApi
 import com.smartshop.ai.data.remote.toCategory
 import com.smartshop.ai.data.remote.toProduct
@@ -68,6 +70,12 @@ class ProductRepository @Inject constructor(
         productCache[product.id] = product
         return product
     }
+
+    suspend fun getProductSkus(productId: String): List<ProductSku> =
+        getProductDetail(productId).skus
+
+    suspend fun getProductReviews(productId: String): List<ProductReview> =
+        getProductDetail(productId).reviews
 
     fun getCachedProduct(productId: String): Product? = productCache[productId]
 
@@ -179,20 +187,51 @@ class ProductRepository @Inject constructor(
             context.assets.open(assetPath).bufferedReader(Charsets.UTF_8).use { reader ->
                 val json = JsonParser().parse(reader).asJsonObject
                 val knowledge = json.getAsJsonObject("rag_knowledge")
+                val productId = json.string("product_id")
+                val basePrice = json.double("base_price") ?: 0.0
+                val productSkus = json.arrayObjects("skus").mapIndexed { index, sku ->
+                    val properties = sku.getAsJsonObject("properties")
+                    val skuText = properties?.entrySet()
+                        ?.joinToString(" / ") { entry -> "${entry.key}: ${entry.value.asString}" }
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "默认规格"
+                    val skuName = properties?.entrySet()
+                        ?.joinToString(" / ") { entry -> entry.key }
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "规格"
+                    val price = sku.double("price") ?: basePrice
+                    ProductSku(
+                        id = sku.string("sku_id").ifBlank { "${productId}_sku_${index + 1}" },
+                        productId = productId,
+                        skuName = skuName,
+                        skuText = skuText,
+                        price = price,
+                        originalPrice = null,
+                        stock = sku.int("stock") ?: (20 + index * 3)
+                    )
+                }
                 val faqs = knowledge.arrayObjects("official_faq")
                     .map { faq ->
                         "${faq.string("question")} ${faq.string("answer")}".compact(90)
                     }
                 val reviewObjects = knowledge.arrayObjects("user_reviews")
-                val reviews = reviewObjects
-                    .map { review ->
-                        "${review.string("nickname")}：${review.string("content")}".compact(90)
+                val productReviews = reviewObjects
+                    .mapIndexed { index, review ->
+                        ProductReview(
+                            id = "${productId}_review_${index + 1}",
+                            productId = productId,
+                            userId = "mock_user_${index + 1}",
+                            userName = review.string("nickname").ifBlank { "用户${index + 1}" },
+                            userAvatar = "",
+                            rating = review.double("rating")?.toFloat() ?: 5f,
+                            content = review.string("content"),
+                            skuText = productSkus.takeIf { it.isNotEmpty() }
+                                ?.get(index % productSkus.size)
+                                ?.skuText
+                                ?: "默认规格",
+                            createdAt = "2026-05-${(20 + index).toString().padStart(2, '0')}"
+                        )
                     }
-                val skus = json.arrayObjects("skus").mapNotNull { sku ->
-                    val properties = sku.getAsJsonObject("properties")
-                    properties?.entrySet()?.joinToString(" / ") { entry -> entry.value.asString }
-                        ?.takeIf { it.isNotBlank() }
-                }
                 val rating = reviewObjects
                     .mapNotNull { review -> review.double("rating")?.toFloat() }
                     .takeIf { values -> values.isNotEmpty() }
@@ -205,28 +244,38 @@ class ProductRepository @Inject constructor(
                 val datasetFolder = assetPath.substringBefore("/data/")
                 val imagePath = "$datasetFolder/images/$imageFileName"
                 Product(
-                    id = json.string("product_id"),
+                    id = productId,
                     name = json.string("title"),
-                    description = knowledge.string("marketing_description"),
-                    price = json.double("base_price") ?: 0.0,
+                    description = knowledge.string("marketing_description").compact(130),
+                    price = basePrice,
+                    originalPrice = null,
                     imageUrl = imagePath.toAndroidAssetUrl(),
                     category = json.string("category"),
                     categoryId = json.string("sub_category"),
                     brand = json.string("brand"),
                     rating = rating,
-                    reviewCount = reviews.size,
+                    reviewCount = productReviews.size,
                     tags = listOf(json.string("category"), json.string("sub_category"))
                         .filter { tag -> tag.isNotBlank() },
                     specs = mapOf(
-                        "SKU" to "${skus.size} 个",
+                        "品牌" to json.string("brand"),
+                        "分类" to json.string("category"),
+                        "销量" to "${productReviews.size * 38 + productSkus.size * 11}",
+                        "SKU" to "${productSkus.size} 个",
                         "FAQ" to "${faqs.size} 条",
-                        "库存" to "${skus.size * 20}"
+                        "库存" to productSkus.sumOf { it.stock }.toString()
                     ),
+                    skus = productSkus,
+                    reviews = productReviews,
                     faqSummaries = faqs,
-                    reviewSummaries = reviews,
-                    skuSummaries = skus,
-                    aiComment = knowledge.string("marketing_description"),
-                    inStock = skus.isNotEmpty()
+                    reviewSummaries = productReviews.map { review ->
+                        "${review.userName}：${review.content}".compact(90)
+                    },
+                    skuSummaries = productSkus.map { sku ->
+                        "${sku.skuText} ¥${"%.0f".format(sku.price)} 库存${sku.stock}"
+                    },
+                    aiComment = knowledge.string("marketing_description").compact(120),
+                    inStock = productSkus.any { it.stock > 0 }
                 )
             }
         }.getOrNull()
@@ -355,6 +404,9 @@ private fun JsonObject.string(name: String): String =
 
 private fun JsonObject.double(name: String): Double? =
     get(name)?.takeIf { !it.isJsonNull }?.asDouble
+
+private fun JsonObject.int(name: String): Int? =
+    get(name)?.takeIf { !it.isJsonNull }?.asInt
 
 private fun JsonObject.arrayObjects(name: String): List<JsonObject> =
     getAsJsonArray(name)?.mapNotNull { element: JsonElement ->

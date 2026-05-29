@@ -1,7 +1,9 @@
 package com.smartshop.ai.ui.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -40,7 +42,6 @@ import com.smartshop.ai.data.model.Category
 import com.smartshop.ai.data.model.Product
 import com.smartshop.ai.data.product.ProductRepository
 import com.smartshop.ai.ui.components.BannerCarousel
-import com.smartshop.ai.ui.components.CategoryChip
 import com.smartshop.ai.ui.components.ProductCard
 import com.smartshop.ai.ui.components.ShimmerProductGrid
 import com.smartshop.ai.ui.components.SmartShopSearchBar
@@ -62,6 +63,12 @@ data class HomeUiState(
     val isLoading: Boolean = false,
     val selectedCategory: String? = null,
     val errorMessage: String? = null
+)
+
+private data class HomeCategoryTab(
+    val id: String?,
+    val label: String,
+    val isMore: Boolean = false
 )
 
 @HiltViewModel
@@ -176,6 +183,30 @@ fun HomeScreen(
             }
         }
 
+        // Category row (full span)
+        item(span = { GridItemSpan(2) }) {
+            val categoryTabs = homeCategoryTabs(uiState.categories)
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                modifier = Modifier.padding(top = 2.dp, bottom = 6.dp)
+            ) {
+                items(categoryTabs, key = { it.label }) { tab ->
+                    HomeCategoryTabItem(
+                        label = tab.label,
+                        selected = !tab.isMore && uiState.selectedCategory == tab.id,
+                        onClick = {
+                            if (tab.isMore) {
+                                navController.navigate(Screen.Search.route)
+                            } else {
+                                viewModel.selectCategory(tab.id)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
         // Banner carousel (full span)
         item(span = { GridItemSpan(2) }) {
             BannerCarousel(
@@ -183,23 +214,6 @@ fun HomeScreen(
                 modifier = Modifier.padding(vertical = 4.dp),
                 onBannerClick = {}
             )
-        }
-
-        // Category row (full span)
-        item(span = { GridItemSpan(2) }) {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(vertical = 8.dp)
-            ) {
-                items(uiState.categories, key = { it.id }) { category ->
-                    CategoryChip(
-                        category = category,
-                        selected = uiState.selectedCategory == category.id,
-                        onClick = { viewModel.selectCategory(category.id) }
-                    )
-                }
-            }
         }
 
         // Section header (full span)
@@ -256,5 +270,58 @@ fun HomeScreen(
                 )
             )
         }
+    }
+}
+
+private fun homeCategoryTabs(categories: List<Category>): List<HomeCategoryTab> {
+    val tabs = mutableListOf(HomeCategoryTab(id = null, label = "全部"))
+    val seen = linkedSetOf<String>()
+
+    categories.forEach { category ->
+        if (category.name.isNotBlank() && seen.add(category.name)) {
+            tabs += HomeCategoryTab(id = category.id, label = category.name)
+        }
+    }
+
+    tabs += HomeCategoryTab(id = null, label = "更多分类", isMore = true)
+    return tabs
+}
+
+@Composable
+private fun HomeCategoryTabItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 2.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+        )
+        Box(
+            modifier = Modifier
+                .width(24.dp)
+                .height(3.dp)
+                .background(
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0f)
+                    },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)
+                )
+        )
     }
 }

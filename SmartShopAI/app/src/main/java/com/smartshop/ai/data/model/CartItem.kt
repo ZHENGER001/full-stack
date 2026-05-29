@@ -3,12 +3,17 @@ package com.smartshop.ai.data.model
 data class CartItem(
     val id: String,
     val productId: String,
+    val productName: String,
+    val productImage: String,
     val skuId: String?,
-    val title: String,
-    val brand: String,
-    val imagePath: String,
-    val skuName: String,
-    val price: Double,
+    val skuText: String,
+    val skuPrice: Double,
     val quantity: Int,
-    val selected: Boolean
-)
+    val selected: Boolean,
+    val brand: String = ""
+) {
+    val title: String get() = productName
+    val imagePath: String get() = productImage
+    val skuName: String get() = skuText
+    val price: Double get() = skuPrice
+}

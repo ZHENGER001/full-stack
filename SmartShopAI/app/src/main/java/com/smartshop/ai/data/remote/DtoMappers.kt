@@ -4,6 +4,8 @@ import android.net.Uri
 import com.smartshop.ai.BuildConfig
 import com.smartshop.ai.data.model.Category
 import com.smartshop.ai.data.model.Product
+import com.smartshop.ai.data.model.ProductReview
+import com.smartshop.ai.data.model.ProductSku
 
 fun ProductCardDto.toProduct(): Product = Product(
     id = id,
@@ -32,7 +34,7 @@ fun ProductCardDto.toProduct(): Product = Product(
 fun ProductDetailDto.toProduct(): Product = Product(
     id = id,
     name = title,
-    description = marketing_description,
+    description = marketing_description.take(130),
     price = price,
     originalPrice = null,
     imageUrl = image_path.toAssetUrl(),
@@ -42,10 +44,39 @@ fun ProductDetailDto.toProduct(): Product = Product(
     rating = rating,
     reviewCount = user_reviews.size,
     specs = skus.firstOrNull()?.properties.orEmpty(),
+    skus = skus.map { sku ->
+        val skuText = sku.properties.entries.joinToString(" / ") { "${it.key}: ${it.value}" }
+            .ifBlank { sku.sku_name }
+        ProductSku(
+            id = sku.sku_id,
+            productId = id,
+            skuName = sku.sku_name,
+            skuText = skuText,
+            price = sku.price,
+            originalPrice = null,
+            stock = sku.stock
+        )
+    },
+    reviews = user_reviews.mapIndexed { index, review ->
+        ProductReview(
+            id = "${id}_review_${index + 1}",
+            productId = id,
+            userId = "api_user_${index + 1}",
+            userName = review.nickname,
+            userAvatar = "",
+            rating = review.rating,
+            content = review.content,
+            skuText = skus.takeIf { it.isNotEmpty() }
+                ?.get(index % skus.size)
+                ?.sku_name
+                ?: "默认规格",
+            createdAt = "2026-05-${(20 + index).toString().padStart(2, '0')}"
+        )
+    },
     faqSummaries = official_faq.map { "${it.question}\n${it.answer}" },
     reviewSummaries = user_reviews.map { "${it.nickname}：${it.content}" },
     skuSummaries = skus.map { "${it.sku_name} ¥${"%.0f".format(it.price)} 库存${it.stock}" },
-    aiComment = marketing_description,
+    aiComment = marketing_description.take(120),
     inStock = skus.any { it.stock > 0 }
 )
 

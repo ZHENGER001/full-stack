@@ -4,14 +4,16 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Chat
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
@@ -22,7 +24,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -39,8 +43,12 @@ import com.smartshop.ai.ui.camera.ImageResultScreen
 import com.smartshop.ai.ui.cart.CartScreen
 import com.smartshop.ai.ui.chat.ChatScreen
 import com.smartshop.ai.ui.home.HomeScreen
+import com.smartshop.ai.ui.auth.LoginScreen
+import com.smartshop.ai.ui.auth.SessionViewModel
+import com.smartshop.ai.ui.payment.PaymentSuccessScreen
 import com.smartshop.ai.ui.product.CategoryProductsScreen
 import com.smartshop.ai.ui.product.ProductDetailScreen
+import com.smartshop.ai.ui.product.ProductReviewsScreen
 import com.smartshop.ai.ui.product.SearchScreen
 import com.smartshop.ai.ui.profile.FavoritesScreen
 import com.smartshop.ai.ui.profile.FootprintsScreen
@@ -48,6 +56,7 @@ import com.smartshop.ai.ui.profile.OrdersScreen
 import com.smartshop.ai.ui.profile.AddressesScreen
 import com.smartshop.ai.ui.profile.ProfileScreen
 import com.smartshop.ai.ui.settings.SettingsScreen
+import androidx.hilt.navigation.compose.hiltViewModel
 
 data class BottomNavItem(
     val screen: Screen,
@@ -58,16 +67,27 @@ data class BottomNavItem(
 
 val bottomNavItems = listOf(
     BottomNavItem(Screen.Home, "首页", Icons.Filled.Home, Icons.Outlined.Home),
-    BottomNavItem(Screen.Chat, "AI导购", Icons.Filled.Chat, Icons.Outlined.Chat),
+    BottomNavItem(Screen.Chat, "AI导购", Icons.AutoMirrored.Filled.Chat, Icons.AutoMirrored.Outlined.Chat),
     BottomNavItem(Screen.Search, "发现", Icons.Filled.Search, Icons.Outlined.Search),
     BottomNavItem(Screen.Profile, "我的", Icons.Filled.Person, Icons.Outlined.Person),
 )
 
 @Composable
-fun SmartShopNavHost() {
+fun SmartShopNavHost(
+    sessionViewModel: SessionViewModel = hiltViewModel()
+) {
+    val session by sessionViewModel.session.collectAsState()
+    if (!session.isLoaded) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("正在加载...")
+        }
+        return
+    }
+
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val startDestination = if (session.user == null) Screen.Login.route else Screen.Home.route
 
     val showBottomBar = currentDestination?.route in bottomNavItems.map { it.screen.route }
 
@@ -106,20 +126,25 @@ fun SmartShopNavHost() {
             }
         }
     ) { innerPadding ->
-        SmartShopNavGraph(navController = navController, padding = innerPadding)
+        SmartShopNavGraph(
+            navController = navController,
+            padding = innerPadding,
+            startDestination = startDestination
+        )
     }
 }
 
 @Composable
 fun SmartShopNavGraph(
     navController: NavHostController,
-    padding: PaddingValues
+    padding: PaddingValues,
+    startDestination: String
 ) {
     val animDuration = 300
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route,
+        startDestination = startDestination,
         modifier = Modifier.padding(padding),
         enterTransition = {
             fadeIn(animationSpec = tween(animDuration)) + slideIntoContainer(
@@ -146,6 +171,17 @@ fun SmartShopNavGraph(
             )
         }
     ) {
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onLoginSuccess = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
         composable(Screen.Home.route) {
             HomeScreen(navController = navController)
         }
@@ -203,6 +239,38 @@ fun SmartShopNavGraph(
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
             ProductDetailScreen(
                 productId = productId,
+                navController = navController
+            )
+        }
+
+        composable(
+            route = Screen.ProductReviews.route,
+            arguments = listOf(
+                navArgument("productId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("productId") ?: ""
+            ProductReviewsScreen(
+                productId = productId,
+                navController = navController
+            )
+        }
+
+        composable(
+            route = Screen.PaymentSuccess.route,
+            arguments = listOf(
+                navArgument("amount") { type = NavType.StringType },
+                navArgument("productName") { type = NavType.StringType },
+                navArgument("skuText") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val amount = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 0.0
+            val productName = backStackEntry.arguments?.getString("productName").orEmpty()
+            val skuText = backStackEntry.arguments?.getString("skuText").orEmpty()
+            PaymentSuccessScreen(
+                amount = amount,
+                productName = productName,
+                skuText = skuText,
                 navController = navController
             )
         }
