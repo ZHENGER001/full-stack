@@ -10881,5 +10881,7805 @@
         "content": "对比了好几家店终于选对了，收到的所有饮料生产日期都是最近一个月的，特别新鲜！柠檬味特别正，不是那种香精勾兑的廉价果味，喝完嘴里不会留奇怪的甜腻感，运动完喝一瓶，补充维C还能润润嗓子，比喝白水有滋味多了。整箱的价格算下来单瓶比便利店便宜两块多，放在办公室跟同事分着喝，大家都问我要链接，囤一次够喝大半个月，农夫山泉的品质真的稳，完全没踩雷。"
       }
     ]
+  },
+  {
+    "id": "p_home_001",
+    "title": "亚马逊倍思 Serene 16件套玻璃饮具套装",
+    "brand": "AmazonBasics",
+    "category": "家居百货",
+    "subcategory": "杯具",
+    "price": 39.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_001_abo.jpg",
+    "marketing_description": "Lead-free glass: made of crystal-clear, lead-free glass for stunning clarity; ke",
+    "skus": [
+      {
+        "sku_id": "s_p_home_001_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 39,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_001_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 46,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_001_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 53,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 Serene 16件套玻璃饮具套装适合什么场景？",
+        "answer": "适合家居百货中的杯具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 Serene 16件套玻璃饮具套装主体和图片一致，杯具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_002",
+    "title": "亚利桑那沙漠地平线木框装饰画",
+    "brand": "Rivet",
+    "category": "家居百货",
+    "subcategory": "装饰画",
+    "price": 49.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_002_abo.jpg",
+    "marketing_description": "亚利桑那沙漠地平线木框装饰画来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_002_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 49,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_002_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 57.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_002_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 66.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚利桑那沙漠地平线木框装饰画适合什么场景？",
+        "answer": "适合家居百货中的装饰画需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚利桑那沙漠地平线木框装饰画主体和图片一致，装饰画日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_003",
+    "title": "UMI Merryfeel 轻柔超细纤维被套床品套装",
+    "brand": "UMI",
+    "category": "家居百货",
+    "subcategory": "床品",
+    "price": 59.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_003_abo.jpg",
+    "marketing_description": "Umi Essentials es una marca de Amazon con licencia para terceros fabricantes. Po",
+    "skus": [
+      {
+        "sku_id": "s_p_home_003_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 59,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_003_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 69.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_003_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 80.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "UMI Merryfeel 轻柔超细纤维被套床品套装适合什么场景？",
+        "answer": "适合家居百货中的床品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "UMI Merryfeel 轻柔超细纤维被套床品套装主体和图片一致，床品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_004",
+    "title": "Stone & Beam 棉绒无衬里窗帘",
+    "brand": "Stone & Beam",
+    "category": "家居百货",
+    "subcategory": "窗帘",
+    "price": 69.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_004_abo.jpg",
+    "marketing_description": "Stone & Beam 棉绒无衬里窗帘来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_004_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 69,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_004_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 81.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_004_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 93.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Stone & Beam 棉绒无衬里窗帘适合什么场景？",
+        "answer": "适合家居百货中的窗帘需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Stone & Beam 棉绒无衬里窗帘主体和图片一致，窗帘日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_005",
+    "title": "亚马逊倍思 防滑纹理波浪浴室地垫",
+    "brand": "AmazonBasics",
+    "category": "家居百货",
+    "subcategory": "浴室用品",
+    "price": 79.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_005_abo.jpg",
+    "marketing_description": "亚马逊倍思 防滑纹理波浪浴室地垫来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_005_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 79,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_005_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 93.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_005_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 107.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 防滑纹理波浪浴室地垫适合什么场景？",
+        "answer": "适合家居百货中的浴室用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 防滑纹理波浪浴室地垫主体和图片一致，浴室用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_006",
+    "title": "Rivet Bristol 胡桃木自然边黑色金属边桌",
+    "brand": "Rivet",
+    "category": "家居百货",
+    "subcategory": "家具",
+    "price": 89.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_006_abo.jpg",
+    "marketing_description": "이 현대적인 작품은 헤어핀과 비슷한 어두운 금속 다리에 떠 있는 것처럼 보입니다. 월넛 베니어 탑은 클래식한 터치를 제공하여 이 작품이 기존의 ",
+    "skus": [
+      {
+        "sku_id": "s_p_home_006_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 89,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_006_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 105,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_006_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 121,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Rivet Bristol 胡桃木自然边黑色金属边桌适合什么场景？",
+        "answer": "适合家居百货中的家具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Rivet Bristol 胡桃木自然边黑色金属边桌主体和图片一致，家具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_007",
+    "title": "Umi 灰色猫爬架猫抓柱玩具塔",
+    "brand": "Umi.(ウミ)",
+    "category": "宠物用品",
+    "subcategory": "猫咪用品",
+    "price": 99.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_007_abo.jpg",
+    "marketing_description": "キャットタワー",
+    "skus": [
+      {
+        "sku_id": "s_p_home_007_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 99,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_007_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 116.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_007_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 134.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Umi 灰色猫爬架猫抓柱玩具塔适合什么场景？",
+        "answer": "适合宠物用品中的猫咪用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Umi 灰色猫爬架猫抓柱玩具塔主体和图片一致，猫咪用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_008",
+    "title": "亚马逊倍思 LeatherSoft 儿童扶手储物躺椅",
+    "brand": "AmazonBasics",
+    "category": "家居百货",
+    "subcategory": "家具",
+    "price": 129.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_008_abo.jpg",
+    "marketing_description": "Kid’s/youth reclining chair appropriate for ages 5 and up; 90 pound weight capac",
+    "skus": [
+      {
+        "sku_id": "s_p_home_008_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 129,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_008_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 152.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_008_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 175.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 LeatherSoft 儿童扶手储物躺椅适合什么场景？",
+        "answer": "适合家居百货中的家具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 LeatherSoft 儿童扶手储物躺椅主体和图片一致，家具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_009",
+    "title": "Pinzon 超细纤维床笠 175×190×40cm",
+    "brand": "Pinzon by Amazon",
+    "category": "家居百货",
+    "subcategory": "床品",
+    "price": 159.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_009_abo.jpg",
+    "marketing_description": "INVALID ASIN",
+    "skus": [
+      {
+        "sku_id": "s_p_home_009_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 159,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_009_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 187.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_009_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 216.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Pinzon 超细纤维床笠 175×190×40cm适合什么场景？",
+        "answer": "适合家居百货中的床品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Pinzon 超细纤维床笠 175×190×40cm主体和图片一致，床品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_010",
+    "title": "UMI 25姆米桑蚕丝枕套 80×80cm",
+    "brand": "UMI",
+    "category": "家居百货",
+    "subcategory": "床品",
+    "price": 39.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_010_abo.jpg",
+    "marketing_description": "Stoff - 100% seide, Hochwertigste Klasse-6A Langfaserseide, 25 momme.",
+    "skus": [
+      {
+        "sku_id": "s_p_home_010_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 39,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_010_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 46,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_010_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 53,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "UMI 25姆米桑蚕丝枕套 80×80cm适合什么场景？",
+        "answer": "适合家居百货中的床品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "UMI 25姆米桑蚕丝枕套 80×80cm主体和图片一致，床品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_011",
+    "title": "Eono 加厚空白拉伸画布 90×60cm",
+    "brand": "Eono",
+    "category": "家居百货",
+    "subcategory": "装饰画",
+    "price": 49.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_011_abo.jpg",
+    "marketing_description": "De voorgespannen doeken zijn gemaakt van 100% katoen 380 grams (12 ounces) kunst",
+    "skus": [
+      {
+        "sku_id": "s_p_home_011_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 49,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_011_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 57.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_011_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 66.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Eono 加厚空白拉伸画布 90×60cm适合什么场景？",
+        "answer": "适合家居百货中的装饰画需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Eono 加厚空白拉伸画布 90×60cm主体和图片一致，装饰画日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_012",
+    "title": "Ravenna Home Radford 现代弧形扶手椅",
+    "brand": "Ravenna Home",
+    "category": "家居百货",
+    "subcategory": "家具",
+    "price": 59.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_012_abo.jpg",
+    "marketing_description": "Ravenna Home Radford 现代弧形扶手椅来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_012_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 59,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_012_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 69.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_012_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 80.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Ravenna Home Radford 现代弧形扶手椅适合什么场景？",
+        "answer": "适合家居百货中的家具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Ravenna Home Radford 现代弧形扶手椅主体和图片一致，家具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_013",
+    "title": "北欧设计 Steel Grey 布艺休闲椅",
+    "brand": "Movian",
+    "category": "家居百货",
+    "subcategory": "家具",
+    "price": 69.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_013_abo.jpg",
+    "marketing_description": "Modern Scandinavisch design",
+    "skus": [
+      {
+        "sku_id": "s_p_home_013_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 69,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_013_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 81.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_013_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 93.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "北欧设计 Steel Grey 布艺休闲椅适合什么场景？",
+        "answer": "适合家居百货中的家具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "北欧设计 Steel Grey 布艺休闲椅主体和图片一致，家具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_014",
+    "title": "Solimo 12英寸黑框静音挂钟",
+    "brand": "Solimo",
+    "category": "家居百货",
+    "subcategory": "挂钟",
+    "price": 79.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_014_abo.jpg",
+    "marketing_description": "Material: Plastic, Color: Black, Finish: Other",
+    "skus": [
+      {
+        "sku_id": "s_p_home_014_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 79,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_014_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 93.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_014_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 107.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Solimo 12英寸黑框静音挂钟适合什么场景？",
+        "answer": "适合家居百货中的挂钟需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Solimo 12英寸黑框静音挂钟主体和图片一致，挂钟日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_015",
+    "title": "Stone & Beam Tisbury 铆钉饰边床头板",
+    "brand": "Stone & Beam",
+    "category": "家居百货",
+    "subcategory": "家具",
+    "price": 89.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_015_abo.jpg",
+    "marketing_description": "这款床增加了空间经典风格。 一款手工绘制扇形剪裁增添设计细节设计上饰有银色钉头。 坚固的相框采用厚重涤纶填充包裹增加舒适度。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_015_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 89,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_015_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 105,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_015_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 121,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Stone & Beam Tisbury 铆钉饰边床头板适合什么场景？",
+        "answer": "适合家居百货中的家具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Stone & Beam Tisbury 铆钉饰边床头板主体和图片一致，家具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_016",
+    "title": "Umi 吸盘防滑 3D按摩浴缸枕",
+    "brand": "Umi.(ウミ)",
+    "category": "家居百货",
+    "subcategory": "浴室用品",
+    "price": 99.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_016_abo.jpg",
+    "marketing_description": "このお風呂枕の使用は簡単で、お好みの角度と位置を調整して、壁やバスタブの縁に置くだけでいいです。また背面には4つの吸盤があって、吸着力がより強くて落ちにくいです",
+    "skus": [
+      {
+        "sku_id": "s_p_home_016_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 99,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_016_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 116.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_016_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 134.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Umi 吸盘防滑 3D按摩浴缸枕适合什么场景？",
+        "answer": "适合家居百货中的浴室用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Umi 吸盘防滑 3D按摩浴缸枕主体和图片一致，浴室用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_017",
+    "title": "Solimo 灰色遮光门帘 7英尺",
+    "brand": "Solimo",
+    "category": "家居百货",
+    "subcategory": "窗帘",
+    "price": 129.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_017_abo.jpg",
+    "marketing_description": "1 పీసు బ్లాక్అవుట్ డోర్ కర్టెన్ (7 ft)",
+    "skus": [
+      {
+        "sku_id": "s_p_home_017_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 129,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_017_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 152.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_017_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 175.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Solimo 灰色遮光门帘 7英尺适合什么场景？",
+        "answer": "适合家居百货中的窗帘需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Solimo 灰色遮光门帘 7英尺主体和图片一致，窗帘日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_018",
+    "title": "Stone & Beam Javier 古铜色床架",
+    "brand": "Stone & Beam",
+    "category": "家居百货",
+    "subcategory": "家具",
+    "price": 159.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_018_abo.jpg",
+    "marketing_description": "Stone & Beam Javier 古铜色床架来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_018_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 159,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_018_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 187.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_018_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 216.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Stone & Beam Javier 古铜色床架适合什么场景？",
+        "answer": "适合家居百货中的家具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Stone & Beam Javier 古铜色床架主体和图片一致，家具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_019",
+    "title": "亚马逊倍思 方形桌面花盆 白色/黄铜 2件套",
+    "brand": "AmazonBasics",
+    "category": "家居百货",
+    "subcategory": "花器",
+    "price": 39.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_019_abo.jpg",
+    "marketing_description": "Indoor desk planter (2-pack) for home or office, ideal for growing and displayin",
+    "skus": [
+      {
+        "sku_id": "s_p_home_019_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 39,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_019_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 46,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_019_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 53,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 方形桌面花盆 白色/黄铜 2件套适合什么场景？",
+        "answer": "适合家居百货中的花器需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 方形桌面花盆 白色/黄铜 2件套主体和图片一致，花器日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_020",
+    "title": "Stone & Beam Norah 皮革木质圆形脚凳",
+    "brand": "Stone & Beam",
+    "category": "家居百货",
+    "subcategory": "家具",
+    "price": 49.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_020_abo.jpg",
+    "marketing_description": "这款简约但时尚圆形高脚凳是设计融合大部分任何场合。 顶级皮革木材边框有一种淡淡橡木饰面具有质朴风格具有光滑的带上衣。 用作脚凳子或增加座椅客人。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_020_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 49,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_020_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 57.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_020_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 66.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Stone & Beam Norah 皮革木质圆形脚凳适合什么场景？",
+        "answer": "适合家居百货中的家具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Stone & Beam Norah 皮革木质圆形脚凳主体和图片一致，家具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_021",
+    "title": "Ravenna Home 经典玻璃半嵌入式吊灯",
+    "brand": "Ravenna Home",
+    "category": "家居百货",
+    "subcategory": "灯具",
+    "price": 59.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_021_abo.jpg",
+    "marketing_description": "15 英寸宽 x 15 英寸深 x 9.75 英寸高（约 38.1 厘米宽 x 38.1 厘米深 x 24.1 厘米高）；悬挂长度：9.75 英寸高",
+    "skus": [
+      {
+        "sku_id": "s_p_home_021_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 59,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_021_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 69.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_021_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 80.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Ravenna Home 经典玻璃半嵌入式吊灯适合什么场景？",
+        "answer": "适合家居百货中的灯具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Ravenna Home 经典玻璃半嵌入式吊灯主体和图片一致，灯具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_022",
+    "title": "Pinzon 复古灰工业风床品套装",
+    "brand": "Pinzon by Amazon",
+    "category": "家居百货",
+    "subcategory": "床品",
+    "price": 69.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_022_abo.jpg",
+    "marketing_description": "Pinzon 复古灰工业风床品套装来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_022_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 69,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_022_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 81.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_022_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 93.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Pinzon 复古灰工业风床品套装适合什么场景？",
+        "answer": "适合家居百货中的床品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Pinzon 复古灰工业风床品套装主体和图片一致，床品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_023",
+    "title": "亚马逊倍思 Tritan 无柄红酒杯 20盎司",
+    "brand": "Amazon Basics",
+    "category": "家居百货",
+    "subcategory": "杯具",
+    "price": 79.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_023_abo.jpg",
+    "marketing_description": "亚马逊倍思 Tritan 无柄红酒杯 20盎司来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_023_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 79,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_023_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 93.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_023_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 107.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 Tritan 无柄红酒杯 20盎司适合什么场景？",
+        "answer": "适合家居百货中的杯具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 Tritan 无柄红酒杯 20盎司主体和图片一致，杯具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_024",
+    "title": "Stone & Beam Brizo 绿色窗帘 96英寸",
+    "brand": "Stone & Beam",
+    "category": "家居百货",
+    "subcategory": "窗帘",
+    "price": 89.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_024_abo.jpg",
+    "marketing_description": "Stone & Beam Brizo 绿色窗帘 96英寸来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_home_024_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 89,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_024_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 105,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_024_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 121,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Stone & Beam Brizo 绿色窗帘 96英寸适合什么场景？",
+        "answer": "适合家居百货中的窗帘需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Stone & Beam Brizo 绿色窗帘 96英寸主体和图片一致，窗帘日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_home_025",
+    "title": "Ravenna Home Angela 现代木架收纳咖啡桌",
+    "brand": "Ravenna Home",
+    "category": "家居百货",
+    "subcategory": "家具",
+    "price": 99.0,
+    "rating": 4.2,
+    "image_path": "5_家居百货/images/p_home_025_abo.jpg",
+    "marketing_description": "实心松木和中密度纤维板",
+    "skus": [
+      {
+        "sku_id": "s_p_home_025_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 99,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_home_025_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 116.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_home_025_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 134.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Ravenna Home Angela 现代木架收纳咖啡桌适合什么场景？",
+        "answer": "适合家居百货中的家具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Ravenna Home Angela 现代木架收纳咖啡桌主体和图片一致，家具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_001",
+    "title": "亚马逊倍思 灰色猫窝脚凳",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "猫咪用品",
+    "price": 19.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_001_abo.jpg",
+    "marketing_description": "Premium-quality cat-condo ottoman provides a sturdy, soft, comfortable place for",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_001_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 19,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_001_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 22.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_001_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 25.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 灰色猫窝脚凳适合什么场景？",
+        "answer": "适合宠物用品中的猫咪用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 灰色猫窝脚凳主体和图片一致，猫咪用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_002",
+    "title": "亚马逊倍思 猫抓板",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "猫咪用品",
+    "price": 29.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_002_abo.jpg",
+    "marketing_description": "亚马逊倍思 猫抓板来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_002_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 29,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_002_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 34.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_002_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 39.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 猫抓板适合什么场景？",
+        "answer": "适合宠物用品中的猫咪用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 猫抓板主体和图片一致，猫咪用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_003",
+    "title": "亚马逊倍思 浅粉色猫窝脚凳",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "猫咪用品",
+    "price": 35.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_003_abo.jpg",
+    "marketing_description": "Premium-quality cat-condo ottoman provides a sturdy, soft, comfortable place for",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_003_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 35,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_003_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 41.3,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_003_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 47.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 浅粉色猫窝脚凳适合什么场景？",
+        "answer": "适合宠物用品中的猫咪用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 浅粉色猫窝脚凳主体和图片一致，猫咪用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_004",
+    "title": "亚马逊倍思 8片式塑料宠物围栏",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "宠物围栏",
+    "price": 45.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_004_abo.jpg",
+    "marketing_description": "亚马逊倍思 8片式塑料宠物围栏来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_004_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 45,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_004_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 53.1,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_004_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 61.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 8片式塑料宠物围栏适合什么场景？",
+        "answer": "适合宠物用品中的宠物围栏需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 8片式塑料宠物围栏主体和图片一致，宠物围栏日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_005",
+    "title": "Umi 经典纯色红色大型犬胸背带",
+    "brand": "UMI",
+    "category": "宠物用品",
+    "subcategory": "牵引用品",
+    "price": 59.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_005_abo.jpg",
+    "marketing_description": "Umi 经典纯色红色大型犬胸背带来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_005_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 59,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_005_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 69.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_005_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 80.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Umi 经典纯色红色大型犬胸背带适合什么场景？",
+        "answer": "适合宠物用品中的牵引用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Umi 经典纯色红色大型犬胸背带主体和图片一致，牵引用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_006",
+    "title": "亚马逊倍思 蓝色帆布底宠物笼",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "宠物笼具",
+    "price": 79.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_006_abo.jpg",
+    "marketing_description": "Indoor/outdoor canvas-bottomed pet cage for guinea pigs and other small animals",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_006_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 79,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_006_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 93.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_006_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 107.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 蓝色帆布底宠物笼适合什么场景？",
+        "answer": "适合宠物用品中的宠物笼具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 蓝色帆布底宠物笼主体和图片一致，宠物笼具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_007",
+    "title": "亚马逊倍思 米色带洞猫爬架",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "猫咪用品",
+    "price": 99.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_007_abo.jpg",
+    "marketing_description": "亚马逊倍思 米色带洞猫爬架来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_007_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 99,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_007_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 116.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_007_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 134.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 米色带洞猫爬架适合什么场景？",
+        "answer": "适合宠物用品中的猫咪用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 米色带洞猫爬架主体和图片一致，猫咪用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_008",
+    "title": "爱丽思欧雅玛 猫砂 5L",
+    "brand": "Wag(ワグ)",
+    "category": "宠物用品",
+    "subcategory": "猫砂清洁",
+    "price": 129.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_008_abo.jpg",
+    "marketing_description": "主体尺寸 (宽X深X高) :23×36.5×6.5cm",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_008_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 129,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_008_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 152.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_008_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 175.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "爱丽思欧雅玛 猫砂 5L适合什么场景？",
+        "answer": "适合宠物用品中的猫砂清洁需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "爱丽思欧雅玛 猫砂 5L主体和图片一致，猫砂清洁日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_009",
+    "title": "亚马逊倍思 28英寸宠物围栏网布顶盖",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "宠物围栏",
+    "price": 169.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_009_abo.jpg",
+    "marketing_description": "亚马逊倍思 28英寸宠物围栏网布顶盖",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_009_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 169,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_009_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 199.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_009_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 229.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 28英寸宠物围栏网布顶盖适合什么场景？",
+        "answer": "适合宠物用品中的宠物围栏需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 28英寸宠物围栏网布顶盖主体和图片一致，宠物围栏日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_010",
+    "title": "亚马逊倍思 宠物互动喂食器",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "喂食饮水",
+    "price": 19.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_010_abo.jpg",
+    "marketing_description": "Feeding puzzle gives pets a fun way to learn and play, for cats and dogs, suitab",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_010_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 19,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_010_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 22.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_010_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 25.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 宠物互动喂食器适合什么场景？",
+        "answer": "适合宠物用品中的喂食饮水需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 宠物互动喂食器主体和图片一致，喂食饮水日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_011",
+    "title": "亚马逊倍思 超大号灰色猫爬架",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "猫咪用品",
+    "price": 29.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_011_abo.jpg",
+    "marketing_description": "Multi-platform cat tree with scratching posts and enclosure",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_011_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 29,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_011_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 34.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_011_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 39.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 超大号灰色猫爬架适合什么场景？",
+        "answer": "适合宠物用品中的猫咪用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 超大号灰色猫爬架主体和图片一致，猫咪用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_012",
+    "title": "Lifelong 三文鱼米饭成猫全价干粮",
+    "brand": "Lifelong",
+    "category": "宠物用品",
+    "subcategory": "宠物食品",
+    "price": 35.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_012_abo.jpg",
+    "marketing_description": "Lifelong 三文鱼米饭成猫全价干粮来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_012_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 35,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_012_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 41.3,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_012_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 47.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Lifelong 三文鱼米饭成猫全价干粮适合什么场景？",
+        "answer": "适合宠物用品中的宠物食品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Lifelong 三文鱼米饭成猫全价干粮主体和图片一致，宠物食品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_013",
+    "title": "Eono Essentials 防水冬季宠物外套",
+    "brand": "Eono",
+    "category": "宠物用品",
+    "subcategory": "宠物服饰",
+    "price": 45.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_013_abo.jpg",
+    "marketing_description": "[RECOMENDACIONES DE TAMAÑO] Tamaño: S. Largo del respaldo 30cm / 12 \"Cintura del",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_013_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 45,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_013_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 53.1,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_013_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 61.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Eono Essentials 防水冬季宠物外套适合什么场景？",
+        "answer": "适合宠物用品中的宠物服饰需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Eono Essentials 防水冬季宠物外套主体和图片一致，宠物服饰日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_014",
+    "title": "Wag 美式鸡肉干犬用零食 1磅",
+    "brand": "WAG",
+    "category": "宠物用品",
+    "subcategory": "宠物零食",
+    "price": 59.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_014_abo.jpg",
+    "marketing_description": "Proudly made in the USA, 100% of ingredients are sourced in the USA",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_014_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 59,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_014_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 69.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_014_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 80.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Wag 美式鸡肉干犬用零食 1磅适合什么场景？",
+        "answer": "适合宠物用品中的宠物零食需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Wag 美式鸡肉干犬用零食 1磅主体和图片一致，宠物零食日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_015",
+    "title": "亚马逊倍思 玉米淀粉宠物拾便袋 16卷",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "清洁护理",
+    "price": 79.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_015_abo.jpg",
+    "marketing_description": "亚马逊倍思 玉米淀粉宠物拾便袋 16卷来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_015_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 79,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_015_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 93.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_015_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 107.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 玉米淀粉宠物拾便袋 16卷适合什么场景？",
+        "answer": "适合宠物用品中的清洁护理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 玉米淀粉宠物拾便袋 16卷主体和图片一致，清洁护理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_016",
+    "title": "亚马逊倍思 多层猫爬架",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "猫咪用品",
+    "price": 99.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_016_abo.jpg",
+    "marketing_description": "亚马逊倍思 多层猫爬架来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_016_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 99,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_016_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 116.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_016_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 134.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 多层猫爬架适合什么场景？",
+        "answer": "适合宠物用品中的猫咪用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 多层猫爬架主体和图片一致，猫咪用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_017",
+    "title": "亚马逊倍思 8片式带门塑料宠物围栏",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "宠物围栏",
+    "price": 129.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_017_abo.jpg",
+    "marketing_description": "Safe and secure enclosure for pets - not suitable for children",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_017_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 129,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_017_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 152.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_017_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 175.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 8片式带门塑料宠物围栏适合什么场景？",
+        "answer": "适合宠物用品中的宠物围栏需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 8片式带门塑料宠物围栏主体和图片一致，宠物围栏日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_018",
+    "title": "Lifelong 轻结团猫砂 16L",
+    "brand": "Lifelong",
+    "category": "宠物用品",
+    "subcategory": "猫砂清洁",
+    "price": 169.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_018_abo.jpg",
+    "marketing_description": "Utmärkt klumpningsförmåga – 300 % absorptionsförmåga",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_018_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 169,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_018_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 199.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_018_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 229.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Lifelong 轻结团猫砂 16L适合什么场景？",
+        "answer": "适合宠物用品中的猫砂清洁需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Lifelong 轻结团猫砂 16L主体和图片一致，猫砂清洁日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_019",
+    "title": "Eono Essentials 甜甜圈可拆洗毛绒宠物窝",
+    "brand": "Eono",
+    "category": "宠物用品",
+    "subcategory": "宠物窝垫",
+    "price": 19.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_019_abo.jpg",
+    "marketing_description": "Eono Essentials is a lifestyle brand with a mission to create a wide range of cu",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_019_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 19,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_019_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 22.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_019_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 25.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Eono Essentials 甜甜圈可拆洗毛绒宠物窝适合什么场景？",
+        "answer": "适合宠物用品中的宠物窝垫需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Eono Essentials 甜甜圈可拆洗毛绒宠物窝主体和图片一致，宠物窝垫日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_020",
+    "title": "亚马逊倍思 防水矩形宠物床 蓝绿色",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "宠物窝垫",
+    "price": 29.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_020_abo.jpg",
+    "marketing_description": "An Amazon Brand",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_020_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 29,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_020_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 34.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_020_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 39.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 防水矩形宠物床 蓝绿色适合什么场景？",
+        "answer": "适合宠物用品中的宠物窝垫需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 防水矩形宠物床 蓝绿色主体和图片一致，宠物窝垫日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_021",
+    "title": "Umi 易穿脱幼犬胸背心牵引背带",
+    "brand": "UMI",
+    "category": "宠物用品",
+    "subcategory": "牵引用品",
+    "price": 35.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_021_abo.jpg",
+    "marketing_description": "Umi 易穿脱幼犬胸背心牵引背带来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_021_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 35,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_021_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 41.3,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_021_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 47.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Umi 易穿脱幼犬胸背心牵引背带适合什么场景？",
+        "answer": "适合宠物用品中的牵引用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Umi 易穿脱幼犬胸背心牵引背带主体和图片一致，牵引用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_022",
+    "title": "UMI Essentials 户外犬舍",
+    "brand": "UMI",
+    "category": "宠物用品",
+    "subcategory": "宠物窝垫",
+    "price": 45.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_022_abo.jpg",
+    "marketing_description": "Houd je dog beschermd: dit medium formaat dog huis meet 103,6 x 66 x 70 cm en ho",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_022_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 45,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_022_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 53.1,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_022_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 61.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "UMI Essentials 户外犬舍适合什么场景？",
+        "answer": "适合宠物用品中的宠物窝垫需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "UMI Essentials 户外犬舍主体和图片一致，宠物窝垫日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_023",
+    "title": "亚马逊倍思 椭圆大号猫抓板躺椅",
+    "brand": "AmazonBasics",
+    "category": "宠物用品",
+    "subcategory": "猫咪用品",
+    "price": 59.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_023_abo.jpg",
+    "marketing_description": "Large oval-shaped cat scratcher doubles as a fun, comfortable place for kitty to",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_023_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 59,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_023_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 69.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_023_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 80.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 椭圆大号猫抓板躺椅适合什么场景？",
+        "answer": "适合宠物用品中的猫咪用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 椭圆大号猫抓板躺椅主体和图片一致，猫咪用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_024",
+    "title": "Umi 经典耐用红色宠物牵引绳",
+    "brand": "UMI",
+    "category": "宠物用品",
+    "subcategory": "牵引用品",
+    "price": 79.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_024_abo.jpg",
+    "marketing_description": "Umi 经典耐用红色宠物牵引绳来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_024_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 79,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_024_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 93.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_024_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 107.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Umi 经典耐用红色宠物牵引绳适合什么场景？",
+        "answer": "适合宠物用品中的牵引用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Umi 经典耐用红色宠物牵引绳主体和图片一致，牵引用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_pet_025",
+    "title": "Umi 三柱猫抓柱宠物玩具塔",
+    "brand": "UMI",
+    "category": "宠物用品",
+    "subcategory": "猫咪用品",
+    "price": 99.0,
+    "rating": 4.2,
+    "image_path": "6_宠物用品/images/p_pet_025_abo.jpg",
+    "marketing_description": "Scratching Post Tree is handmade with thick tube and wrapped with natural fibrou",
+    "skus": [
+      {
+        "sku_id": "s_p_pet_025_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 99,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_pet_025_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 116.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_pet_025_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 134.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Umi 三柱猫抓柱宠物玩具塔适合什么场景？",
+        "answer": "适合宠物用品中的猫咪用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Umi 三柱猫抓柱宠物玩具塔主体和图片一致，猫咪用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_001",
+    "title": "亚马逊倍思 磁性玻璃干擦白板",
+    "brand": "Amazon Basics",
+    "category": "办公文具",
+    "subcategory": "白板展示",
+    "price": 8.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_001_abo.jpg",
+    "marketing_description": "亚马逊倍思 磁性玻璃干擦白板来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_001_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 8,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_001_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 9.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_001_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 10.9,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 磁性玻璃干擦白板适合什么场景？",
+        "answer": "适合办公文具中的白板展示需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 磁性玻璃干擦白板主体和图片一致，白板展示日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_002",
+    "title": "亚马逊倍思 40色细头可水洗马克笔",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "书写工具",
+    "price": 12.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_002_abo.jpg",
+    "marketing_description": "Set of 40 fine line washable markers in a variety of vibrant colors",
+    "skus": [
+      {
+        "sku_id": "s_p_office_002_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 12,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_002_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 14.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_002_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 16.3,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 40色细头可水洗马克笔适合什么场景？",
+        "answer": "适合办公文具中的书写工具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 40色细头可水洗马克笔主体和图片一致，书写工具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_003",
+    "title": "Eono A5周计划本配贴纸标签",
+    "brand": "Eono",
+    "category": "办公文具",
+    "subcategory": "本册纸品",
+    "price": 18.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_003_abo.jpg",
+    "marketing_description": "🍍 De Janvier 2021 à Décembre 2021, cet agenda A5 semaines est un bon compagnon à",
+    "skus": [
+      {
+        "sku_id": "s_p_office_003_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 18,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_003_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 21.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_003_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 24.5,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Eono A5周计划本配贴纸标签适合什么场景？",
+        "answer": "适合办公文具中的本册纸品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Eono A5周计划本配贴纸标签主体和图片一致，本册纸品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_004",
+    "title": "EONO 45×60cm 双面磁性墙面白板",
+    "brand": "EONO",
+    "category": "办公文具",
+    "subcategory": "白板展示",
+    "price": 24.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_004_abo.jpg",
+    "marketing_description": "EOCO Dry Erase Whiteboard for Walls, Double-Sided, 45 x 60 cm Board, Silver Alum",
+    "skus": [
+      {
+        "sku_id": "s_p_office_004_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 24,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_004_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 28.3,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_004_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 32.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "EONO 45×60cm 双面磁性墙面白板适合什么场景？",
+        "answer": "适合办公文具中的白板展示需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "EONO 45×60cm 双面磁性墙面白板主体和图片一致，白板展示日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_005",
+    "title": "亚马逊倍思 HP 21/22 再制造墨盒套装",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "打印耗材",
+    "price": 29.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_005_abo.jpg",
+    "marketing_description": "亚马逊倍思 HP 21/22 再制造墨盒套装来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_005_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 29,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_005_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 34.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_005_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 39.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 HP 21/22 再制造墨盒套装适合什么场景？",
+        "answer": "适合办公文具中的打印耗材需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 HP 21/22 再制造墨盒套装主体和图片一致，打印耗材日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_006",
+    "title": "亚马逊倍思 重型防眩文件保护套 100只",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "文件管理",
+    "price": 35.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_006_abo.jpg",
+    "marketing_description": "亚马逊倍思 重型防眩文件保护套 100只",
+    "skus": [
+      {
+        "sku_id": "s_p_office_006_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 35,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_006_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 41.3,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_006_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 47.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 重型防眩文件保护套 100只适合什么场景？",
+        "answer": "适合办公文具中的文件管理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 重型防眩文件保护套 100只主体和图片一致，文件管理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_007",
+    "title": "亚马逊倍思 切纸刀替换刀片",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "测量裁剪",
+    "price": 49.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_007_abo.jpg",
+    "marketing_description": "Replacement blades for a portable AmazonBasics paper cutter (sold separately)",
+    "skus": [
+      {
+        "sku_id": "s_p_office_007_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 49,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_007_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 57.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_007_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 66.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 切纸刀替换刀片适合什么场景？",
+        "answer": "适合办公文具中的测量裁剪需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 切纸刀替换刀片主体和图片一致，测量裁剪日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_008",
+    "title": "亚马逊倍思 铝框软木公告板",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "白板展示",
+    "price": 69.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_008_abo.jpg",
+    "marketing_description": "Bacheca in sughero per fissare documenti, note, foto, promemoria e tanto altro, ",
+    "skus": [
+      {
+        "sku_id": "s_p_office_008_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 69,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_008_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 81.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_008_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 93.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 铝框软木公告板适合什么场景？",
+        "answer": "适合办公文具中的白板展示需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 铝框软木公告板主体和图片一致，白板展示日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_009",
+    "title": "亚马逊倍思 佳能 CLI-521 再制造墨盒",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "打印耗材",
+    "price": 89.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_009_abo.jpg",
+    "marketing_description": "亚马逊倍思 佳能 CLI-521 再制造墨盒来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_009_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 89,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_009_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 105,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_009_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 121,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 佳能 CLI-521 再制造墨盒适合什么场景？",
+        "answer": "适合办公文具中的打印耗材需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 佳能 CLI-521 再制造墨盒主体和图片一致，打印耗材日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_010",
+    "title": "亚马逊倍思 地毯用办公椅垫",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "办公配件",
+    "price": 8.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_010_abo.jpg",
+    "marketing_description": "亚马逊倍思 地毯用办公椅垫来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_010_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 8,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_010_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 9.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_010_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 10.9,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 地毯用办公椅垫适合什么场景？",
+        "answer": "适合办公文具中的办公配件需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 地毯用办公椅垫主体和图片一致，办公配件日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_011",
+    "title": "亚马逊倍思 磨砂装订封面 50张",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "装订用品",
+    "price": 12.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_011_abo.jpg",
+    "marketing_description": "亚马逊倍思 磨砂装订封面 50张来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_011_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 12,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_011_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 14.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_011_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 16.3,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 磨砂装订封面 50张适合什么场景？",
+        "answer": "适合办公文具中的装订用品需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 磨砂装订封面 50张主体和图片一致，装订用品日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_012",
+    "title": "亚马逊倍思 白色小号塑料收纳托盘",
+    "brand": "AmazonBasics Licensing",
+    "category": "办公文具",
+    "subcategory": "桌面整理",
+    "price": 18.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_012_abo.jpg",
+    "marketing_description": "Small tray helps keep desktop accessories and small office supplies neatly conta",
+    "skus": [
+      {
+        "sku_id": "s_p_office_012_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 18,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_012_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 21.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_012_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 24.5,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 白色小号塑料收纳托盘适合什么场景？",
+        "answer": "适合办公文具中的桌面整理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 白色小号塑料收纳托盘主体和图片一致，桌面整理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_013",
+    "title": "亚马逊倍思 8分页纸质文件夹隔页 6套",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "文件管理",
+    "price": 24.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_013_abo.jpg",
+    "marketing_description": "6 juegos de separadores de papel para documentos muy resistentes con pestañas gr",
+    "skus": [
+      {
+        "sku_id": "s_p_office_013_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 24,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_013_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 28.3,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_013_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 32.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 8分页纸质文件夹隔页 6套适合什么场景？",
+        "answer": "适合办公文具中的文件管理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 8分页纸质文件夹隔页 6套主体和图片一致，文件管理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_014",
+    "title": "亚马逊倍思 2英寸装框胶带",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "胶带耗材",
+    "price": 29.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_014_abo.jpg",
+    "marketing_description": "亚马逊倍思 2英寸装框胶带来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_014_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 29,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_014_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 34.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_014_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 39.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 2英寸装框胶带适合什么场景？",
+        "answer": "适合办公文具中的胶带耗材需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 2英寸装框胶带主体和图片一致，胶带耗材日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_015",
+    "title": "亚马逊倍思 8分页塑料文件夹隔页 3套",
+    "brand": "Amazon Basics",
+    "category": "办公文具",
+    "subcategory": "文件管理",
+    "price": 35.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_015_abo.jpg",
+    "marketing_description": "亚马逊倍思 8分页塑料文件夹隔页 3套来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_015_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 35,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_015_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 41.3,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_015_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 47.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 8分页塑料文件夹隔页 3套适合什么场景？",
+        "answer": "适合办公文具中的文件管理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 8分页塑料文件夹隔页 3套主体和图片一致，文件管理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_016",
+    "title": "亚马逊倍思 5标签再生纸绿色悬挂文件夹 25只",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "文件管理",
+    "price": 49.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_016_abo.jpg",
+    "marketing_description": "Letter 尺寸",
+    "skus": [
+      {
+        "sku_id": "s_p_office_016_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 49,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_016_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 57.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_016_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 66.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 5标签再生纸绿色悬挂文件夹 25只适合什么场景？",
+        "answer": "适合办公文具中的文件管理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 5标签再生纸绿色悬挂文件夹 25只主体和图片一致，文件管理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_017",
+    "title": "亚马逊倍思 双层可叠放信件托盘",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "桌面整理",
+    "price": 69.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_017_abo.jpg",
+    "marketing_description": "AmazonBasics Two-Tier Stackable Letter Tray Organiser",
+    "skus": [
+      {
+        "sku_id": "s_p_office_017_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 69,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_017_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 81.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_017_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 93.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 双层可叠放信件托盘适合什么场景？",
+        "answer": "适合办公文具中的桌面整理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 双层可叠放信件托盘主体和图片一致，桌面整理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_018",
+    "title": "亚马逊倍思 黑色折叠摇椅",
+    "brand": "AmazonBasics",
+    "category": "家居百货",
+    "subcategory": "家具",
+    "price": 89.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_018_abo.jpg",
+    "marketing_description": "亚马逊倍思 黑色折叠摇椅来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_018_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 89,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_018_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 105,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_018_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 121,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 黑色折叠摇椅适合什么场景？",
+        "answer": "适合家居百货中的家具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 黑色折叠摇椅主体和图片一致，家具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_019",
+    "title": "亚马逊倍思 HP 62XL 黑色/三色再制造墨盒",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "打印耗材",
+    "price": 8.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_019_abo.jpg",
+    "marketing_description": "亚马逊倍思 HP 62XL 黑色/三色再制造墨盒来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_019_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 8,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_019_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 9.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_019_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 10.9,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 HP 62XL 黑色/三色再制造墨盒适合什么场景？",
+        "answer": "适合办公文具中的打印耗材需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 HP 62XL 黑色/三色再制造墨盒主体和图片一致，打印耗材日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_020",
+    "title": "亚马逊倍思 八层网格倾斜文件分类架",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "文件管理",
+    "price": 12.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_020_abo.jpg",
+    "marketing_description": "8-slot inclined file sorter helps keep home, office, or school areas clutter-fre",
+    "skus": [
+      {
+        "sku_id": "s_p_office_020_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 12,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_020_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 14.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_020_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 16.3,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 八层网格倾斜文件分类架适合什么场景？",
+        "answer": "适合办公文具中的文件管理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 八层网格倾斜文件分类架主体和图片一致，文件管理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_021",
+    "title": "亚马逊倍思 3环文件夹 4件装",
+    "brand": "Amazon Basics",
+    "category": "办公文具",
+    "subcategory": "文件管理",
+    "price": 18.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_021_abo.jpg",
+    "marketing_description": "Una marca de Amazon.",
+    "skus": [
+      {
+        "sku_id": "s_p_office_021_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 18,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_021_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 21.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_021_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 24.5,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 3环文件夹 4件装适合什么场景？",
+        "answer": "适合办公文具中的文件管理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 3环文件夹 4件装主体和图片一致，文件管理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_022",
+    "title": "亚马逊倍思 墙面铁丝网格板",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "桌面整理",
+    "price": 24.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_022_abo.jpg",
+    "marketing_description": "亚马逊倍思 墙面铁丝网格板来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_office_022_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 24,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_022_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 28.3,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_022_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 32.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 墙面铁丝网格板适合什么场景？",
+        "answer": "适合办公文具中的桌面整理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 墙面铁丝网格板主体和图片一致，桌面整理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_023",
+    "title": "亚马逊倍思 黑色墙面网格挂篮",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "桌面整理",
+    "price": 29.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_023_abo.jpg",
+    "marketing_description": "亚马逊倍思 黑色墙面网格挂篮",
+    "skus": [
+      {
+        "sku_id": "s_p_office_023_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 29,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_023_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 34.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_023_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 39.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 黑色墙面网格挂篮适合什么场景？",
+        "answer": "适合办公文具中的桌面整理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 黑色墙面网格挂篮主体和图片一致，桌面整理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_024",
+    "title": "亚马逊倍思 带锁 ABS 投票箱",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "办公配件",
+    "price": 35.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_024_abo.jpg",
+    "marketing_description": "Durable construction: made of rugged ABS plastic in a non-transparent white colo",
+    "skus": [
+      {
+        "sku_id": "s_p_office_024_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 35,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_024_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 41.3,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_024_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 47.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 带锁 ABS 投票箱适合什么场景？",
+        "answer": "适合办公文具中的办公配件需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 带锁 ABS 投票箱主体和图片一致，办公配件日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_office_025",
+    "title": "亚马逊倍思 白色1/2英寸圆环活页夹 6件装",
+    "brand": "AmazonBasics",
+    "category": "办公文具",
+    "subcategory": "文件管理",
+    "price": 49.0,
+    "rating": 4.2,
+    "image_path": "7_办公文具/images/p_office_025_abo.jpg",
+    "marketing_description": "Durable 3-ring binder (white; 6-pack) with 1/2-inch round rings; can hold up to ",
+    "skus": [
+      {
+        "sku_id": "s_p_office_025_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 49,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_office_025_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 57.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_office_025_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 66.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 白色1/2英寸圆环活页夹 6件装适合什么场景？",
+        "answer": "适合办公文具中的文件管理需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 白色1/2英寸圆环活页夹 6件装主体和图片一致，文件管理日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_001",
+    "title": "亚马逊倍思 休闲运动双肩包",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "背包",
+    "price": 29.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_001_abo.jpg",
+    "marketing_description": "Casual sports backpack with 30L capacity and a compact size for carrying essenti",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_001_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 29,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_001_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 34.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_001_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 39.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 休闲运动双肩包适合什么场景？",
+        "answer": "适合旅行户外中的背包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 休闲运动双肩包主体和图片一致，背包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_002",
+    "title": "Eono 男女通用 RFID 防护真皮钱包",
+    "brand": "Eono",
+    "category": "旅行户外",
+    "subcategory": "钱包证件",
+    "price": 39.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_002_abo.jpg",
+    "marketing_description": "Eono 男女通用 RFID 防护真皮钱包来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_002_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 39,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_002_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 46,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_002_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 53,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Eono 男女通用 RFID 防护真皮钱包适合什么场景？",
+        "answer": "适合旅行户外中的钱包证件需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Eono 男女通用 RFID 防护真皮钱包主体和图片一致，钱包证件日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_003",
+    "title": "亚马逊倍思 黑灰色旅行收纳袋 4件套",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行收纳",
+    "price": 49.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_003_abo.jpg",
+    "marketing_description": "Includes (4) Black and Gray, small travel organizer cubes with handle for easy c",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_003_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 49,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_003_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 57.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_003_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 66.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 黑灰色旅行收纳袋 4件套适合什么场景？",
+        "answer": "适合旅行户外中的旅行收纳需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 黑灰色旅行收纳袋 4件套主体和图片一致，旅行收纳日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_004",
+    "title": "亚马逊倍思 25英寸紫色托运行李箱",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 69.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_004_abo.jpg",
+    "marketing_description": "Color: Purple",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_004_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 69,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_004_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 81.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_004_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 93.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 25英寸紫色托运行李箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 25英寸紫色托运行李箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_005",
+    "title": "Eono 男女通用 RFID 防护真皮钱包",
+    "brand": "Eono",
+    "category": "旅行户外",
+    "subcategory": "钱包证件",
+    "price": 89.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_005_abo.jpg",
+    "marketing_description": "Eono 男女通用 RFID 防护真皮钱包来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_005_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 89,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_005_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 105,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_005_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 121,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Eono 男女通用 RFID 防护真皮钱包适合什么场景？",
+        "answer": "适合旅行户外中的钱包证件需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Eono 男女通用 RFID 防护真皮钱包主体和图片一致，钱包证件日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_006",
+    "title": "Belltown 酒红色20英寸行李箱",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 119.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_006_abo.jpg",
+    "marketing_description": "Belltown 酒红色20英寸行李箱来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_006_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 119,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_006_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 140.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_006_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 161.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Belltown 酒红色20英寸行李箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Belltown 酒红色20英寸行李箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_007",
+    "title": "亚马逊倍思 高端硬壳万向轮行李箱 55-78cm",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 159.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_007_abo.jpg",
+    "marketing_description": "Premium trolley met harde schaal voor weekendtrips en als handbagage voor intern",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_007_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 159,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_007_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 187.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_007_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 216.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 高端硬壳万向轮行李箱 55-78cm适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 高端硬壳万向轮行李箱 55-78cm主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_008",
+    "title": "小号紫色登机箱",
+    "brand": "Amazon Basics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 199.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_008_abo.jpg",
+    "marketing_description": "小号紫色登机箱来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_008_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 199,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_008_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 234.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_008_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 270.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "小号紫色登机箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "小号紫色登机箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_009",
+    "title": "EONO Essentials 55×40×20cm 登机拉杆箱",
+    "brand": "Eono",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 299.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_009_abo.jpg",
+    "marketing_description": "EXACTAMENTE el MÁXIMO Tamaño permitido para Ryanair y Vueling (55x40x20cm). Ampl",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_009_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 299,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_009_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 352.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_009_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 406.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "EONO Essentials 55×40×20cm 登机拉杆箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "EONO Essentials 55×40×20cm 登机拉杆箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_010",
+    "title": "亚马逊倍思 黑色青少年棒球装备背包",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "背包",
+    "price": 29.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_010_abo.jpg",
+    "marketing_description": "Zaino da baseball da ragazzi, per riporre e trasportare l’attrezzatura al campo ",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_010_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 29,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_010_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 34.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_010_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 39.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 黑色青少年棒球装备背包适合什么场景？",
+        "answer": "适合旅行户外中的背包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 黑色青少年棒球装备背包主体和图片一致，背包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_011",
+    "title": "Eono 旅行收纳袋 5件套",
+    "brand": "Eono",
+    "category": "旅行户外",
+    "subcategory": "旅行收纳",
+    "price": 39.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_011_abo.jpg",
+    "marketing_description": "Eono 旅行收纳袋 5件套",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_011_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 39,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_011_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 46,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_011_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 53,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Eono 旅行收纳袋 5件套适合什么场景？",
+        "answer": "适合旅行户外中的旅行收纳需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Eono 旅行收纳袋 5件套主体和图片一致，旅行收纳日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_012",
+    "title": "Eono Essentials 21英寸轻量双轮登机箱",
+    "brand": "Eono",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 49.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_012_abo.jpg",
+    "marketing_description": "Eono Essentials is an Amazon brand licensed to third party manufacturers. Please",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_012_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 49,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_012_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 57.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_012_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 66.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Eono Essentials 21英寸轻量双轮登机箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Eono Essentials 21英寸轻量双轮登机箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_013",
+    "title": "亚马逊倍思 灰色国际登机硬壳万向轮箱",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 69.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_013_abo.jpg",
+    "marketing_description": "亚马逊倍思 灰色国际登机硬壳万向轮箱",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_013_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 69,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_013_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 81.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_013_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 93.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 灰色国际登机硬壳万向轮箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 灰色国际登机硬壳万向轮箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_014",
+    "title": "亚马逊倍思 53cm 可扩展软壳 TSA 锁拉杆箱",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 89.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_014_abo.jpg",
+    "marketing_description": "Premium 53 cm carry-on softside spinner for savvy travelers; built-in TSA lock p",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_014_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 89,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_014_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 105,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_014_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 121,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 53cm 可扩展软壳 TSA 锁拉杆箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 53cm 可扩展软壳 TSA 锁拉杆箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_015",
+    "title": "亚马逊倍思 户外日用双肩包",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "背包",
+    "price": 119.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_015_abo.jpg",
+    "marketing_description": "亚马逊倍思 户外日用双肩包",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_015_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 119,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_015_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 140.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_015_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 161.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 户外日用双肩包适合什么场景？",
+        "answer": "适合旅行户外中的背包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 户外日用双肩包主体和图片一致，背包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_016",
+    "title": "亚马逊倍思 灰色足球篮球运动背包",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "背包",
+    "price": 159.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_016_abo.jpg",
+    "marketing_description": "亚马逊倍思 灰色足球篮球运动背包来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_016_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 159,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_016_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 187.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_016_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 216.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 灰色足球篮球运动背包适合什么场景？",
+        "answer": "适合旅行户外中的背包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 灰色足球篮球运动背包主体和图片一致，背包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_017",
+    "title": "亚马逊倍思 几何图案可扩展万向轮旅行箱",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 199.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_017_abo.jpg",
+    "marketing_description": "Exterior dimensions (including wheels): 18.1\" x 11.2\" x 27.2\"; Interior dimensio",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_017_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 199,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_017_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 234.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_017_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 270.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 几何图案可扩展万向轮旅行箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 几何图案可扩展万向轮旅行箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_018",
+    "title": "亚马逊倍思 75L 带防雨罩内架徒步户外背包",
+    "brand": "Amazon Basics",
+    "category": "旅行户外",
+    "subcategory": "户外背包",
+    "price": 299.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_018_abo.jpg",
+    "marketing_description": "Mochila con marco interno con capacidad de 75 L (70 L 5 collar de extensión L); ",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_018_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 299,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_018_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 352.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_018_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 406.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 75L 带防雨罩内架徒步户外背包适合什么场景？",
+        "answer": "适合旅行户外中的户外背包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 75L 带防雨罩内架徒步户外背包主体和图片一致，户外背包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_019",
+    "title": "亚马逊倍思 2件套可扩展软壳 TSA 锁行李箱",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 29.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_019_abo.jpg",
+    "marketing_description": "Outer dimensions (including wheels): 16.3 x 8.2 x 21.6 Inches / 20.6 x 11 x 27.9",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_019_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 29,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_019_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 34.2,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_019_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 39.4,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 2件套可扩展软壳 TSA 锁行李箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 2件套可扩展软壳 TSA 锁行李箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_020",
+    "title": "亚马逊倍思 灰色软壳万向轮行李箱 4件套",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 39.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_020_abo.jpg",
+    "marketing_description": "1产品 AmazonBasics 4件套包装立方体 – 小号、中号、大号、修身灰色",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_020_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 39,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_020_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 46,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_020_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 53,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 灰色软壳万向轮行李箱 4件套适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 灰色软壳万向轮行李箱 4件套主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_021",
+    "title": "Solimo 78cm 灰色硬壳 TSA 锁行李箱",
+    "brand": "Solimo",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 49.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_021_abo.jpg",
+    "marketing_description": "ഔട്ടർ മെറ്റീരിയൽ: ABS, കെയ്സിംഗ്: ഹാർഡ്, നിറം: ചാരനിറം",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_021_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 49,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_021_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 57.8,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_021_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 66.6,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Solimo 78cm 灰色硬壳 TSA 锁行李箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Solimo 78cm 灰色硬壳 TSA 锁行李箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_022",
+    "title": "亚马逊倍思 灰色休闲旅行双肩包",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "背包",
+    "price": 69.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_022_abo.jpg",
+    "marketing_description": "亚马逊倍思 灰色休闲旅行双肩包来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_022_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 69,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_022_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 81.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_022_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 93.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 灰色休闲旅行双肩包适合什么场景？",
+        "answer": "适合旅行户外中的背包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 灰色休闲旅行双肩包主体和图片一致，背包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_023",
+    "title": "亚马逊倍思 高品质硬壳万向轮拉杆箱",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 89.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_023_abo.jpg",
+    "marketing_description": "Trolley rigido da 78 cm(dimensione esterna), 68.5 cm( dimensione interna) con ro",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_023_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 89,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_023_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 105,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_023_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 121,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 高品质硬壳万向轮拉杆箱适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 高品质硬壳万向轮拉杆箱主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_024",
+    "title": "亚马逊倍思 几何图案登机箱套装",
+    "brand": "AmazonBasics",
+    "category": "旅行户外",
+    "subcategory": "旅行箱包",
+    "price": 119.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_024_abo.jpg",
+    "marketing_description": "亚马逊倍思 几何图案登机箱套装来自 Amazon Berkeley Objects 商品目录图片数据，适合非商业演示、检索和数据蒸馏测试。图片保留商品主体，已统一处理为白底方图。",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_024_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 119,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_024_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 140.4,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_024_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 161.8,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 几何图案登机箱套装适合什么场景？",
+        "answer": "适合旅行户外中的旅行箱包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 几何图案登机箱套装主体和图片一致，旅行箱包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  },
+  {
+    "id": "p_travel_025",
+    "title": "Solimo 黑色三合一邮差包",
+    "brand": "Solimo",
+    "category": "旅行户外",
+    "subcategory": "背包",
+    "price": 159.0,
+    "rating": 4.2,
+    "image_path": "8_旅行户外/images/p_travel_025_abo.jpg",
+    "marketing_description": "आउटर मटीरियल: नायलॉन, रंग: काला",
+    "skus": [
+      {
+        "sku_id": "s_p_travel_025_1",
+        "properties": {
+          "规格": "标准款"
+        },
+        "price": 159,
+        "stock": 32
+      },
+      {
+        "sku_id": "s_p_travel_025_2",
+        "properties": {
+          "规格": "升级款"
+        },
+        "price": 187.6,
+        "stock": 26
+      },
+      {
+        "sku_id": "s_p_travel_025_3",
+        "properties": {
+          "规格": "组合款"
+        },
+        "price": 216.2,
+        "stock": 18
+      }
+    ],
+    "official_faq": [
+      {
+        "question": "Solimo 黑色三合一邮差包适合什么场景？",
+        "answer": "适合旅行户外中的背包需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "Solimo 黑色三合一邮差包主体和图片一致，背包日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
   }
 ]

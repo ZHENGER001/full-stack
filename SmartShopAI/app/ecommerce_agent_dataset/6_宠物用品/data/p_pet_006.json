@@ -1,0 +1,79 @@
+{
+  "product_id": "p_pet_006",
+  "title": "亚马逊倍思 蓝色帆布底宠物笼",
+  "brand": "AmazonBasics",
+  "category": "宠物用品",
+  "sub_category": "宠物笼具",
+  "base_price": 79,
+  "image_path": "6_宠物用品/images/p_pet_006_abo.jpg",
+  "skus": [
+    {
+      "sku_id": "s_p_pet_006_1",
+      "properties": {
+        "规格": "标准款"
+      },
+      "price": 79,
+      "stock": 32
+    },
+    {
+      "sku_id": "s_p_pet_006_2",
+      "properties": {
+        "规格": "升级款"
+      },
+      "price": 93.2,
+      "stock": 26
+    },
+    {
+      "sku_id": "s_p_pet_006_3",
+      "properties": {
+        "规格": "组合款"
+      },
+      "price": 107.4,
+      "stock": 18
+    }
+  ],
+  "rag_knowledge": {
+    "marketing_description": "Indoor/outdoor canvas-bottomed pet cage for guinea pigs and other small animals",
+    "official_faq": [
+      {
+        "question": "亚马逊倍思 蓝色帆布底宠物笼适合什么场景？",
+        "answer": "适合宠物用品中的宠物笼具需求，建议根据尺寸、材质和使用频率选择规格。"
+      },
+      {
+        "question": "图片来源是什么？",
+        "answer": "图片来自 Amazon Berkeley Objects (ABO) 数据集，按非商业数据演示用途处理，并保留来源署名信息。"
+      },
+      {
+        "question": "是否可以商用？",
+        "answer": "本项目按非商业用途处理。ABO 公开页面存在 CC BY 与 CC BY-NC 描述差异，因此这里按更严格的 CC BY-NC 口径使用。"
+      }
+    ],
+    "user_reviews": [
+      {
+        "nickname": "林小北",
+        "rating": 5,
+        "content": "亚马逊倍思 蓝色帆布底宠物笼主体和图片一致，宠物笼具日常使用够方便，整体质感不错。"
+      },
+      {
+        "nickname": "陈一然",
+        "rating": 5,
+        "content": "包装完整，商品没有明显瑕疵，尺寸和预期差不多。"
+      },
+      {
+        "nickname": "周予安",
+        "rating": 4,
+        "content": "做工比较规整，价格可以接受，如果颜色选择更多会更好。"
+      },
+      {
+        "nickname": "顾清禾",
+        "rating": 4,
+        "content": "使用体验稳定，适合基础需求，不算特别惊艳但很实用。"
+      },
+      {
+        "nickname": "赵念念",
+        "rating": 3,
+        "content": "细节还有提升空间，重度使用建议选择更高规格版本。"
+      }
+    ]
+  }
+}

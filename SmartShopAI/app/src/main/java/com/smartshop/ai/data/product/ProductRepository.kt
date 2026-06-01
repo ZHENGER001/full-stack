@@ -94,7 +94,7 @@ class ProductRepository @Inject constructor(
                     Category(
                         id = category,
                         name = category,
-                        icon = listOf("美", "数", "衣", "食").getOrElse(index) { "品" },
+                        icon = categoryIcon(category, index),
                         subcategories = products.map { it.categoryId }
                             .distinct()
                             .map { subcategory -> Category(id = subcategory, name = subcategory, icon = "") }
@@ -394,8 +394,26 @@ class ProductRepository @Inject constructor(
             listOf("手机", "智能手机", "5g"),
             listOf("外套", "夹克", "上衣"),
             listOf("跑步", "运动", "训练"),
+            listOf("家居", "家居百货", "台灯", "收纳", "杯具", "厨房", "软装"),
+            listOf("宠物", "宠物用品", "猫", "狗", "牵引", "猫抓", "喂食"),
+            listOf("办公", "办公文具", "文具", "笔记本", "中性笔", "收纳", "文件"),
+            listOf("旅行", "旅行户外", "户外", "背包", "露营", "登机箱", "保温杯"),
             listOf("便宜", "平价", "低价", "实惠")
         )
+
+        fun categoryIcon(category: String, index: Int): String {
+            val icons = mapOf(
+                "美妆护肤" to "美",
+                "数码电子" to "数",
+                "服饰运动" to "衣",
+                "食品饮料" to "食",
+                "家居百货" to "家",
+                "宠物用品" to "宠",
+                "办公文具" to "办",
+                "旅行户外" to "旅"
+            )
+            return icons[category] ?: listOf("美", "数", "衣", "食", "家", "宠", "办", "旅").getOrElse(index) { "品" }
+        }
     }
 }
 
