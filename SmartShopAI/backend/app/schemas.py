@@ -225,3 +225,4 @@ class ChatStreamRequest(BaseModel):
     current_product_id: str | None = None
     image_id: str | None = None
     cart_context: list[dict] = Field(default_factory=list)
+    mode: str = "ai_guide"

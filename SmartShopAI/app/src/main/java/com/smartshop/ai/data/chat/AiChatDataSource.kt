@@ -8,6 +8,7 @@ import com.smartshop.ai.data.remote.toProduct
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -23,41 +24,49 @@ class AiChatDataSource @Inject constructor(
 
     fun streamAssistantReply(
         text: String,
-        imageUri: Uri?
+        imageUri: Uri?,
+        mode: String
     ): Flow<AiChatEvent> = flow {
-        val imageId = imageUri?.let { uploadImage(it) }
-        val message = text.ifBlank {
-            if (imageId != null) "帮我找类似商品" else text
-        }
-        val response = api.streamChat(
-            ChatStreamRequestDto(
-                session_id = "android_default",
-                message = message,
-                image_id = imageId
+        try {
+            val imageId = imageUri?.let { uploadImage(it) }
+            val message = text.ifBlank {
+                if (imageId != null) "帮我找类似商品" else text
+            }
+            val response = api.streamChat(
+                ChatStreamRequestDto(
+                    session_id = "android_default",
+                    message = message,
+                    image_id = imageId,
+                    mode = mode
+                )
             )
-        )
-        if (!response.isSuccessful) {
-            emit(AiChatEvent.Delta("AI 导购服务暂时不可用，请稍后重试。"))
-            emit(AiChatEvent.Done)
-            return@flow
-        }
-        response.body()?.charStream()?.buffered()?.use { reader ->
-            var eventName: String? = null
-            val dataLines = mutableListOf<String>()
-            for (line in reader.lineSequence()) {
-                when {
-                    line.startsWith("event:") -> eventName = line.removePrefix("event:").trim()
-                    line.startsWith("data:") -> dataLines += line.removePrefix("data:").trim()
-                    line.isBlank() && eventName != null -> {
-                        parseEvent(eventName.orEmpty(), dataLines.joinToString("\n"))?.let { emit(it) }
-                        eventName = null
-                        dataLines.clear()
+            if (!response.isSuccessful) {
+                emit(AiChatEvent.Delta("AI 导购服务暂时不可用，请稍后重试。"))
+                emit(AiChatEvent.Done)
+                return@flow
+            }
+            response.body()?.charStream()?.buffered()?.use { reader ->
+                var eventName: String? = null
+                val dataLines = mutableListOf<String>()
+                for (line in reader.lineSequence()) {
+                    when {
+                        line.startsWith("event:") -> eventName = line.removePrefix("event:").trim()
+                        line.startsWith("data:") -> dataLines += line.removePrefix("data:").trim()
+                        line.isBlank() && eventName != null -> {
+                            parseEvent(eventName.orEmpty(), dataLines.joinToString("\n"))?.let { emit(it) }
+                            eventName = null
+                            dataLines.clear()
+                        }
                     }
                 }
-            }
-        } ?: emit(AiChatEvent.Delta("AI 导购没有返回内容。"))
-        emit(AiChatEvent.Done)
-    }
+            } ?: emit(AiChatEvent.Delta("AI 导购没有返回内容。"))
+            emit(AiChatEvent.Done)
+        } catch (error: Exception) {
+            emit(AiChatEvent.Delta("AI 导购连接异常，请稍后重试。"))
+            emit(AiChatEvent.Status(error.message ?: "网络请求异常"))
+            emit(AiChatEvent.Done)
+        }
+    }.flowOn(Dispatchers.IO)
 
     private suspend fun uploadImage(uri: Uri): String = withContext(Dispatchers.IO) {
         val contentType = context.contentResolver.getType(uri)?.toMediaTypeOrNull()
@@ -72,7 +81,7 @@ class AiChatDataSource @Inject constructor(
     private fun parseEvent(event: String, data: String): AiChatEvent? {
         val json = JSONObject(data)
         return when (event) {
-            "delta" -> AiChatEvent.Delta(json.optString("text"))
+            "assistant_text_delta", "delta" -> AiChatEvent.Delta(json.optString("text"))
             "products" -> {
                 val productsJson = json.optJSONArray("products") ?: return null
                 val products = (0 until productsJson.length()).map { index ->
@@ -86,7 +95,13 @@ class AiChatDataSource @Inject constructor(
                         price = item.getDouble("price"),
                         rating = item.optDouble("rating", 0.0).toFloat(),
                         image_path = item.optString("image_path"),
-                        reason = item.optString("reason").ifBlank { null }
+                        reason = item.optString("reason").ifBlank { null },
+                        marketing_description = item.optString("marketing_description").ifBlank { null },
+                        review_count = item.optInt("review_count", 0),
+                        sku_count = item.optInt("sku_count", 0),
+                        faq_count = item.optInt("faq_count", 0),
+                        stock = item.optInt("stock", 0),
+                        sku_summary = item.optString("sku_summary").ifBlank { null }
                     ).toProduct()
                 }
                 AiChatEvent.Products(products)
@@ -102,6 +117,21 @@ class AiChatDataSource @Inject constructor(
                     }
                 }
                 AiChatEvent.Actions(actions)
+            }
+            "strategy" -> null
+            "fallback_used" -> {
+                if (json.optBoolean("fallback_used", false)) {
+                    AiChatEvent.Status("已切换为本地规则推荐，商品信息仍来自数据库。")
+                } else {
+                    null
+                }
+            }
+            "verification_result" -> {
+                if (json.optBoolean("passed", false)) {
+                    AiChatEvent.Status("已校验推荐商品的价格、库存和 SKU。")
+                } else {
+                    AiChatEvent.Status("已修正部分不确定推荐信息。")
+                }
             }
             "done" -> AiChatEvent.Done
             else -> null

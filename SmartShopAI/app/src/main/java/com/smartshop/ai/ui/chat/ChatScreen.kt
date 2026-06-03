@@ -83,6 +83,7 @@ fun ChatScreen(
     val messages by viewModel.messages.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val isTyping by viewModel.isTyping.collectAsState()
+    val chatMode by viewModel.chatMode.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -165,6 +166,7 @@ fun ChatScreen(
         bottomBar = {
             ChatInputBar(
                 inputText = inputText,
+                placeholder = if (chatMode == ChatMode.AiGuide) "描述你的购物需求..." else "输入关键词、品类或预算...",
                 onInputChange = { viewModel.updateInput(it) },
                 onPickImage = { imagePickerLauncher.launch("image/*") },
                 onTakePhoto = {
@@ -189,6 +191,11 @@ fun ChatScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .imePadding()
         ) {
+            ModeToggle(
+                selectedMode = chatMode,
+                onModeChange = { viewModel.selectMode(it) }
+            )
+
             // Quick suggestions shown only when conversation just started
             AnimatedVisibility(
                 visible = messages.size <= 1,
@@ -251,10 +258,55 @@ fun ChatScreen(
                             navController.navigate(Screen.ProductDetail.createRoute(productId))
                         },
                         onAddToCart = { productId -> viewModel.addToCart(productId) },
-                        onActionClick = { action -> viewModel.sendMessage(action) }
+                        onActionClick = { action ->
+                            if (action.startsWith("查看详情:")) {
+                                navController.navigate(Screen.ProductDetail.createRoute(action.substringAfter(":")))
+                            } else {
+                                viewModel.sendMessage(action)
+                            }
+                        }
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ModeToggle(
+    selectedMode: ChatMode,
+    onModeChange: (ChatMode) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ChatMode.values().forEach { mode ->
+            SuggestionChip(
+                onClick = { onModeChange(mode) },
+                label = {
+                    Text(
+                        text = mode.label,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                },
+                colors = SuggestionChipDefaults.suggestionChipColors(
+                    containerColor = if (selectedMode == mode) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    labelColor = if (selectedMode == mode) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                ),
+                shape = RoundedCornerShape(20.dp)
+            )
         }
     }
 }
@@ -309,6 +361,7 @@ private fun TypingIndicator() {
 @Composable
 private fun ChatInputBar(
     inputText: String,
+    placeholder: String,
     onInputChange: (String) -> Unit,
     onPickImage: () -> Unit,
     onTakePhoto: () -> Unit,
@@ -350,7 +403,7 @@ private fun ChatInputBar(
             modifier = Modifier.weight(1f),
             placeholder = {
                 Text(
-                    text = "输入你的问题...",
+                    text = placeholder,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )

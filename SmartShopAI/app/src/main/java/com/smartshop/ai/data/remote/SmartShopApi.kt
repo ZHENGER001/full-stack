@@ -279,5 +279,6 @@ data class ChatStreamRequestDto(
     val message: String,
     val current_product_id: String? = null,
     val image_id: String? = null,
-    val cart_context: List<Map<String, Any>> = emptyList()
+    val cart_context: List<Map<String, Any>> = emptyList(),
+    val mode: String = "ai_guide"
 )

@@ -11,6 +11,7 @@ class AiChatRepository @Inject constructor(
 ) {
     fun streamAssistantReply(
         text: String,
-        imageUri: Uri?
-    ): Flow<AiChatEvent> = dataSource.streamAssistantReply(text, imageUri)
+        imageUri: Uri?,
+        mode: String
+    ): Flow<AiChatEvent> = dataSource.streamAssistantReply(text, imageUri, mode)
 }
