@@ -6,6 +6,5 @@ sealed interface AiChatEvent {
     data class Delta(val text: String) : AiChatEvent
     data class Products(val products: List<Product>) : AiChatEvent
     data class Actions(val actions: List<String>) : AiChatEvent
-    data class Status(val message: String) : AiChatEvent
     data object Done : AiChatEvent
 }

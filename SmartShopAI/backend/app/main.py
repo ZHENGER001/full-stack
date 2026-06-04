@@ -614,14 +614,6 @@ def api_image_analyze(payload: ImageAnalyzeRequest):
 def api_chat_stream(payload: ChatStreamRequest):
     def generate():
         with get_db() as conn:
-            yield from stream_chat(
-                conn,
-                payload.session_id,
-                payload.message,
-                payload.image_id,
-                mode=payload.mode,
-                current_product_id=payload.current_product_id,
-                cart_context=payload.cart_context,
-            )
+            yield from stream_chat(conn, payload.session_id, payload.message, payload.image_id)
 
     return StreamingResponse(generate(), media_type="text/event-stream")

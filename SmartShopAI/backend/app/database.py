@@ -14,10 +14,8 @@ def dict_factory(cursor: sqlite3.Cursor, row: tuple[object, ...]) -> dict[str, o
 def get_connection() -> sqlite3.Connection:
     settings = get_settings()
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(settings.database_path, timeout=30)
+    connection = sqlite3.connect(settings.database_path)
     connection.row_factory = dict_factory
-    connection.execute("PRAGMA journal_mode = WAL")
-    connection.execute("PRAGMA busy_timeout = 30000")
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
@@ -83,9 +81,32 @@ def _normalize_product(raw: dict) -> dict:
 
 
 def _build_product_chunks(product: dict) -> list[dict]:
-    from app.rag import build_product_chunks
-
-    return build_product_chunks(product)
+    metadata = {
+        "product_id": product["id"],
+        "title": product["title"],
+        "brand": product["brand"],
+        "category": product["category"],
+        "subcategory": product["subcategory"],
+        "price": product["price"],
+        "rating": product["rating"],
+    }
+    chunks = [
+        {
+            "id": f"{product['id']}:basic_info",
+            "product_id": product["id"],
+            "chunk_type": "basic_info",
+            "content": f"{product['title']} {product['brand']} {product['category']} {product['subcategory']} 价格 {product['price']} 评分 {product['rating']}",
+            "metadata_json": json.dumps({**metadata, "chunk_type": "basic_info"}, ensure_ascii=False),
+        },
+        {
+            "id": f"{product['id']}:marketing",
+            "product_id": product["id"],
+            "chunk_type": "marketing",
+            "content": product.get("marketing_description", ""),
+            "metadata_json": json.dumps({**metadata, "chunk_type": "marketing"}, ensure_ascii=False),
+        },
+    ]
+    return [chunk for chunk in chunks if chunk["content"]]
 
 
 def import_dataset_if_empty() -> int:
@@ -131,7 +152,7 @@ def import_dataset_if_empty() -> int:
                         _sku_name(properties),
                         json.dumps(properties, ensure_ascii=False),
                         float(sku.get("price", product["price"])),
-                        int(sku.get("stock", 20)),
+                        20,
                     ),
                 )
             for faq in product["official_faq"]:

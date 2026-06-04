@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -35,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -211,6 +209,7 @@ private fun MiniProductCard(
         )
     ) {
         Column {
+            // Mini image placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -225,11 +224,10 @@ private fun MiniProductCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = product.imageUrl,
-                    contentDescription = product.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                Text(
+                    text = product.name.take(2),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color(0xFF1A73E8).copy(alpha = 0.3f)
                 )
             }
 

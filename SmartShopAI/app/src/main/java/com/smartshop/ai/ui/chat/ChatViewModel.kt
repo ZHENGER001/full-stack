@@ -17,11 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class ChatMode(val requestValue: String, val label: String) {
-    AiGuide("ai_guide", "AI导购"),
-    UserSearch("user_search", "用户检索")
-}
-
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: AiChatRepository,
@@ -44,18 +39,11 @@ class ChatViewModel @Inject constructor(
     private val _isTyping = MutableStateFlow(false)
     val isTyping: StateFlow<Boolean> = _isTyping.asStateFlow()
 
-    private val _chatMode = MutableStateFlow(ChatMode.AiGuide)
-    val chatMode: StateFlow<ChatMode> = _chatMode.asStateFlow()
-
     private val _events = MutableSharedFlow<String>()
     val events: SharedFlow<String> = _events.asSharedFlow()
 
     fun updateInput(text: String) {
         _inputText.value = text
-    }
-
-    fun selectMode(mode: ChatMode) {
-        _chatMode.value = mode
     }
 
     fun sendMessage(text: String = _inputText.value, imageUri: Uri? = null) {
@@ -79,7 +67,7 @@ class ChatViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
-            chatRepository.streamAssistantReply(normalizedText, imageUri, _chatMode.value.requestValue).collect { event ->
+            chatRepository.streamAssistantReply(normalizedText, imageUri).collect { event ->
                 when (event) {
                     is AiChatEvent.Delta -> updateAssistantMessage(assistantMessageId) {
                         it.copy(content = it.content + event.text, isLoading = false)
@@ -90,7 +78,6 @@ class ChatViewModel @Inject constructor(
                     is AiChatEvent.Actions -> updateAssistantMessage(assistantMessageId) {
                         it.copy(actionSuggestions = event.actions)
                     }
-                    is AiChatEvent.Status -> _events.emit(event.message)
                     AiChatEvent.Done -> _isTyping.value = false
                 }
             }

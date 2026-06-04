@@ -109,7 +109,7 @@ def import_products(dataset_dir: Path, db_path: Path, clean_path: Path) -> int:
                         sku_name(properties),
                         json.dumps(properties, ensure_ascii=False),
                         float(sku.get("price", product["price"])),
-                        int(sku.get("stock", 20)),
+                        20,
                     ),
                 )
             for faq in product["official_faq"]:
