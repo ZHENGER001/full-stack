@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -25,15 +26,15 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,6 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.smartshop.ai.data.model.ChatAction
 import com.smartshop.ai.data.model.ChatMessage
 import com.smartshop.ai.data.model.Product
 import com.smartshop.ai.ui.theme.AiBubble
@@ -59,7 +61,7 @@ fun ChatBubble(
     modifier: Modifier = Modifier,
     onProductClick: (String) -> Unit = {},
     onAddToCart: (String) -> Unit = {},
-    onActionClick: (String) -> Unit = {}
+    onActionClick: (ChatAction) -> Unit = {}
 ) {
     val isUser = message.isUser
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
@@ -95,7 +97,7 @@ fun ChatBubble(
 
             Column(
                 horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
-                modifier = Modifier.widthIn(max = 280.dp)
+                modifier = if (isUser) Modifier.widthIn(max = 280.dp) else Modifier.weight(1f)
             ) {
                 // Message bubble
                 Box(
@@ -153,32 +155,33 @@ fun ChatBubble(
                 // Product recommendations
                 if (message.productRecommendations.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    LazyRow(
-                        contentPadding = PaddingValues(end = 8.dp),
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(message.productRecommendations, key = { it.id }) { product ->
+                        message.productRecommendations.take(3).forEach { product ->
                             MiniProductCard(
                                 product = product,
                                 onClick = { onProductClick(product.id) },
-                                onAddToCart = { onAddToCart(product.id) }
+                                onAddToCart = { onAddToCart(product.id) },
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
                 }
 
-                if (message.actionSuggestions.isNotEmpty()) {
+                if (message.actions.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     LazyRow(
                         contentPadding = PaddingValues(end = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(message.actionSuggestions) { action ->
+                        items(message.actions) { action ->
                             AssistChip(
                                 onClick = { onActionClick(action) },
                                 label = {
                                     Text(
-                                        text = action,
+                                        text = action.label,
                                         style = MaterialTheme.typography.labelSmall
                                     )
                                 }
@@ -200,79 +203,74 @@ private fun MiniProductCard(
 ) {
     Card(
         modifier = modifier
-            .width(140.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(10.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Column {
-            // Mini image placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(90.dp)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFFE8F0FE),
-                                Color(0xFFD2E3FC)
-                            )
-                        )
-                    ),
+                    .height(96.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = product.name.take(2),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFF1A73E8).copy(alpha = 0.3f)
+                AsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = product.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
 
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp)) {
                 Text(
                     text = product.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.Medium
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(3.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "¥${"%.0f".format(product.price)}",
+                        color = PriceColor,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "★${"%.1f".format(product.rating)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
+                    TextButton(
+                        onClick = onClick,
                         modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.Bottom
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
                     ) {
-                        Text(
-                            text = "¥${"%.0f".format(product.price)}",
-                            color = PriceColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        product.originalPrice?.let {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "¥${"%.0f".format(it)}",
-                                color = Color(0xFF9AA0A6),
-                                fontSize = 10.sp,
-                                textDecoration = TextDecoration.LineThrough
-                            )
-                        }
+                        Text(text = "详情", style = MaterialTheme.typography.labelSmall)
                     }
-                    IconButton(
+                    TextButton(
                         onClick = onAddToCart,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.AddShoppingCart,
-                            contentDescription = "加入购物车",
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     }
                 }

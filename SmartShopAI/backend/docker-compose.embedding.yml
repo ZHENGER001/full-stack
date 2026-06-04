@@ -1,0 +1,26 @@
+services:
+  qwen3-embedding:
+    image: ${TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:cuda-1.9}
+    container_name: smartshop-qwen3-embedding
+    ports:
+      - "${EMBEDDING_PORT:-8080}:80"
+    volumes:
+      - qwen3_embedding_cache:/data
+    shm_size: "2gb"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
+    command:
+      - --model-id
+      - Qwen/Qwen3-Embedding-4B
+      - --dtype
+      - float16
+    restart: unless-stopped
+
+volumes:
+  qwen3_embedding_cache:

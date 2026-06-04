@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartshop.ai.data.cart.CartRepository
 import com.smartshop.ai.data.chat.AiChatEvent
+import com.smartshop.ai.data.chat.ChatHistoryRepository
 import com.smartshop.ai.data.chat.AiChatRepository
 import com.smartshop.ai.data.model.ChatMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,16 +21,17 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: AiChatRepository,
-    private val cartRepository: CartRepository
+    private val cartRepository: CartRepository,
+    private val chatHistoryRepository: ChatHistoryRepository
 ) : ViewModel() {
 
+    private val greetingMessage = ChatMessage(
+        content = "你好！我是SmartShop AI智能导购助手。我可以帮你推荐商品、对比产品，也可以根据图片识别并推荐相关商品。",
+        isUser = false
+    )
+
     private val _messages = MutableStateFlow(
-        listOf(
-            ChatMessage(
-                content = "你好！我是SmartShop AI智能导购助手。我可以帮你推荐商品、对比产品，也可以根据图片识别并推荐相关商品。",
-                isUser = false
-            )
-        )
+        chatHistoryRepository.loadMessages().ifEmpty { listOf(greetingMessage) }
     )
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
@@ -50,20 +52,24 @@ class ChatViewModel @Inject constructor(
         if (text.isBlank() && imageUri == null) return
 
         val normalizedText = text.trim()
-        _messages.value = _messages.value + ChatMessage(
-            content = normalizedText.ifBlank { "请根据这张图片推荐相关商品" },
-            isUser = true,
-            imageUri = imageUri?.toString()
+        setMessages(
+            _messages.value + ChatMessage(
+                content = normalizedText.ifBlank { "请根据这张图片推荐相关商品" },
+                isUser = true,
+                imageUri = imageUri?.toString()
+            )
         )
         _inputText.value = ""
         _isTyping.value = true
 
         val assistantMessageId = java.util.UUID.randomUUID().toString()
-        _messages.value = _messages.value + ChatMessage(
-            id = assistantMessageId,
-            content = "",
-            isUser = false,
-            isLoading = true
+        setMessages(
+            _messages.value + ChatMessage(
+                id = assistantMessageId,
+                content = "",
+                isUser = false,
+                isLoading = true
+            )
         )
 
         viewModelScope.launch {
@@ -76,7 +82,7 @@ class ChatViewModel @Inject constructor(
                         it.copy(productRecommendations = event.products)
                     }
                     is AiChatEvent.Actions -> updateAssistantMessage(assistantMessageId) {
-                        it.copy(actionSuggestions = event.actions)
+                        it.copy(actions = event.actions)
                     }
                     AiChatEvent.Done -> _isTyping.value = false
                 }
@@ -96,8 +102,15 @@ class ChatViewModel @Inject constructor(
         messageId: String,
         transform: (ChatMessage) -> ChatMessage
     ) {
-        _messages.value = _messages.value.map { message ->
-            if (message.id == messageId) transform(message) else message
-        }
+        setMessages(
+            _messages.value.map { message ->
+                if (message.id == messageId) transform(message) else message
+            }
+        )
+    }
+
+    private fun setMessages(messages: List<ChatMessage>) {
+        _messages.value = messages
+        chatHistoryRepository.saveMessages(messages)
     }
 }

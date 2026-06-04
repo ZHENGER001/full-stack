@@ -10,7 +10,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.speech.RecognizerIntent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -55,6 +61,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -67,12 +74,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.smartshop.ai.data.mock.MockData
 import com.smartshop.ai.ui.components.ChatBubble
 import com.smartshop.ai.ui.navigation.Screen
 import com.smartshop.ai.ui.theme.Primary
 import java.io.File
+import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +96,9 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var isListening by remember { mutableStateOf(false) }
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -97,6 +109,47 @@ fun ChatScreen(
     ) { success ->
         if (success) {
             pendingCameraUri?.let { viewModel.sendMessage(imageUri = it) }
+        }
+    }
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isListening = false
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                .orEmpty()
+            if (spokenText.isBlank()) {
+                coroutineScope.launch { snackbarHostState.showSnackbar("没有识别到语音，请再试一次") }
+            } else {
+                viewModel.updateInput(spokenText)
+            }
+        } else {
+            coroutineScope.launch { snackbarHostState.showSnackbar("语音识别失败，请重新输入") }
+        }
+    }
+    fun startVoiceRecognition() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "请说出你的购物需求")
+        }
+        isListening = true
+        coroutineScope.launch { snackbarHostState.showSnackbar("正在识别语音...") }
+        runCatching { speechLauncher.launch(intent) }
+            .onFailure {
+                isListening = false
+                coroutineScope.launch { snackbarHostState.showSnackbar("语音识别失败，请重新输入") }
+            }
+    }
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startVoiceRecognition()
+        } else {
+            coroutineScope.launch { snackbarHostState.showSnackbar("需要麦克风权限才能使用语音输入") }
         }
     }
 
@@ -178,6 +231,14 @@ fun ChatScreen(
                     pendingCameraUri = uri
                     cameraLauncher.launch(uri)
                 },
+                onVoiceInput = {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        startVoiceRecognition()
+                    } else {
+                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                },
+                isListening = isListening,
                 onSend = { viewModel.sendMessage(inputText) }
             )
         }
@@ -251,7 +312,22 @@ fun ChatScreen(
                             navController.navigate(Screen.ProductDetail.createRoute(productId))
                         },
                         onAddToCart = { productId -> viewModel.addToCart(productId) },
-                        onActionClick = { action -> viewModel.sendMessage(action) }
+                        onActionClick = { action ->
+                            when (action.type) {
+                                "go_detail" -> action.productId?.let { productId ->
+                                    navController.navigate(Screen.ProductDetail.createRoute(productId))
+                                }
+                                "add_to_cart" -> action.productId?.let { productId ->
+                                    viewModel.addToCart(productId)
+                                }
+                                "open_cart" -> {
+                                    navController.navigate(Screen.Cart.route) {
+                                        launchSingleTop = true
+                                    }
+                                }
+                                "search_more" -> viewModel.sendMessage(action.label)
+                            }
+                        }
                     )
                 }
             }
@@ -312,6 +388,8 @@ private fun ChatInputBar(
     onInputChange: (String) -> Unit,
     onPickImage: () -> Unit,
     onTakePhoto: () -> Unit,
+    onVoiceInput: () -> Unit,
+    isListening: Boolean,
     onSend: () -> Unit
 ) {
     Row(
@@ -341,6 +419,17 @@ private fun ChatInputBar(
                 imageVector = Icons.Default.PhotoCamera,
                 contentDescription = "拍照",
                 tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        IconButton(
+            onClick = onVoiceInput,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Mic,
+                contentDescription = if (isListening) "正在听" else "语音输入",
+                tint = if (isListening) Primary else MaterialTheme.colorScheme.primary
             )
         }
 

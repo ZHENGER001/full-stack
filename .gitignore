@@ -22,5 +22,8 @@ Thumbs.db
 
 # Secrets
 .env
+SmartShopAI/backend/data/*.log
+SmartShopAI/backend/docker-compose.milvus.yml
+SmartShopAI/backend/volumes/
 *.jks
 *.keystore

@@ -129,6 +129,10 @@ CREATE TABLE IF NOT EXISTS uploaded_images (
 
 CREATE TABLE IF NOT EXISTS chat_sessions (
     id TEXT PRIMARY KEY,
+    last_query TEXT,
+    last_recommended_product_ids TEXT,
+    current_product_id TEXT,
+    last_actions TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

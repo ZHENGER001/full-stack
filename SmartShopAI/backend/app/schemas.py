@@ -21,6 +21,8 @@ class ProductCard(BaseModel):
     sku_summary: str | None = None
     faq_summary: list[str] = Field(default_factory=list)
     review_summary: list[str] = Field(default_factory=list)
+    rerank_score: float | None = None
+    rerank_reason: str | None = None
 
 
 class ProductListResponse(BaseModel):
@@ -219,9 +221,17 @@ class ImageAnalyzeResponse(BaseModel):
     query: str
 
 
+class AudioTranscribeResponse(BaseModel):
+    text: str
+    provider: str
+    model: str | None = None
+    available: bool
+
+
 class ChatStreamRequest(BaseModel):
     session_id: str
-    message: str
+    message: str = ""
+    voice_text: str | None = None
     current_product_id: str | None = None
     image_id: str | None = None
     cart_context: list[dict] = Field(default_factory=list)

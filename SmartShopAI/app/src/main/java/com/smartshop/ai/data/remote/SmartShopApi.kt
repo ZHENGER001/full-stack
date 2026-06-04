@@ -91,6 +91,10 @@ interface SmartShopApi {
     @POST("api/agent/image/upload")
     suspend fun uploadAgentImage(@Part file: MultipartBody.Part): ImageUploadDto
 
+    @Multipart
+    @POST("api/agent/audio/transcribe")
+    suspend fun transcribeAgentAudio(@Part file: MultipartBody.Part): AudioTranscribeDto
+
     @Streaming
     @POST("api/agent/chat/stream")
     suspend fun streamChat(@Body body: ChatStreamRequestDto): Response<ResponseBody>
@@ -118,7 +122,9 @@ data class ProductCardDto(
     val stock: Int = 0,
     val sku_summary: String? = null,
     val faq_summary: List<String> = emptyList(),
-    val review_summary: List<String> = emptyList()
+    val review_summary: List<String> = emptyList(),
+    val rerank_score: Double? = null,
+    val rerank_reason: String? = null
 )
 
 data class ProductDetailDto(
@@ -274,9 +280,17 @@ data class PaymentDto(
 
 data class ImageUploadDto(val image_id: String, val image_url: String)
 
+data class AudioTranscribeDto(
+    val text: String,
+    val provider: String,
+    val model: String?,
+    val available: Boolean
+)
+
 data class ChatStreamRequestDto(
     val session_id: String,
     val message: String,
+    val voice_text: String? = null,
     val current_product_id: String? = null,
     val image_id: String? = null,
     val cart_context: List<Map<String, Any>> = emptyList()

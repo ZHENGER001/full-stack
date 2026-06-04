@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .agent import analyze_image, save_upload, stream_chat
+from .asr_client import asr_model_name, asr_provider_name, transcribe_audio_bytes
 from .catalog import (
     first_sku,
     get_cart,
@@ -25,6 +26,7 @@ from .catalog import (
 from .config import get_settings
 from .database import get_db, init_db
 from .schemas import (
+    AudioTranscribeResponse,
     CartItemCreate,
     CartItemPatch,
     CartResponse,
@@ -610,10 +612,30 @@ def api_image_analyze(payload: ImageAnalyzeRequest):
         return ImageAnalyzeResponse(image_id=payload.image_id, detected=detected, query=query)
 
 
+@app.post("/api/agent/audio/transcribe", response_model=AudioTranscribeResponse)
+async def api_audio_transcribe(file: UploadFile = File(...)):
+    data = await file.read()
+    text = await transcribe_audio_bytes(file.filename or "speech.webm", file.content_type, data)
+    return AudioTranscribeResponse(
+        text=text or "",
+        provider=asr_provider_name(),
+        model=asr_model_name(),
+        available=bool(text),
+    )
+
+
 @app.post("/api/agent/chat/stream")
 def api_chat_stream(payload: ChatStreamRequest):
     def generate():
         with get_db() as conn:
-            yield from stream_chat(conn, payload.session_id, payload.message, payload.image_id)
+            user_message = payload.message or payload.voice_text or ""
+            yield from stream_chat(
+                conn,
+                payload.session_id,
+                user_message,
+                payload.image_id,
+                payload.current_product_id,
+                payload.cart_context,
+            )
 
     return StreamingResponse(generate(), media_type="text/event-stream")

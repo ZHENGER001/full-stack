@@ -43,6 +43,10 @@ def initialize_database() -> None:
         db.executescript(schema_path.read_text(encoding="utf-8"))
         _ensure_column(db, "orders", "address_id", "TEXT REFERENCES addresses(id) ON DELETE SET NULL")
         _ensure_column(db, "orders", "address_snapshot", "TEXT")
+        _ensure_column(db, "chat_sessions", "last_query", "TEXT")
+        _ensure_column(db, "chat_sessions", "last_recommended_product_ids", "TEXT")
+        _ensure_column(db, "chat_sessions", "current_product_id", "TEXT")
+        _ensure_column(db, "chat_sessions", "last_actions", "TEXT")
 
 
 def _ensure_column(db: sqlite3.Connection, table: str, column: str, definition: str) -> None:
