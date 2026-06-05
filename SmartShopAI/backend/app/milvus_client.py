@@ -73,6 +73,7 @@ class MilvusRestClient:
                 "vectorFieldName": milvus_vector_field_name(),
                 "idType": "VarChar",
                 "autoID": False,
+                "params": {"max_length": "128"},
             }
         )
         self._post("/v2/vectordb/collections/create", payload, ignore_exists=True)

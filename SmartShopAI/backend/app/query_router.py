@@ -39,6 +39,8 @@ def parse_query(query: str, known_brands: list[str] | None = None) -> ParsedQuer
         route_notes.append("price_sensitive")
     if filters.get("retrieval_scope") == "full_evidence":
         route_notes.append("evidence")
+    if filters.get("match_mode") == "exact_or_none":
+        route_notes.append("exact_or_none")
 
     rewritten_query = " ".join(dict.fromkeys(term.strip() for term in expansion_terms if term and term.strip()))
     return ParsedQuery(

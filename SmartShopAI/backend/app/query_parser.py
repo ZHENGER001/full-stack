@@ -104,6 +104,8 @@ EVIDENCE_TERMS = [
     "\u5b9e\u6d4b",
 ]
 
+UNKNOWN_EXACT_MAX_CHARS = 8
+
 
 def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dict[str, Any]:
     text = query or ""
@@ -130,6 +132,20 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         if brand and brand.lower() in text.lower()
     ]
     retrieval_scope = "full_evidence" if any(term in text_lower for term in EVIDENCE_TERMS) else "catalog_only"
+    match_mode = None
+    if _should_require_exact_term(
+        text=text,
+        categories=categories,
+        subcategories=subcategories,
+        max_price=max_price,
+        price_sensitive=price_sensitive,
+        scenes=scenes,
+        colors=colors,
+        brands=brands,
+        retrieval_scope=retrieval_scope,
+    ):
+        match_mode = "exact_or_none"
+        required_terms.add(_compact_query(text))
 
     return {
         "raw_query": query,
@@ -143,6 +159,7 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         "colors": colors,
         "brands": brands,
         "retrieval_scope": retrieval_scope,
+        "match_mode": match_mode,
     }
 
 
@@ -164,4 +181,31 @@ def has_hard_filters(user_filters: dict[str, Any]) -> bool:
         user_filters.get("explicit_category")
         or user_filters.get("max_price") is not None
         or user_filters.get("brands")
+        or user_filters.get("match_mode") == "exact_or_none"
     )
+
+
+def _should_require_exact_term(
+    *,
+    text: str,
+    categories: set[str],
+    subcategories: set[str],
+    max_price: float | None,
+    price_sensitive: bool,
+    scenes: list[str],
+    colors: list[str],
+    brands: list[str],
+    retrieval_scope: str,
+) -> bool:
+    compact = _compact_query(text)
+    if retrieval_scope != "catalog_only" or not compact:
+        return False
+    if categories or subcategories or max_price is not None or price_sensitive or scenes or colors or brands:
+        return False
+    if len(compact) > UNKNOWN_EXACT_MAX_CHARS:
+        return False
+    return bool(re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9]+", compact))
+
+
+def _compact_query(text: str) -> str:
+    return re.sub(r"\s+", "", (text or "").strip())

@@ -59,14 +59,14 @@ start_milvus() {
 }
 
 start_embedding() {
-  echo "Starting Qwen3-Embedding-4B GPU service..."
+  echo "Starting Qwen3-Embedding-0.6B GPU service..."
   docker compose -f "$EMBEDDING_COMPOSE" up -d
 }
 
 wait_embedding() {
   require_command curl
   local deadline=$((SECONDS + EMBEDDING_WAIT_SECONDS))
-  local body='{"model":"Qwen/Qwen3-Embedding-4B","input":["health check"]}'
+  local body='{"model":"Qwen/Qwen3-Embedding-0.6B","input":["health check"]}'
   echo "Waiting for embedding service at http://127.0.0.1:8080/v1/embeddings ..."
   until curl --noproxy "*" -s -f -X POST "http://127.0.0.1:8080/v1/embeddings" -H "Content-Type: application/json" -d "$body" >/dev/null; do
     if (( SECONDS >= deadline )); then

@@ -5,7 +5,7 @@ services:
     ports:
       - "${EMBEDDING_PORT:-8080}:80"
     volumes:
-      - qwen3_embedding_cache:/data
+      - ./models/Qwen3-Embedding-0.6B:/model:ro
     shm_size: "2gb"
     deploy:
       resources:
@@ -17,10 +17,7 @@ services:
                 - gpu
     command:
       - --model-id
-      - Qwen/Qwen3-Embedding-4B
+      - /model
       - --dtype
       - float16
     restart: unless-stopped
-
-volumes:
-  qwen3_embedding_cache:

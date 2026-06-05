@@ -49,10 +49,16 @@ def _rejection_reason(product: dict[str, Any], filters: dict[str, Any]) -> str |
     if float(product.get("stock") or 0) <= 0:
         return "out_of_stock"
 
+    required_terms = [str(term).lower() for term in filters.get("required_terms") or [] if str(term).strip()]
+    if filters.get("match_mode") == "exact_or_none" and required_terms:
+        catalog_text = _catalog_text(product)
+        if not any(term in catalog_text for term in required_terms):
+            return "required_term_mismatch"
+
     target_categories = set(filters.get("target_categories") or [])
     target_subcategories = set(filters.get("target_subcategories") or [])
     if filters.get("explicit_category") and (target_categories or target_subcategories):
-        required_text_match = any(term.lower() in _catalog_text(product) for term in filters.get("required_terms") or [])
+        required_text_match = any(term in _catalog_text(product) for term in required_terms)
         if target_subcategories:
             subcategory_match = product.get("subcategory") in target_subcategories
             if not subcategory_match and not required_text_match:
@@ -75,5 +81,7 @@ def _catalog_text(product: dict[str, Any]) -> str:
             product.get("brand"),
             product.get("category"),
             product.get("subcategory"),
+            product.get("sku_text"),
+            product.get("sku_summary"),
         ]
     ).lower()

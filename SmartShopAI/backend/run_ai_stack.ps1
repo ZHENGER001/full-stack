@@ -67,13 +67,13 @@ function Start-Milvus {
 }
 
 function Start-Embedding {
-    Write-Host "Starting Qwen3-Embedding-4B GPU service..."
+    Write-Host "Starting Qwen3-Embedding-0.6B GPU service..."
     Invoke-Native -FilePath $DockerBin -Arguments @("compose", "-f", $EmbeddingCompose, "up", "-d")
 }
 
 function Wait-Embedding {
     $deadline = (Get-Date).AddSeconds($EmbeddingWaitSeconds)
-    $body = '{"model":"Qwen/Qwen3-Embedding-4B","input":["health check"]}'
+    $body = '{"model":"Qwen/Qwen3-Embedding-0.6B","input":["health check"]}'
 
     Write-Host "Waiting for embedding service at http://127.0.0.1:8080/v1/embeddings ..."
     while ((Get-Date) -lt $deadline) {

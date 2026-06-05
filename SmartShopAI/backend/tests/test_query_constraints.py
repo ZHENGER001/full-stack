@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from app.query_parser import parse_user_filters
-from app.retrieval import _build_document
+from app.query_parser import has_hard_filters, parse_user_filters
+from app.query_router import ParsedQuery
+from app.retrieval import _build_document, _keyword_search
 from app.verifier import verify_products
 
 
@@ -20,6 +21,14 @@ class QueryConstraintTest(unittest.TestCase):
         filters = parse_user_filters("\u8fd9\u6b3e\u8033\u673a\u8bc4\u8bba\u600e\u4e48\u6837", [])
 
         self.assertEqual(filters["retrieval_scope"], "full_evidence")
+
+    def test_unknown_short_catalog_query_uses_exact_or_none(self) -> None:
+        filters = parse_user_filters("\u624b\u67c4", [])
+
+        self.assertFalse(filters["explicit_category"])
+        self.assertEqual(filters["required_terms"], ["\u624b\u67c4"])
+        self.assertEqual(filters["match_mode"], "exact_or_none")
+        self.assertTrue(has_hard_filters(filters))
 
     def test_catalog_document_excludes_reviews_and_faq(self) -> None:
         row = {
@@ -111,6 +120,92 @@ class QueryConstraintTest(unittest.TestCase):
         result = verify_products([product], filters, limit=1)
 
         self.assertEqual([item["id"] for item in result.products], ["p1"])
+
+    def test_exact_or_none_rejects_candidate_without_required_term(self) -> None:
+        filters = {
+            "required_terms": ["\u624b\u67c4"],
+            "match_mode": "exact_or_none",
+        }
+        product = {
+            "id": "p1",
+            "title": "Nike Heritage86 Futura Logo \u7ecf\u5178\u523a\u7ee3\u68d2\u7403\u5e3d",
+            "brand": "Nike",
+            "category": "\u670d\u9970\u8fd0\u52a8",
+            "subcategory": "\u5e3d\u5b50",
+            "price": 169,
+            "stock": 10,
+        }
+
+        result = verify_products([product], filters, limit=1)
+
+        self.assertEqual(result.products, [])
+        self.assertEqual(result.diagnostics["rejected"][0]["reason"], "required_term_mismatch")
+
+    def test_exact_or_none_allows_core_sku_match(self) -> None:
+        filters = {
+            "required_terms": ["\u624b\u67c4"],
+            "match_mode": "exact_or_none",
+        }
+        product = {
+            "id": "p1",
+            "title": "\u6e38\u620f\u63a7\u5236\u5668",
+            "brand": "\u6d4b\u8bd5",
+            "category": "\u6570\u7801\u7535\u5b50",
+            "subcategory": "\u6e38\u620f\u914d\u4ef6",
+            "price": 199,
+            "stock": 10,
+            "sku_text": "\u9ed1\u8272\u624b\u67c4",
+        }
+
+        result = verify_products([product], filters, limit=1)
+
+        self.assertEqual([item["id"] for item in result.products], ["p1"])
+
+    def test_keyword_search_does_not_use_stock_as_match(self) -> None:
+        parsed_query = ParsedQuery(
+            raw_query="\u624b\u67c4",
+            rewritten_query="\u624b\u67c4",
+            filters={},
+            route_notes=[],
+        )
+        rows = [
+            {
+                "id": "p1",
+                "title": "\u666e\u901a\u5546\u54c1",
+                "category": "\u6570\u7801\u7535\u5b50",
+                "subcategory": "\u667a\u80fd\u624b\u673a",
+                "brand": "\u6d4b\u8bd5",
+                "price": 999,
+                "stock": 10,
+            }
+        ]
+
+        hits = _keyword_search(parsed_query, rows, {"p1": "\u666e\u901a\u5546\u54c1 \u667a\u80fd\u624b\u673a"}, limit=10)
+
+        self.assertEqual(hits, [])
+
+    def test_keyword_search_filters_out_of_stock_matches(self) -> None:
+        parsed_query = ParsedQuery(
+            raw_query="\u624b\u67c4",
+            rewritten_query="\u624b\u67c4",
+            filters={},
+            route_notes=[],
+        )
+        rows = [
+            {
+                "id": "p1",
+                "title": "\u6e38\u620f\u624b\u67c4",
+                "category": "\u6570\u7801\u7535\u5b50",
+                "subcategory": "\u6e38\u620f\u914d\u4ef6",
+                "brand": "\u6d4b\u8bd5",
+                "price": 199,
+                "stock": 0,
+            }
+        ]
+
+        hits = _keyword_search(parsed_query, rows, {"p1": "\u6e38\u620f\u624b\u67c4"}, limit=10)
+
+        self.assertEqual(hits, [])
 
 
 if __name__ == "__main__":

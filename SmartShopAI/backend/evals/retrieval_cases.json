@@ -1,0 +1,283 @@
+[
+  {
+    "id": "phone",
+    "query": "手机",
+    "relevant_product_ids": ["p_digital_001", "p_digital_002", "p_digital_003", "p_digital_008", "p_digital_009", "p_digital_010", "p_digital_014", "p_digital_015", "p_digital_016", "p_digital_017"],
+    "expected_category": "数码电子",
+    "expected_subcategory": "智能手机",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "photo_phone",
+    "query": "拍照手机",
+    "relevant_product_ids": ["p_digital_001", "p_digital_002", "p_digital_003", "p_digital_008", "p_digital_014", "p_digital_015", "p_digital_016", "p_digital_017"],
+    "expected_category": "数码电子",
+    "expected_subcategory": "智能手机",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "laptop",
+    "query": "笔记本电脑",
+    "relevant_product_ids": ["p_digital_004", "p_digital_006", "p_digital_012", "p_digital_020", "p_digital_022", "p_digital_023"],
+    "expected_category": "数码电子",
+    "expected_subcategory": "笔记本电脑",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "服饰运动"]
+  },
+  {
+    "id": "tablet",
+    "query": "平板电脑",
+    "relevant_product_ids": ["p_digital_005", "p_digital_011", "p_digital_013", "p_digital_019", "p_digital_021", "p_digital_024", "p_digital_025"],
+    "expected_category": "数码电子",
+    "expected_subcategory": "平板电脑",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "服饰运动"]
+  },
+  {
+    "id": "earphones",
+    "query": "耳机",
+    "relevant_product_ids": ["p_digital_007", "p_digital_018"],
+    "expected_category": "数码电子",
+    "expected_subcategory": "真无线耳机",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "服饰运动"]
+  },
+  {
+    "id": "bluetooth",
+    "query": "蓝牙",
+    "relevant_product_ids": ["p_digital_007", "p_digital_018"],
+    "expected_category": "数码电子",
+    "expected_subcategory": "真无线耳机",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "basketball_shoes",
+    "query": "篮球鞋",
+    "relevant_product_ids": ["p_clothes_011", "p_clothes_012", "p_clothes_013"],
+    "expected_category": "服饰运动",
+    "expected_subcategory": "篮球鞋",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "running_shoes",
+    "query": "跑步鞋",
+    "relevant_product_ids": ["p_clothes_007", "p_clothes_008", "p_clothes_009", "p_clothes_010"],
+    "expected_category": "服饰运动",
+    "expected_subcategory": "跑步鞋",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "hoodie",
+    "query": "卫衣",
+    "relevant_product_ids": ["p_clothes_005", "p_clothes_022"],
+    "expected_category": "服饰运动",
+    "expected_subcategory": "卫衣",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "hat",
+    "query": "帽子",
+    "relevant_product_ids": ["p_clothes_019", "p_clothes_024"],
+    "expected_category": "服饰运动",
+    "expected_subcategory": "帽子",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "backpack",
+    "query": "背包",
+    "relevant_product_ids": ["p_clothes_018", "p_clothes_025", "p_travel_001", "p_travel_010", "p_travel_015", "p_travel_016", "p_travel_022", "p_travel_025"],
+    "expected_subcategory": "背包",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "suitcase",
+    "query": "行李箱",
+    "relevant_product_ids": ["p_travel_004", "p_travel_006", "p_travel_007", "p_travel_019", "p_travel_020", "p_travel_021"],
+    "expected_category": "旅行户外",
+    "expected_subcategory": "旅行箱包",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "boarding_case",
+    "query": "登机箱",
+    "relevant_product_ids": ["p_travel_008", "p_travel_009", "p_travel_012", "p_travel_013", "p_travel_024"],
+    "expected_category": "旅行户外",
+    "expected_subcategory": "旅行箱包",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "estee_lauder",
+    "query": "雅诗兰黛",
+    "relevant_product_ids": ["p_beauty_001", "p_beauty_020"],
+    "expected_category": "美妆护肤",
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "serum",
+    "query": "精华",
+    "relevant_product_ids": ["p_beauty_001", "p_beauty_002", "p_beauty_004", "p_beauty_005", "p_beauty_009", "p_beauty_018", "p_beauty_024"],
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "精华",
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "face_cream",
+    "query": "面霜",
+    "relevant_product_ids": ["p_beauty_007", "p_beauty_008", "p_beauty_012"],
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "面霜",
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "sunscreen",
+    "query": "防晒",
+    "relevant_product_ids": ["p_beauty_006", "p_beauty_010", "p_beauty_023"],
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "防晒",
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "coffee",
+    "query": "咖啡",
+    "relevant_product_ids": ["p_food_001", "p_food_002", "p_food_022", "p_food_023"],
+    "expected_category": "食品饮料",
+    "expected_subcategory": "咖啡",
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子", "美妆护肤"]
+  },
+  {
+    "id": "milk",
+    "query": "牛奶",
+    "relevant_product_ids": ["p_food_007", "p_food_016"],
+    "expected_category": "食品饮料",
+    "expected_subcategory": "牛奶",
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子", "美妆护肤"]
+  },
+  {
+    "id": "cat_tree",
+    "query": "猫爬架",
+    "relevant_product_ids": ["p_home_007", "p_pet_007", "p_pet_011", "p_pet_016"],
+    "expected_category": "宠物用品",
+    "expected_subcategory": "猫咪用品",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "cat_scratch",
+    "query": "猫抓板",
+    "relevant_product_ids": ["p_pet_002", "p_pet_023"],
+    "expected_category": "宠物用品",
+    "expected_subcategory": "猫咪用品",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "pet_playpen",
+    "query": "宠物围栏",
+    "relevant_product_ids": ["p_pet_004", "p_pet_009", "p_pet_017"],
+    "expected_category": "宠物用品",
+    "expected_subcategory": "宠物围栏",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "notebook",
+    "query": "计划本",
+    "relevant_product_ids": ["p_office_003"],
+    "expected_category": "办公文具",
+    "expected_subcategory": "本册纸品",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "ink_cartridge",
+    "query": "墨盒",
+    "relevant_product_ids": ["p_office_005", "p_office_009", "p_office_019"],
+    "expected_category": "办公文具",
+    "expected_subcategory": "打印耗材",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "tape",
+    "query": "胶带",
+    "relevant_product_ids": ["p_office_014"],
+    "expected_category": "办公文具",
+    "expected_subcategory": "胶带耗材",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "wall_clock",
+    "query": "挂钟",
+    "relevant_product_ids": ["p_home_014"],
+    "expected_category": "家居百货",
+    "expected_subcategory": "挂钟",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "watch_empty",
+    "query": "手表",
+    "relevant_product_ids": [],
+    "should_return_empty": true,
+    "forbidden_categories": ["数码电子", "美妆护肤", "服饰运动"]
+  },
+  {
+    "id": "wristwatch_empty",
+    "query": "腕表",
+    "relevant_product_ids": [],
+    "should_return_empty": true,
+    "forbidden_categories": ["数码电子", "美妆护肤", "服饰运动"]
+  },
+  {
+    "id": "controller_empty",
+    "query": "手柄",
+    "relevant_product_ids": [],
+    "should_return_empty": true,
+    "forbidden_categories": ["数码电子", "美妆护肤", "服饰运动"]
+  },
+  {
+    "id": "football_empty",
+    "query": "足球",
+    "relevant_product_ids": [],
+    "should_return_empty": true,
+    "forbidden_categories": ["旅行户外", "服饰运动", "美妆护肤"]
+  },
+  {
+    "id": "sticker_empty",
+    "query": "贴纸",
+    "relevant_product_ids": [],
+    "should_return_empty": true,
+    "forbidden_categories": ["办公文具", "美妆护肤"]
+  },
+  {
+    "id": "keyboard_empty",
+    "query": "键盘",
+    "relevant_product_ids": [],
+    "should_return_empty": true,
+    "forbidden_categories": ["办公文具", "数码电子"]
+  },
+  {
+    "id": "mouse_empty",
+    "query": "鼠标",
+    "relevant_product_ids": [],
+    "should_return_empty": true,
+    "forbidden_categories": ["办公文具", "数码电子"]
+  }
+]

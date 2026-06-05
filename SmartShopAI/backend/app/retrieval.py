@@ -228,6 +228,8 @@ def _keyword_search(
     max_price = filters.get("max_price")
     hits: list[RetrievalHit] = []
     for row in rows:
+        if float(row["stock"] or 0) <= 0:
+            continue
         product_id = str(row["id"])
         title = str(row["title"] or "").lower()
         document = documents.get(product_id, "")
@@ -249,8 +251,6 @@ def _keyword_search(
             score += 3.0
         if filters.get("price_sensitive"):
             score += _price_score(float(row["price"] or 0))
-        if float(row["stock"] or 0) > 0:
-            score += 1.0
         if score <= 0:
             continue
         hits.append(RetrievalHit(product_id=product_id, score=score, source="keyword"))
