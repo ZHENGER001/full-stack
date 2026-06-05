@@ -23,7 +23,7 @@ def embedding_provider_name() -> str:
 
 
 def embedding_model_name() -> str:
-    return _env_value("EMBEDDING_MODEL", "text-embedding-v4") or "text-embedding-v4"
+    return _env_value("EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-4B") or "Qwen/Qwen3-Embedding-4B"
 
 
 def embedding_dimensions() -> int | None:

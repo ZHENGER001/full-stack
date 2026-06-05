@@ -13,12 +13,10 @@ from typing import Any, Iterable
 from fastapi import HTTPException, UploadFile
 
 from .config import get_settings
-from .graph_retriever import graph_backend_name
 from .llm_client import LLMGenerationError, LLMGenerationResult, generate_agent_reply_with_status
 from .query_parser import parse_user_filters
-from .rag import search_products_for_agent
+from .rag import search_products_for_agent_with_diagnostics
 from .schemas import ProductCard
-from .vector_retriever import vector_backend_name
 
 
 logger = logging.getLogger(__name__)
@@ -162,12 +160,14 @@ def _stream_chat(
         {
             "final_user_query": final_user_query,
             "parsed_filters": parsed_filters,
-            "sources": ["rules", "bm25", "sqlite", "rag_chunks"],
-            "vector_backend": vector_backend_name(),
-            "graph_backend": graph_backend_name(),
+            "pipeline": ["query_router", "dense_milvus", "bm25", "keyword", "rrf", "sqlite_hydrate", "verifier"],
+            "sources": ["dense_milvus", "bm25", "keyword"],
+            "fusion": "rrf",
+            "vector_backend": "milvus",
         },
     )
-    products = search_products_for_agent(conn, final_user_query, limit=3)
+    products, retrieval_diagnostics = search_products_for_agent_with_diagnostics(conn, final_user_query, limit=3)
+    yield sse_event("retrieval_diagnostics", retrieval_diagnostics)
     grounded_products = build_grounded_products(conn, products)
     faq_context = load_faq_context(conn, [product["id"] for product in grounded_products])
     chat_history = load_chat_history(conn, session_id)

@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass(frozen=True)
+class VerificationResult:
+    products: list[dict[str, Any]]
+    diagnostics: dict[str, Any]
+
+
+def verify_products(
+    products: list[dict[str, Any]],
+    filters: dict[str, Any],
+    limit: int,
+) -> VerificationResult:
+    accepted: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
+
+    for product in products:
+        reason = _rejection_reason(product, filters)
+        if reason:
+            rejected.append({"product_id": product.get("id"), "reason": reason})
+            continue
+        accepted.append(product)
+        if len(accepted) >= limit:
+            break
+
+    diagnostics = {
+        "pipeline_step": "verifier",
+        "input_count": len(products),
+        "accepted_count": len(accepted),
+        "rejected_count": len(rejected),
+        "rejected": rejected[:10],
+        "final_product_ids": [product["id"] for product in accepted],
+    }
+    return VerificationResult(products=accepted, diagnostics=diagnostics)
+
+
+def _rejection_reason(product: dict[str, Any], filters: dict[str, Any]) -> str | None:
+    if not product.get("id"):
+        return "missing_product_id"
+
+    max_price = filters.get("max_price")
+    if max_price is not None and float(product.get("price") or 0) > float(max_price):
+        return "above_max_price"
+
+    if float(product.get("stock") or 0) <= 0:
+        return "out_of_stock"
+
+    target_categories = set(filters.get("target_categories") or [])
+    target_subcategories = set(filters.get("target_subcategories") or [])
+    if filters.get("explicit_category") and (target_categories or target_subcategories):
+        category_match = product.get("category") in target_categories
+        subcategory_match = product.get("subcategory") in target_subcategories
+        required_text_match = any(term in _product_text(product) for term in filters.get("required_terms") or [])
+        if not category_match and not subcategory_match and not required_text_match:
+            return "category_mismatch"
+
+    brands = set(filters.get("brands") or [])
+    if brands and product.get("brand") not in brands:
+        return "brand_mismatch"
+
+    return None
+
+
+def _product_text(product: dict[str, Any]) -> str:
+    return " ".join(
+        str(part or "")
+        for part in [
+            product.get("title"),
+            product.get("brand"),
+            product.get("category"),
+            product.get("subcategory"),
+            product.get("marketing_description"),
+            product.get("sku_text"),
+            product.get("faq_text"),
+            product.get("review_text"),
+            product.get("chunk_text"),
+        ]
+    ).lower()
