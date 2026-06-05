@@ -60,15 +60,61 @@ PRICE_SENSITIVE_TERMS = ["学生党", "便宜", "性价比", "平价", "预算",
 COLOR_TERMS = ["黑色", "白色", "蓝色", "红色", "灰色", "粉色", "绿色", "棕色"]
 
 
+NORMALIZED_CATEGORY_ALIASES = [
+    {
+        "terms": ["\u624b\u8868", "\u667a\u80fd\u624b\u8868", "\u8155\u8868", "\u8fd0\u52a8\u624b\u8868", "watch", "apple watch"],
+        "categories": ["\u6570\u7801\u7535\u5b50"],
+        "subcategories": ["\u667a\u80fd\u624b\u8868"],
+        "required_terms": ["\u624b\u8868", "\u8155\u8868", "watch"],
+    },
+    {
+        "terms": ["\u624b\u673a", "\u62cd\u7167\u624b\u673a"],
+        "categories": ["\u6570\u7801\u7535\u5b50"],
+        "subcategories": ["\u667a\u80fd\u624b\u673a"],
+        "required_terms": ["\u624b\u673a"],
+    },
+    {
+        "terms": ["\u8033\u673a", "\u84dd\u7259\u8033\u673a", "\u964d\u566a\u8033\u673a", "\u771f\u65e0\u7ebf\u8033\u673a"],
+        "categories": ["\u6570\u7801\u7535\u5b50"],
+        "subcategories": ["\u771f\u65e0\u7ebf\u8033\u673a"],
+        "required_terms": ["\u8033\u673a"],
+    },
+    {
+        "terms": ["\u88e4\u5b50", "\u957f\u88e4", "\u77ed\u88e4", "\u8fd0\u52a8\u88e4"],
+        "categories": ["\u670d\u9970\u8fd0\u52a8"],
+        "subcategories": ["\u6237\u5916\u88e4", "\u745c\u4f3d\u88e4", "\u8fd0\u52a8\u77ed\u88e4", "\u8fd0\u52a8\u957f\u88e4"],
+        "required_terms": ["\u88e4"],
+    },
+]
+
+EVIDENCE_TERMS = [
+    "\u8bc4\u8bba",
+    "\u8bc4\u4ef7",
+    "\u53e3\u7891",
+    "\u7528\u6237\u53cd\u9988",
+    "\u4f53\u9a8c",
+    "\u597d\u4e0d\u597d",
+    "\u600e\u4e48\u6837",
+    "\u7f3a\u70b9",
+    "\u4f18\u7f3a\u70b9",
+    "\u552e\u540e",
+    "\u95ee\u7b54",
+    "faq",
+    "\u6d4b\u8bc4",
+    "\u5b9e\u6d4b",
+]
+
+
 def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dict[str, Any]:
     text = query or ""
+    text_lower = text.lower()
     categories: set[str] = set()
     subcategories: set[str] = set()
     required_terms: set[str] = set()
     explicit_category = False
 
-    for alias in CATEGORY_ALIASES:
-        if any(term in text for term in alias["terms"]):
+    for alias in [*NORMALIZED_CATEGORY_ALIASES, *CATEGORY_ALIASES]:
+        if any(term in text or term.lower() in text_lower for term in alias["terms"]):
             explicit_category = True
             categories.update(alias["categories"])
             subcategories.update(alias["subcategories"])
@@ -83,6 +129,7 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         for brand in known_brands or []
         if brand and brand.lower() in text.lower()
     ]
+    retrieval_scope = "full_evidence" if any(term in text_lower for term in EVIDENCE_TERMS) else "catalog_only"
 
     return {
         "raw_query": query,
@@ -95,6 +142,7 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         "scene_terms": scenes,
         "colors": colors,
         "brands": brands,
+        "retrieval_scope": retrieval_scope,
     }
 
 

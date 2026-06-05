@@ -4,6 +4,7 @@ param(
     [string]$MilvusVersion = "v2.5.27",
     [string]$MilvusCompose = "docker-compose.milvus.yml",
     [string]$EmbeddingCompose = "docker-compose.embedding.yml",
+    [string]$DockerBin = "docker",
     [string]$PythonBin = "python",
     [string]$AppHost = "0.0.0.0",
     [int]$AppPort = 8000,
@@ -18,7 +19,7 @@ $MilvusUrl = "https://github.com/milvus-io/milvus/releases/download/$MilvusVersi
 
 function Require-Command {
     param([string]$Name)
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+    if (-not (Test-Path $Name) -and -not (Get-Command $Name -ErrorAction SilentlyContinue)) {
         throw "Missing required command: $Name"
     }
 }
@@ -42,8 +43,8 @@ function Ensure-Env {
 }
 
 function Ensure-Docker {
-    Require-Command "docker"
-    Invoke-Native -FilePath "docker" -Arguments @("ps")
+    Require-Command $DockerBin
+    Invoke-Native -FilePath $DockerBin -Arguments @("ps")
 }
 
 function Download-MilvusCompose {
@@ -56,18 +57,18 @@ function Download-MilvusCompose {
 
 function Check-Gpu {
     Write-Host "Checking NVIDIA GPU access from Docker..."
-    Invoke-Native -FilePath "docker" -Arguments @("run", "--rm", "--gpus", "all", "nvidia/cuda:12.4.1-base-ubuntu22.04", "nvidia-smi")
+    Invoke-Native -FilePath $DockerBin -Arguments @("run", "--rm", "--gpus", "all", "nvidia/cuda:12.4.1-base-ubuntu22.04", "nvidia-smi")
 }
 
 function Start-Milvus {
     Download-MilvusCompose
     Write-Host "Starting Milvus..."
-    Invoke-Native -FilePath "docker" -Arguments @("compose", "-f", $MilvusCompose, "up", "-d")
+    Invoke-Native -FilePath $DockerBin -Arguments @("compose", "-f", $MilvusCompose, "up", "-d")
 }
 
 function Start-Embedding {
     Write-Host "Starting Qwen3-Embedding-4B GPU service..."
-    Invoke-Native -FilePath "docker" -Arguments @("compose", "-f", $EmbeddingCompose, "up", "-d")
+    Invoke-Native -FilePath $DockerBin -Arguments @("compose", "-f", $EmbeddingCompose, "up", "-d")
 }
 
 function Wait-Embedding {
@@ -112,15 +113,15 @@ function Start-Backend {
 
 function Stop-Stack {
     Write-Host "Stopping embedding service..."
-    docker compose -f $EmbeddingCompose down
+    & $DockerBin compose -f $EmbeddingCompose down
     if (Test-Path $MilvusCompose) {
         Write-Host "Stopping Milvus..."
-        docker compose -f $MilvusCompose down
+        & $DockerBin compose -f $MilvusCompose down
     }
 }
 
 function Show-Status {
-    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    & $DockerBin ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 }
 
 switch ($Action) {

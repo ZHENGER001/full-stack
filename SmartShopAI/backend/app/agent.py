@@ -12,10 +12,10 @@ from typing import Any, Iterable
 
 from fastapi import HTTPException, UploadFile
 
+from .agent_tools import SearchProductsInput, call_search_products_tool
 from .config import get_settings
 from .llm_client import LLMGenerationError, LLMGenerationResult, generate_agent_reply_with_status
 from .query_parser import parse_user_filters
-from .rag import search_products_for_agent_with_diagnostics
 from .schemas import ProductCard
 
 
@@ -166,8 +166,9 @@ def _stream_chat(
             "vector_backend": "milvus",
         },
     )
-    products, retrieval_diagnostics = search_products_for_agent_with_diagnostics(conn, final_user_query, limit=3)
-    yield sse_event("retrieval_diagnostics", retrieval_diagnostics)
+    search_result = call_search_products_tool(conn, SearchProductsInput(query=final_user_query, top_k=3))
+    products = search_result.products
+    yield sse_event("retrieval_diagnostics", search_result.diagnostics)
     grounded_products = build_grounded_products(conn, products)
     faq_context = load_faq_context(conn, [product["id"] for product in grounded_products])
     chat_history = load_chat_history(conn, session_id)

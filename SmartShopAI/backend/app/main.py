@@ -183,6 +183,9 @@ def product_image_path(product_id: str) -> FsPath:
         raise HTTPException(status_code=404, detail="Product not found")
     image_path = settings.dataset_path / FsPath(row["image_path"])
     if not image_path.exists():
+        image_name = FsPath(row["image_path"]).name
+        image_path = next(settings.dataset_path.glob(f"*/images/{image_name}"), image_path)
+    if not image_path.exists():
         raise HTTPException(status_code=404, detail="Product image not found")
     return image_path
 

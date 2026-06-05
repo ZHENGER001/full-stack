@@ -52,10 +52,12 @@ def _rejection_reason(product: dict[str, Any], filters: dict[str, Any]) -> str |
     target_categories = set(filters.get("target_categories") or [])
     target_subcategories = set(filters.get("target_subcategories") or [])
     if filters.get("explicit_category") and (target_categories or target_subcategories):
-        category_match = product.get("category") in target_categories
-        subcategory_match = product.get("subcategory") in target_subcategories
-        required_text_match = any(term in _product_text(product) for term in filters.get("required_terms") or [])
-        if not category_match and not subcategory_match and not required_text_match:
+        required_text_match = any(term.lower() in _catalog_text(product) for term in filters.get("required_terms") or [])
+        if target_subcategories:
+            subcategory_match = product.get("subcategory") in target_subcategories
+            if not subcategory_match and not required_text_match:
+                return "subcategory_mismatch"
+        elif target_categories and product.get("category") not in target_categories and not required_text_match:
             return "category_mismatch"
 
     brands = set(filters.get("brands") or [])
@@ -65,7 +67,7 @@ def _rejection_reason(product: dict[str, Any], filters: dict[str, Any]) -> str |
     return None
 
 
-def _product_text(product: dict[str, Any]) -> str:
+def _catalog_text(product: dict[str, Any]) -> str:
     return " ".join(
         str(part or "")
         for part in [
@@ -73,10 +75,5 @@ def _product_text(product: dict[str, Any]) -> str:
             product.get("brand"),
             product.get("category"),
             product.get("subcategory"),
-            product.get("marketing_description"),
-            product.get("sku_text"),
-            product.get("faq_text"),
-            product.get("review_text"),
-            product.get("chunk_text"),
         ]
     ).lower()

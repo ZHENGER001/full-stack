@@ -31,7 +31,8 @@ def hybrid_search_products(conn, parsed_query: ParsedQuery, limit: int = 24) -> 
         return HybridSearchResult(candidates=[], diagnostics=_empty_diagnostics(parsed_query))
 
     lane_limit = max(limit, 20)
-    documents = {str(row["id"]): _build_document(row) for row in rows}
+    include_evidence = parsed_query.filters.get("retrieval_scope") == "full_evidence"
+    documents = {str(row["id"]): _build_document(row, include_evidence=include_evidence) for row in rows}
     dense_hits = _dense_search(parsed_query, lane_limit)
     bm25_hits = _bm25_search(parsed_query, rows, documents, lane_limit)
     keyword_hits = _keyword_search(parsed_query, rows, documents, lane_limit)
@@ -45,6 +46,7 @@ def hybrid_search_products(conn, parsed_query: ParsedQuery, limit: int = 24) -> 
             "rewritten": parsed_query.rewritten_query,
             "route_notes": parsed_query.route_notes,
             "filters": parsed_query.filters,
+            "retrieval_scope": "full_evidence" if include_evidence else "catalog_only",
         },
         "lanes": {
             "dense": _lane_diagnostics(dense_hits, backend="milvus"),
@@ -339,20 +341,20 @@ def _row_to_candidate(row: Any, hit: RetrievalHit) -> dict[str, Any]:
     }
 
 
-def _build_document(row: Any) -> str:
+def _build_document(row: Any, include_evidence: bool = True) -> str:
+    fields = [
+        row["title"],
+        row["brand"],
+        row["category"],
+        row["subcategory"],
+        row["marketing_description"],
+        row["sku_text"],
+    ]
+    if include_evidence:
+        fields.extend([row["review_text"], row["faq_text"], row["chunk_text"]])
     return " ".join(
         str(part or "")
-        for part in [
-            row["title"],
-            row["brand"],
-            row["category"],
-            row["subcategory"],
-            row["marketing_description"],
-            row["review_text"],
-            row["faq_text"],
-            row["sku_text"],
-            row["chunk_text"],
-        ]
+        for part in fields
     ).lower()
 
 
@@ -431,6 +433,7 @@ def _empty_diagnostics(parsed_query: ParsedQuery) -> dict[str, Any]:
             "rewritten": parsed_query.rewritten_query,
             "route_notes": parsed_query.route_notes,
             "filters": parsed_query.filters,
+            "retrieval_scope": parsed_query.filters.get("retrieval_scope", "catalog_only"),
         },
         "lanes": {"dense": {"count": 0, "backend": "milvus"}, "bm25": {"count": 0}, "keyword": {"count": 0}},
         "fusion": {"method": "rrf", "rank_constant": 60, "candidate_count": 0, "top": []},

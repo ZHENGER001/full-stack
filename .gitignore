@@ -24,6 +24,9 @@ Thumbs.db
 .env
 SmartShopAI/backend/data/*.log
 SmartShopAI/backend/docker-compose.milvus.yml
+SmartShopAI/backend/models/
 SmartShopAI/backend/volumes/
+__pycache__/
+*.py[cod]
 *.jks
 *.keystore
