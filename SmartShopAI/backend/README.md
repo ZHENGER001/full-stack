@@ -95,6 +95,90 @@ docker compose -f .\docker-compose.embedding.yml up -d
 
 可选外部服务配置项在 `.env.example` 中，包括 `MILVUS_BASE_URL` 和 `ASR_BASE_URL`。这些配置只影响增强召回或 ASR，不是商品事实源。
 
+## Retrieval Evaluation
+
+`scripts.eval_retrieval` 用于评估 AI 导购的商品召回、排序和硬约束过滤效果。它不是 Android App 端测试，也不是 Poe 生成文案测试；脚本直接调用后端内部检索工具链：
+
+```text
+scripts.eval_retrieval
+-> call_search_products_tool
+-> search_products_for_agent_with_diagnostics
+-> query_router + constraints
+-> dense(Milvus) / BM25 / keyword
+-> RRF fusion
+-> SQLite hydrate
+-> verifier
+```
+
+评估集在 `backend/evals/retrieval_cases.json`，当前包含 100 条 case，其中 93 条期望返回商品，7 条期望空返回。case 可以配置：
+
+- `query`：用户问题。
+- `relevant_product_ids`：相关商品 ID，默认相关等级为 3。
+- `graded_relevance`：分级相关性，`3` 强相关、`2` 次相关、`1` 弱相关。
+- `constraints`：传入 `SearchProductsInput` 的硬约束，例如类目、子类目、品牌排除、价格上限。
+- `forbidden_categories` / `must_not_include_product_ids`：用于评估返回列表是否混入禁止类目或禁止商品。
+- `should_return_empty`：用于测试没有匹配商品时是否正确空返回。
+
+运行前建议确认 SQLite 数据、embedding 服务和 Milvus 索引已准备好。dense 召回依赖本机 embedding 服务和 Milvus；如果 embedding 或 Milvus 不可用，系统会退回 BM25/keyword，指标会变化。
+
+```powershell
+cd J:\full-stack\SmartShopAI\backend
+
+# 可选：先确认基础测试通过
+J:\full-stack\SmartShopAI\.venv\Scripts\python.exe -m unittest discover -s tests
+
+# 只看 Top1 推荐是否准确
+J:\full-stack\SmartShopAI\.venv\Scripts\python.exe -m scripts.eval_retrieval --top-k 10 --k-values 1
+
+# 同时看 Top1/3/5/10 的召回和排序质量
+J:\full-stack\SmartShopAI\.venv\Scripts\python.exe -m scripts.eval_retrieval --top-k 10 --k-values 1,3,5,10
+```
+
+核心指标含义：
+
+- `hit@k`：前 k 个结果里是否至少命中一个相关商品。
+- `recall@k`：前 k 个结果覆盖了多少标注相关商品。
+- `precision@k`：前 k 个结果中相关商品占比。
+- `ndcg@k`：排序质量，强相关商品排得越靠前分数越高。
+- `map@k` / `ap`：相关商品在结果列表中的平均精度。
+- `mrr@k`：第一个相关商品出现位置的倒数。
+- `constraint_pass_rate`：价格、类目、子类目、品牌排除、空结果等硬约束全部通过的比例。
+- `empty_accuracy`：期望空返回的 case 中，实际空返回的比例。
+- `bad_return_rate`：期望空返回却返回了商品的比例。
+- `forbidden_category_rate`：返回结果中命中禁止类目的 case 比例。
+- `category_precision` / `subcategory_precision`：返回商品的大类和子类目纯净度。
+- `bm25_count_avg` / `dense_count_avg` / `keyword_count_avg`：各召回通道平均候选数，是诊断信息，不是质量分。
+
+一次 Top1 评估输出示例：
+
+```text
+cases=100 retrieval_cases=93 empty_cases=7
+hit@1=0.978 recall@1=0.479 precision@1=0.978 ndcg@1=0.920 map@1=0.978
+mrr@1=0.978
+constraint_pass_rate=0.650
+empty_accuracy=0.429
+bad_return_rate=0.571
+forbidden_category_rate=0.070
+category_precision=0.941
+subcategory_precision=0.772
+```
+
+解读时需要分开看 Top1 和列表纯净度：`hit@1`、`precision@1`、`ndcg@1` 高，说明第一张商品卡片通常准确；`constraint_pass_rate`、`empty_accuracy`、`subcategory_precision` 低，则说明 Top10 列表里仍可能混入错误子类目，或者没有商品时会错误返回兜底结果。
+
+如果要在 CI 或提交前设置最低阈值，可以使用：
+
+```powershell
+J:\full-stack\SmartShopAI\.venv\Scripts\python.exe -m scripts.eval_retrieval `
+  --top-k 10 `
+  --k-values 1,3,5,10 `
+  --threshold-k 3 `
+  --min-hit 0.90 `
+  --min-ndcg 0.85 `
+  --min-constraint-pass-rate 0.60 `
+  --min-empty-accuracy 0.40 `
+  --max-forbidden-category-rate 0.10
+```
+
 ## API Surface
 
 - `GET /health`
