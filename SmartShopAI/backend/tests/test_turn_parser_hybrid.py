@@ -79,6 +79,12 @@ class TurnParserHybridTest(unittest.TestCase):
         self.assertIn("智能手机", parsed.constraints.subcategories)
         self.assertTrue("Apple" in parsed.constraints.brands_exclude or "苹果" in parsed.constraints.negative_terms)
 
+    def test_excludes_nike_shoes(self) -> None:
+        parsed = parse("不要Nike的鞋")
+
+        self.assertIn("Nike", parsed.constraints.brands_exclude)
+        self.assertIn("耐克", parsed.constraints.brands_exclude)
+
     def test_cart_add_second_product(self) -> None:
         parsed = parse("把第二个加购物车")
 

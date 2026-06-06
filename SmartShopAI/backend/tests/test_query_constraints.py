@@ -31,6 +31,21 @@ class QueryConstraintTest(unittest.TestCase):
         self.assertEqual(filters["match_mode"], "exact_or_none")
         self.assertTrue(has_hard_filters(filters))
 
+    def test_negated_brand_goes_to_exclude_not_include(self) -> None:
+        filters = parse_user_filters("\u4e0d\u8981Nike\u7684\u978b", ["Nike", "\u8010\u514b"])
+
+        self.assertEqual(filters["brands"], [])
+        self.assertIn("Nike", filters["brands_exclude"])
+        self.assertIn("\u8010\u514b", filters["brands_exclude"])
+        self.assertTrue(has_hard_filters(filters))
+
+    def test_positive_brand_stays_include(self) -> None:
+        filters = parse_user_filters("Nike\u978b", ["Nike", "\u8010\u514b"])
+
+        self.assertIn("Nike", filters["brands"])
+        self.assertIn("\u8010\u514b", filters["brands"])
+        self.assertEqual(filters["brands_exclude"], [])
+
     def test_catalog_document_excludes_reviews_and_faq(self) -> None:
         row = {
             "title": "AirPods",

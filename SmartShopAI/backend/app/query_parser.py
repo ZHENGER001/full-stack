@@ -58,6 +58,13 @@ CATEGORY_ALIASES = [
 SCENE_TERMS = ["降噪", "运动", "通勤", "游戏", "续航", "拍照", "办公", "送礼", "学习", "宿舍"]
 PRICE_SENSITIVE_TERMS = ["学生党", "便宜", "性价比", "平价", "预算", "入门"]
 COLOR_TERMS = ["黑色", "白色", "蓝色", "红色", "灰色", "粉色", "绿色", "棕色"]
+NEGATION_TERMS = ["不要", "排除", "不想要", "别要", "不考虑", "别推荐", "不要推荐", "不是"]
+BRAND_ALIAS_GROUPS = [
+    ["Nike", "耐克"],
+    ["Apple", "苹果"],
+    ["HUAWEI", "华为"],
+    ["Xiaomi", "小米"],
+]
 
 
 NORMALIZED_CATEGORY_ALIASES = [
@@ -126,11 +133,7 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
     price_sensitive = max_price is not None or any(term in text for term in PRICE_SENSITIVE_TERMS)
     scenes = [term for term in SCENE_TERMS if term in text]
     colors = [term for term in COLOR_TERMS if term in text]
-    brands = [
-        brand
-        for brand in known_brands or []
-        if brand and brand.lower() in text.lower()
-    ]
+    brands, brands_exclude = extract_brand_filters(text, known_brands or [])
     retrieval_scope = "full_evidence" if any(term in text_lower for term in EVIDENCE_TERMS) else "catalog_only"
     match_mode = None
     if _should_require_exact_term(
@@ -141,7 +144,7 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         price_sensitive=price_sensitive,
         scenes=scenes,
         colors=colors,
-        brands=brands,
+        brands=[*brands, *brands_exclude],
         retrieval_scope=retrieval_scope,
     ):
         match_mode = "exact_or_none"
@@ -158,9 +161,53 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         "scene_terms": scenes,
         "colors": colors,
         "brands": brands,
+        "brands_exclude": brands_exclude,
         "retrieval_scope": retrieval_scope,
         "match_mode": match_mode,
     }
+
+
+def extract_brand_filters(text: str, known_brands: list[str]) -> tuple[list[str], list[str]]:
+    included: list[str] = []
+    excluded: list[str] = []
+    text_lower = (text or "").lower()
+
+    for mention, aliases in _brand_mentions(known_brands).items():
+        start = text_lower.find(mention.lower())
+        if start < 0:
+            continue
+        if _is_negated_brand(text_lower, start):
+            excluded = _merge_unique(excluded, aliases)
+        else:
+            included = _merge_unique(included, aliases)
+
+    excluded_lower = {brand.lower() for brand in excluded}
+    included = [brand for brand in included if brand.lower() not in excluded_lower]
+    return included, excluded
+
+
+def _brand_mentions(known_brands: list[str]) -> dict[str, list[str]]:
+    mentions: dict[str, list[str]] = {}
+    known = [brand.strip() for brand in known_brands if brand and brand.strip()]
+    for brand in known:
+        mentions[brand] = _merge_unique(mentions.get(brand, []), [brand])
+    known_lower = {brand.lower() for brand in known}
+    for group in BRAND_ALIAS_GROUPS:
+        if not any(alias.lower() in known_lower for alias in group):
+            continue
+        aliases = _merge_unique([], group)
+        for alias in group:
+            mentions[alias] = _merge_unique(mentions.get(alias, []), aliases)
+    return mentions
+
+
+def _is_negated_brand(text_lower: str, start: int) -> bool:
+    prefix = text_lower[max(0, start - 12) : start]
+    return any(term.lower() in prefix for term in NEGATION_TERMS)
+
+
+def _merge_unique(first: list[str], second: list[str]) -> list[str]:
+    return list(dict.fromkeys([*first, *second]))
 
 
 def extract_max_price(text: str) -> float | None:
@@ -181,6 +228,7 @@ def has_hard_filters(user_filters: dict[str, Any]) -> bool:
         user_filters.get("explicit_category")
         or user_filters.get("max_price") is not None
         or user_filters.get("brands")
+        or user_filters.get("brands_exclude")
         or user_filters.get("required_terms")
         or user_filters.get("allow_popular_fallback") is False
         or user_filters.get("match_mode") == "exact_or_none"

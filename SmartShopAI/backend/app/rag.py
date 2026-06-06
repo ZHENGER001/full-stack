@@ -132,6 +132,9 @@ def apply_tool_constraints(
         route_notes.append("turn_brand")
     if brands_exclude:
         filters["brands_exclude"] = _merge_unique(filters.get("brands_exclude") or [], brands_exclude)
+    if filters.get("brands") and filters.get("brands_exclude"):
+        excluded_lower = {str(brand).lower() for brand in filters["brands_exclude"]}
+        filters["brands"] = [brand for brand in filters["brands"] if str(brand).lower() not in excluded_lower]
     if attributes_include:
         filters["attributes_include"] = _merge_unique(filters.get("attributes_include") or [], attributes_include)
     if attributes_exclude:

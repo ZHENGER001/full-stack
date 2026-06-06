@@ -17,7 +17,13 @@ PRICE_COMPARE_TERMS = {"便宜", "价格", "更便宜"}
 STOCK_TERMS = {"有货", "库存", "现货"}
 DETAIL_TERMS = {"参数", "规格", "价格", "库存", "有货", "怎么样"}
 GREETINGS = {"你好", "您好", "hi", "hello"}
-BRAND_ALIASES = {"苹果": "Apple", "apple": "Apple"}
+NEGATION_TERMS = ["不要", "排除", "不想要", "别要", "不考虑", "别推荐", "不要推荐", "不是"]
+BRAND_ALIAS_GROUPS = [
+    ["Nike", "耐克"],
+    ["Apple", "苹果"],
+    ["HUAWEI", "华为"],
+    ["Xiaomi", "小米"],
+]
 
 CATALOG_TERMS: list[dict[str, Any]] = [
     {"terms": ["拍照手机", "手机"], "categories": ["数码电子"], "subcategories": ["智能手机"], "required_terms": ["手机"]},
@@ -183,6 +189,7 @@ def post_validate_parsed_turn(
     raw = parsed.raw_message.strip()
     compact = _compact(raw)
     constraints = parsed.constraints.model_copy(deep=True)
+    _normalize_brand_constraints(constraints)
     retrieval = parsed.retrieval_policy_hint.model_copy(deep=True)
     has_context = _has_context(chat_history, conversation_state)
 
@@ -279,11 +286,45 @@ def _apply_price(raw: str, constraints: TurnConstraints) -> None:
 
 
 def _apply_brand_filters(raw: str, constraints: TurnConstraints) -> None:
-    if any(term in raw for term in ["不要", "排除", "不想要", "别要"]):
-        for alias, brand in BRAND_ALIASES.items():
-            if alias in raw.lower():
-                constraints.brands_exclude = _merge_unique(constraints.brands_exclude, [brand, alias])
-                constraints.negative_terms = _merge_unique(constraints.negative_terms, [alias])
+    raw_lower = raw.lower()
+    for group in BRAND_ALIAS_GROUPS:
+        for alias in group:
+            start = raw_lower.find(alias.lower())
+            if start < 0 or not _is_negated_brand(raw_lower, start):
+                continue
+            constraints.brands_exclude = _merge_unique(constraints.brands_exclude, group)
+            constraints.negative_terms = _merge_unique(constraints.negative_terms, group)
+
+
+def _normalize_brand_constraints(constraints: TurnConstraints) -> None:
+    excluded = _expand_brand_aliases(constraints.brands_exclude)
+    included = _expand_brand_aliases(constraints.brands_include)
+    excluded_lower = {brand.lower() for brand in excluded}
+
+    constraints.brands_exclude = excluded
+    constraints.brands_include = [brand for brand in included if brand.lower() not in excluded_lower]
+    if excluded:
+        constraints.negative_terms = _merge_unique(constraints.negative_terms, excluded)
+
+
+def _expand_brand_aliases(brands: list[str]) -> list[str]:
+    expanded: list[str] = []
+    for brand in brands:
+        expanded = _merge_unique(expanded, _brand_alias_group(brand))
+    return expanded
+
+
+def _brand_alias_group(brand: str) -> list[str]:
+    brand_lower = str(brand).lower()
+    for group in BRAND_ALIAS_GROUPS:
+        if any(alias.lower() == brand_lower for alias in group):
+            return group
+    return [brand]
+
+
+def _is_negated_brand(raw_lower: str, start: int) -> bool:
+    prefix = raw_lower[max(0, start - 12) : start]
+    return any(term.lower() in prefix for term in NEGATION_TERMS)
 
 
 def _extract_references(raw: str) -> list[ProductReference]:
