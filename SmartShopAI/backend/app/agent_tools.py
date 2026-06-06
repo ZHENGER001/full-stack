@@ -11,6 +11,8 @@ from .schemas import ProductCard
 class SearchProductsInput(BaseModel):
     query: str = Field(min_length=1)
     top_k: int = Field(default=3, ge=1, le=20)
+    constraints: dict[str, Any] = Field(default_factory=dict)
+    retrieval_policy: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("query")
     @classmethod
@@ -32,6 +34,7 @@ class SearchProductsResult(BaseModel):
     tool_name: Literal["search_products"] = "search_products"
     status: Literal["ok", "empty", "degraded"]
     products: list[ProductCard] = Field(default_factory=list)
+    alternatives: list[ProductCard] = Field(default_factory=list)
     diagnostics: dict[str, Any] = Field(default_factory=dict)
     verification: SearchProductsVerification
 
@@ -41,11 +44,20 @@ def call_search_products_tool(conn, request: SearchProductsInput) -> SearchProdu
         conn,
         request.query,
         limit=request.top_k,
+        constraints=request.constraints,
+        retrieval_policy=request.retrieval_policy,
     )
     verifier = diagnostics.get("verifier") if isinstance(diagnostics, dict) else {}
     verifier = verifier if isinstance(verifier, dict) else {}
     fallback = diagnostics.get("fallback") if isinstance(diagnostics, dict) else {}
     fallback = fallback if isinstance(fallback, dict) else {}
+    alternatives_data = diagnostics.get("alternatives") if isinstance(diagnostics, dict) else {}
+    alternatives_data = alternatives_data if isinstance(alternatives_data, dict) else {}
+    alternatives = [
+        ProductCard.model_validate(item)
+        for item in alternatives_data.get("products") or []
+        if isinstance(item, dict)
+    ]
     product_ids = [product.id for product in products]
 
     verification = SearchProductsVerification(
@@ -63,6 +75,7 @@ def call_search_products_tool(conn, request: SearchProductsInput) -> SearchProdu
     return SearchProductsResult(
         status=status,
         products=products,
+        alternatives=alternatives,
         diagnostics=diagnostics,
         verification=verification,
     )

@@ -181,6 +181,8 @@ def has_hard_filters(user_filters: dict[str, Any]) -> bool:
         user_filters.get("explicit_category")
         or user_filters.get("max_price") is not None
         or user_filters.get("brands")
+        or user_filters.get("required_terms")
+        or user_filters.get("allow_popular_fallback") is False
         or user_filters.get("match_mode") == "exact_or_none"
     )
 

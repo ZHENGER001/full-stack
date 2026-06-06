@@ -46,14 +46,27 @@ def _rejection_reason(product: dict[str, Any], filters: dict[str, Any]) -> str |
     if max_price is not None and float(product.get("price") or 0) > float(max_price):
         return "above_max_price"
 
+    min_price = filters.get("min_price")
+    if min_price is not None and float(product.get("price") or 0) < float(min_price):
+        return "below_min_price"
+
     if float(product.get("stock") or 0) <= 0:
         return "out_of_stock"
 
+    catalog_text = _catalog_text(product)
     required_terms = [str(term).lower() for term in filters.get("required_terms") or [] if str(term).strip()]
-    if filters.get("match_mode") == "exact_or_none" and required_terms:
-        catalog_text = _catalog_text(product)
+    if (filters.get("match_mode") == "exact_or_none" or filters.get("require_lexical_anchor")) and required_terms:
         if not any(term in catalog_text for term in required_terms):
             return "required_term_mismatch"
+
+    excluded_brands = {str(brand).lower() for brand in filters.get("brands_exclude") or []}
+    if excluded_brands and str(product.get("brand") or "").lower() in excluded_brands:
+        return "brand_excluded"
+
+    negative_terms = [str(term).lower() for term in filters.get("negative_terms") or [] if str(term).strip()]
+    attributes_exclude = [str(term).lower() for term in filters.get("attributes_exclude") or [] if str(term).strip()]
+    if any(term in catalog_text for term in [*negative_terms, *attributes_exclude]):
+        return "excluded_term_match"
 
     target_categories = set(filters.get("target_categories") or [])
     target_subcategories = set(filters.get("target_subcategories") or [])

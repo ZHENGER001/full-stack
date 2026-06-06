@@ -114,6 +114,24 @@ class AiChatDataSource @Inject constructor(
                 }
                 AiChatEvent.Products(products)
             }
+            "alternatives" -> {
+                val productsJson = json.optJSONArray("products") ?: return null
+                val products = (0 until productsJson.length()).map { index ->
+                    val item = productsJson.getJSONObject(index)
+                    com.smartshop.ai.data.remote.ProductCardDto(
+                        id = item.getString("id"),
+                        title = item.getString("title"),
+                        brand = item.getString("brand"),
+                        category = item.optString("category"),
+                        subcategory = item.optString("subcategory"),
+                        price = item.getDouble("price"),
+                        rating = item.optDouble("rating", 0.0).toFloat(),
+                        image_path = item.optString("image_path"),
+                        reason = item.optString("reason").ifBlank { null }
+                    ).toProduct()
+                }
+                AiChatEvent.Alternatives(products)
+            }
             "actions" -> {
                 val actionsJson = json.optJSONArray("actions") ?: return null
                 val actions = (0 until actionsJson.length()).mapNotNull { index ->

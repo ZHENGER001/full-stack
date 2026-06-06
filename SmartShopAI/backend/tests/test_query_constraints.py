@@ -4,6 +4,7 @@ import unittest
 
 from app.query_parser import has_hard_filters, parse_user_filters
 from app.query_router import ParsedQuery
+from app.rag import build_alternative_products
 from app.retrieval import _build_document, _keyword_search
 from app.verifier import verify_products
 
@@ -206,6 +207,53 @@ class QueryConstraintTest(unittest.TestCase):
         hits = _keyword_search(parsed_query, rows, {"p1": "\u6e38\u620f\u624b\u67c4"}, limit=10)
 
         self.assertEqual(hits, [])
+
+    def test_alternatives_relax_price_but_keep_subcategory(self) -> None:
+        filters = {
+            "target_categories": ["\u98df\u54c1\u996e\u6599"],
+            "target_subcategories": ["\u575a\u679c/\u96f6\u98df"],
+            "required_terms": ["\u96f6\u98df"],
+            "explicit_category": True,
+            "max_price": 50,
+            "price_sensitive": True,
+        }
+        candidates = [
+            {
+                "id": "p_snack",
+                "title": "\u826f\u54c1\u94fa\u5b50 \u4f11\u95f2\u96f6\u98df",
+                "brand": "\u826f\u54c1\u94fa\u5b50",
+                "category": "\u98df\u54c1\u996e\u6599",
+                "subcategory": "\u575a\u679c/\u96f6\u98df",
+                "price": 59,
+                "rating": 4.0,
+                "stock": 10,
+            },
+            {
+                "id": "p_drink",
+                "title": "\u8336\u996e",
+                "brand": "\u6d4b\u8bd5",
+                "category": "\u98df\u54c1\u996e\u6599",
+                "subcategory": "\u8336\u996e",
+                "price": 4,
+                "rating": 4.0,
+                "stock": 10,
+            },
+            {
+                "id": "p_pet",
+                "title": "\u72ac\u7528\u96f6\u98df",
+                "brand": "\u6d4b\u8bd5",
+                "category": "\u5ba0\u7269\u7528\u54c1",
+                "subcategory": "\u5ba0\u7269\u96f6\u98df",
+                "price": 59,
+                "rating": 4.0,
+                "stock": 10,
+            },
+        ]
+
+        alternatives = build_alternative_products(candidates, filters, limit=3)
+
+        self.assertEqual([product.id for product in alternatives], ["p_snack"])
+        self.assertEqual(alternatives[0].price, 59)
 
 
 if __name__ == "__main__":

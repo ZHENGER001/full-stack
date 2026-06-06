@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .query_parser import has_hard_filters
-from .query_router import parse_query
+from .query_router import ParsedQuery, parse_query
 from .retrieval import hybrid_search_products
 from .schemas import ProductCard
 from .verifier import verify_products
@@ -58,6 +58,8 @@ def search_products_for_agent_with_diagnostics(
     conn,
     query: str,
     limit: int = 3,
+    constraints: dict[str, Any] | None = None,
+    retrieval_policy: dict[str, Any] | None = None,
 ) -> tuple[list[ProductCard], dict[str, Any]]:
     known_brands = [
         str(row["brand"])
@@ -65,24 +67,116 @@ def search_products_for_agent_with_diagnostics(
         if row["brand"]
     ]
     parsed_query = parse_query(query, known_brands)
+    parsed_query = apply_tool_constraints(parsed_query, constraints or {}, retrieval_policy or {})
     retrieval_result = hybrid_search_products(conn, parsed_query, limit=max(limit * 8, 20))
     verification = verify_products(retrieval_result.candidates, parsed_query.filters, limit)
     selected_products = verification.products
     fallback_used = False
+    alternative_cards: list[ProductCard] = []
 
-    if not selected_products and not has_hard_filters(parsed_query.filters):
+    allow_popular_fallback = parsed_query.filters.get("allow_popular_fallback", True)
+    if not selected_products and allow_popular_fallback and not has_hard_filters(parsed_query.filters):
         fallback_used = True
         cards = fallback_products(conn, QueryIntent(max_price=extract_max_price(query)), limit)
     else:
         cards = [product_dict_to_product_card(product) for product in selected_products]
+        if not cards:
+            alternative_cards = build_alternative_products(retrieval_result.candidates, parsed_query.filters, limit)
 
     diagnostics = {
         **retrieval_result.diagnostics,
         "verifier": verification.diagnostics,
         "fallback": {"used": fallback_used},
+        "alternatives": {
+            "used": bool(alternative_cards),
+            "reason": "price_relaxed" if alternative_cards else None,
+            "products": [product.model_dump(mode="json") for product in alternative_cards],
+        },
         "final_product_ids": [product.id for product in cards],
     }
     return cards, diagnostics
+
+
+def apply_tool_constraints(
+    parsed_query: ParsedQuery,
+    constraints: dict[str, Any],
+    retrieval_policy: dict[str, Any],
+) -> ParsedQuery:
+    filters = dict(parsed_query.filters)
+    route_notes = list(parsed_query.route_notes)
+
+    categories = _list_value(constraints.get("categories"))
+    subcategories = _list_value(constraints.get("subcategories"))
+    required_terms = _list_value(constraints.get("required_terms"))
+    brands_include = _list_value(constraints.get("brands_include"))
+    brands_exclude = _list_value(constraints.get("brands_exclude"))
+    attributes_include = _list_value(constraints.get("attributes_include"))
+    attributes_exclude = _list_value(constraints.get("attributes_exclude"))
+    scene_terms = _list_value(constraints.get("scene_terms"))
+    negative_terms = _list_value(constraints.get("negative_terms"))
+    price = constraints.get("price") if isinstance(constraints.get("price"), dict) else {}
+
+    if categories:
+        filters["target_categories"] = _merge_unique(filters.get("target_categories") or [], categories)
+        filters["explicit_category"] = True
+        route_notes.append("turn_category")
+    if subcategories:
+        filters["target_subcategories"] = _merge_unique(filters.get("target_subcategories") or [], subcategories)
+        filters["explicit_category"] = True
+        route_notes.append("turn_subcategory")
+    if required_terms:
+        filters["required_terms"] = _merge_unique(filters.get("required_terms") or [], required_terms)
+        route_notes.append("turn_required_terms")
+    if brands_include:
+        filters["brands"] = _merge_unique(filters.get("brands") or [], brands_include)
+        route_notes.append("turn_brand")
+    if brands_exclude:
+        filters["brands_exclude"] = _merge_unique(filters.get("brands_exclude") or [], brands_exclude)
+    if attributes_include:
+        filters["attributes_include"] = _merge_unique(filters.get("attributes_include") or [], attributes_include)
+    if attributes_exclude:
+        filters["attributes_exclude"] = _merge_unique(filters.get("attributes_exclude") or [], attributes_exclude)
+    if scene_terms:
+        filters["scene_terms"] = _merge_unique(filters.get("scene_terms") or [], scene_terms)
+    if negative_terms:
+        filters["negative_terms"] = _merge_unique(filters.get("negative_terms") or [], negative_terms)
+    if price.get("max") is not None:
+        filters["max_price"] = price["max"]
+        filters["price_sensitive"] = True
+    if price.get("min") is not None:
+        filters["min_price"] = price["min"]
+
+    for key in ["match_mode", "allow_popular_fallback", "allow_dense_only", "require_lexical_anchor"]:
+        if key in retrieval_policy and retrieval_policy[key] is not None:
+            filters[key] = retrieval_policy[key]
+    if filters.get("match_mode") == "exact_or_none":
+        route_notes.append("exact_or_none")
+
+    expansion_terms = [
+        parsed_query.rewritten_query,
+        *categories,
+        *subcategories,
+        *required_terms,
+        *attributes_include,
+        *scene_terms,
+    ]
+    rewritten_query = " ".join(dict.fromkeys(str(term).strip() for term in expansion_terms if str(term).strip()))
+    return ParsedQuery(
+        raw_query=parsed_query.raw_query,
+        rewritten_query=rewritten_query or parsed_query.rewritten_query,
+        filters=filters,
+        route_notes=list(dict.fromkeys(route_notes)),
+    )
+
+
+def _list_value(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _merge_unique(first: list[Any], second: list[str]) -> list[str]:
+    return list(dict.fromkeys([str(item) for item in first if str(item).strip()] + second))
 
 
 def extract_max_price(text: str) -> float | None:
@@ -112,6 +206,54 @@ def fallback_products(conn, intent: QueryIntent, limit: int) -> list[ProductCard
         row_to_product_card_for_agent(row, "Fallback match by stock, rating, and price.")
         for row in rows
     ]
+
+
+def build_alternative_products(candidates: list[dict[str, Any]], filters: dict[str, Any], limit: int) -> list[ProductCard]:
+    if not candidates or (filters.get("max_price") is None and filters.get("min_price") is None):
+        return []
+
+    relaxed_filters = dict(filters)
+    max_price = relaxed_filters.pop("max_price", None)
+    min_price = relaxed_filters.pop("min_price", None)
+    relaxed_filters["price_sensitive"] = False
+
+    relaxed = verify_products(candidates, relaxed_filters, limit=len(candidates))
+    relaxed_products = [
+        product
+        for product in relaxed.products
+        if _matches_target_catalog(product, filters)
+    ]
+    alternatives = sorted(
+        relaxed_products,
+        key=lambda product: (_price_distance(product, max_price, min_price), float(product.get("price") or 0)),
+    )[:limit]
+
+    cards: list[ProductCard] = []
+    for product in alternatives:
+        item = dict(product)
+        item["reason"] = "Alternative match after relaxing the price constraint."
+        item["rerank_reason"] = item["reason"]
+        cards.append(product_dict_to_product_card(item))
+    return cards
+
+
+def _matches_target_catalog(product: dict[str, Any], filters: dict[str, Any]) -> bool:
+    target_subcategories = set(filters.get("target_subcategories") or [])
+    if target_subcategories and product.get("subcategory") not in target_subcategories:
+        return False
+    target_categories = set(filters.get("target_categories") or [])
+    if target_categories and product.get("category") not in target_categories:
+        return False
+    return True
+
+
+def _price_distance(product: dict[str, Any], max_price: Any, min_price: Any) -> float:
+    price = float(product.get("price") or 0)
+    if max_price is not None and price > float(max_price):
+        return price - float(max_price)
+    if min_price is not None and price < float(min_price):
+        return float(min_price) - price
+    return 0.0
 
 
 def product_dict_to_product_card(product: dict[str, Any]) -> ProductCard:

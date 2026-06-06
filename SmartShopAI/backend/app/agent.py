@@ -15,8 +15,10 @@ from fastapi import HTTPException, UploadFile
 from .agent_tools import SearchProductsInput, call_search_products_tool
 from .config import get_settings
 from .llm_client import LLMGenerationError, LLMGenerationResult, generate_agent_reply_with_status
+from .policy_engine import decide_policy
 from .query_parser import parse_user_filters
 from .schemas import ProductCard
+from .turn_parser_hybrid import parse_turn_hybrid
 
 
 logger = logging.getLogger(__name__)
@@ -115,10 +117,28 @@ def _stream_chat(
     ensure_session(conn, session_id)
     if current_product_id and product_exists(conn, current_product_id):
         update_session_state(conn, session_id, current_product_id=current_product_id)
+    previous_chat_history = load_chat_history(conn, session_id)
     conn.execute(
         "INSERT INTO chat_messages(id, session_id, role, content, image_id) VALUES (?, ?, ?, ?, ?)",
         (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", message, image_id),
     )
+
+    chat_history = previous_chat_history
+    conversation_state = load_conversation_state(conn, session_id, current_product_id, cart_context)
+    parsed_turn = None
+    try:
+        parsed_turn = run_async_blocking(parse_turn_hybrid(message, chat_history, conversation_state))
+        policy = decide_policy(parsed_turn, conversation_state)
+        logger.info("agent_parsed_turn=%s", parsed_turn.model_dump(mode="json"))
+        if not policy.should_call_search:
+            assistant_content = policy.response_text or "这个操作我正在支持中。"
+            yield sse_event("delta", {"text": assistant_content})
+            store_assistant_message(conn, session_id, assistant_content, image_id)
+            update_session_state(conn, session_id, last_query=message)
+            yield sse_event("done", {"session_id": session_id})
+            return
+    except Exception as exc:
+        logger.info("turn_parser_failed=%s", exc.__class__.__name__)
 
     cart_product_id = resolve_cart_product_id(conn, session_id, message, current_product_id, cart_context)
     if cart_product_id:
@@ -164,34 +184,55 @@ def _stream_chat(
             "sources": ["dense_milvus", "bm25", "keyword"],
             "fusion": "rrf",
             "vector_backend": "milvus",
+            "turn": {
+                "intent_type": parsed_turn.intent_type if parsed_turn else "unknown",
+                "route_hint": parsed_turn.route_hint if parsed_turn else "direct_tool",
+                "needs_clarification": parsed_turn.needs_clarification if parsed_turn else False,
+            },
         },
     )
-    search_result = call_search_products_tool(conn, SearchProductsInput(query=final_user_query, top_k=3))
+    search_result = call_search_products_tool(
+        conn,
+        SearchProductsInput(
+            query=final_user_query,
+            top_k=3,
+            constraints=parsed_turn.constraints.model_dump(mode="json") if parsed_turn else {},
+            retrieval_policy=parsed_turn.retrieval_policy_hint.model_dump(mode="json") if parsed_turn else {},
+        ),
+    )
     products = search_result.products
+    alternatives = search_result.alternatives
     yield sse_event("retrieval_diagnostics", search_result.diagnostics)
     grounded_products = build_grounded_products(conn, products)
+    grounded_alternatives = [] if grounded_products else build_grounded_products(conn, alternatives)
+    visible_products = grounded_products or grounded_alternatives
     faq_context = load_faq_context(conn, [product["id"] for product in grounded_products])
     chat_history = load_chat_history(conn, session_id)
     actions = build_actions(conn, grounded_products)
     if grounded_products:
         yield sse_event("llm_status", {"mode": "calling", "provider": "poe"})
     answer, llm_status = generate_grounded_answer(message, grounded_products, faq_context, chat_history)
+    if not grounded_products and grounded_alternatives:
+        answer = build_alternative_answer(message, grounded_alternatives)
+        llm_status = {"mode": "fallback", "reason": "alternatives_available"}
 
     yield sse_event("llm_status", llm_status)
     yield sse_event("delta", {"text": answer})
     if grounded_products:
         yield sse_event("products", {"products": grounded_products})
+    elif grounded_alternatives:
+        yield sse_event("alternatives", {"products": grounded_alternatives, "match_type": "alternatives"})
     if actions:
         yield sse_event("actions", {"actions": actions})
 
-    assistant_content = append_recommendation_marker(answer, grounded_products)
+    assistant_content = append_recommendation_marker(answer, visible_products)
     store_assistant_message(conn, session_id, assistant_content, image_id)
     update_session_state(
         conn,
         session_id,
         last_query=message,
-        last_recommended_product_ids=[product["id"] for product in grounded_products],
-        current_product_id=grounded_products[0]["id"] if grounded_products else current_product_id,
+        last_recommended_product_ids=[product["id"] for product in visible_products],
+        current_product_id=visible_products[0]["id"] if visible_products else current_product_id,
         last_actions=actions,
     )
     yield sse_event("done", {"session_id": session_id})
@@ -371,6 +412,24 @@ def load_chat_history(conn, session_id: str, limit: int = 6) -> list[dict[str, s
     return [{"role": row["role"], "content": row["content"]} for row in reversed(rows)]
 
 
+def load_conversation_state(
+    conn,
+    session_id: str,
+    current_product_id: str | None,
+    cart_context: list[dict] | None,
+) -> dict[str, Any]:
+    row = conn.execute(
+        "SELECT last_query, last_recommended_product_ids, current_product_id FROM chat_sessions WHERE id = ?",
+        (session_id,),
+    ).fetchone()
+    return {
+        "last_query": row["last_query"] if row else None,
+        "last_recommended_product_ids": parse_product_id_list(row["last_recommended_product_ids"] if row else None),
+        "current_product_id": current_product_id or (row["current_product_id"] if row else None),
+        "cart_context": cart_context or [],
+    }
+
+
 def generate_grounded_answer(
     message: str,
     grounded_products: list[dict[str, Any]],
@@ -392,7 +451,7 @@ def generate_grounded_answer(
         return build_template_answer(grounded_products, message), {"mode": "fallback", "reason": exc.__class__.__name__}
 
 
-def run_async_blocking(coro) -> LLMGenerationResult:
+def run_async_blocking(coro) -> Any:
     try:
         asyncio.get_running_loop()
     except RuntimeError:
@@ -433,6 +492,17 @@ def build_template_answer(products: list[dict[str, Any]], query: str = "") -> st
     return (
         f"找到 {len(products)} 款匹配商品，优先看 {first['title']}。"
         "已按品类、预算、库存和评价排序，详细信息见下方商品卡片。"
+    )
+
+
+def build_alternative_answer(query: str, alternatives: list[dict[str, Any]]) -> str:
+    if not alternatives:
+        return build_template_answer([], query)
+    first = alternatives[0]
+    price = float(first.get("price") or 0)
+    return (
+        f"没有找到完全符合条件的商品。可选替代里最接近的是 {first['title']}，价格 ¥{price:.0f}；"
+        "下方卡片已单独作为替代品展示。"
     )
 
 
