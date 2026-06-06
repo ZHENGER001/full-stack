@@ -72,6 +72,84 @@
     "forbidden_categories": ["美妆护肤"]
   },
   {
+    "id": "running_shoes_breathable",
+    "query": "夏天不闷脚的跑步鞋",
+    "graded_relevance": {
+      "p_clothes_008": 3,
+      "p_clothes_007": 2,
+      "p_clothes_009": 2,
+      "p_clothes_010": 1
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "跑步鞋",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["跑步鞋"],
+      "required_terms": ["跑步鞋"],
+      "attributes_include": ["透气", "不闷脚"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "running_shoes_under_1000",
+    "query": "1000以内的跑步鞋",
+    "graded_relevance": {
+      "p_clothes_007": 3,
+      "p_clothes_010": 3
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "跑步鞋",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["跑步鞋"],
+      "required_terms": ["跑步鞋"],
+      "price": {"max": 1000}
+    },
+    "must_not_include_product_ids": ["p_clothes_008", "p_clothes_009"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "running_shoes_not_nike",
+    "query": "不要Nike的跑步鞋",
+    "graded_relevance": {
+      "p_clothes_008": 3,
+      "p_clothes_009": 2,
+      "p_clothes_010": 2
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "跑步鞋",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["跑步鞋"],
+      "required_terms": ["跑步鞋"],
+      "brands_exclude": ["Nike", "耐克"]
+    },
+    "must_not_include_product_ids": ["p_clothes_007"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "image_hint_running_shoes",
+    "query": "图片识别标签：shoe footwear sneaker 推断品类：鞋 运动 跑步 帮我找类似商品",
+    "graded_relevance": {
+      "p_clothes_007": 3,
+      "p_clothes_008": 3,
+      "p_clothes_009": 2,
+      "p_clothes_010": 2
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "跑步鞋",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["跑步鞋"],
+      "required_terms": ["鞋", "跑步"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
     "id": "hoodie",
     "query": "卫衣",
     "relevant_product_ids": ["p_clothes_005", "p_clothes_022"],
@@ -279,5 +357,1135 @@
     "relevant_product_ids": [],
     "should_return_empty": true,
     "forbidden_categories": ["办公文具", "数码电子"]
+  },
+  {
+    "id": "smartphone_under_7000_not_apple",
+    "query": "7000以内不要苹果的拍照旗舰手机，最好屏幕和续航也强一点",
+    "graded_relevance": {
+      "p_digital_002": 3,
+      "p_digital_015": 3,
+      "p_digital_017": 3,
+      "p_digital_009": 2,
+      "p_digital_016": 1
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "智能手机",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["智能手机"],
+      "required_terms": ["手机"],
+      "brands_exclude": ["Apple 苹果", "苹果"],
+      "price": {"max": 7000}
+    },
+    "must_not_include_product_ids": ["p_digital_001", "p_digital_003"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "服饰运动"]
+  },
+  {
+    "id": "folding_phone_multitask",
+    "query": "想要折叠屏手机，用来多任务办公和影音，不要普通直板机",
+    "graded_relevance": {
+      "p_digital_010": 3,
+      "p_digital_014": 3
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "智能手机",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["智能手机"],
+      "required_terms": ["折叠屏", "手机"]
+    },
+    "must_not_include_product_ids": ["p_digital_001", "p_digital_002", "p_digital_009"],
+    "should_return_empty": false,
+    "forbidden_categories": ["服饰运动", "美妆护肤"]
+  },
+  {
+    "id": "large_screen_phone_video",
+    "query": "大屏旗舰手机，主要看视频、游戏和移动办公",
+    "graded_relevance": {
+      "p_digital_003": 3,
+      "p_digital_009": 3,
+      "p_digital_010": 2,
+      "p_digital_014": 2,
+      "p_digital_017": 1
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "智能手机",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["智能手机"],
+      "required_terms": ["手机", "大屏"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["食品饮料", "美妆护肤"]
+  },
+  {
+    "id": "huawei_photo_phone",
+    "query": "华为的轻薄拍照旗舰手机，预算七千左右",
+    "graded_relevance": {
+      "p_digital_002": 3
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "智能手机",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["智能手机"],
+      "brands_include": ["华为"],
+      "required_terms": ["手机", "华为"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "earbuds_noise_cancel",
+    "query": "主动降噪真无线蓝牙耳机，通勤听歌用",
+    "graded_relevance": {
+      "p_digital_007": 3,
+      "p_digital_018": 3
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "真无线耳机",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["真无线耳机"],
+      "required_terms": ["耳机", "主动降噪"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["服饰运动", "美妆护肤"]
+  },
+  {
+    "id": "apple_earbuds_heart",
+    "query": "苹果主动降噪耳机，最好能做心率监测",
+    "graded_relevance": {
+      "p_digital_018": 3
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "真无线耳机",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["真无线耳机"],
+      "brands_include": ["Apple 苹果"],
+      "required_terms": ["耳机"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["服饰运动", "美妆护肤"]
+  },
+  {
+    "id": "tablet_office_large_screen",
+    "query": "大屏高刷平板，能做轻办公、学习和多任务",
+    "graded_relevance": {
+      "p_digital_005": 3,
+      "p_digital_021": 3,
+      "p_digital_011": 2,
+      "p_digital_019": 2,
+      "p_digital_013": 1
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "平板电脑",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["平板电脑"],
+      "required_terms": ["平板", "办公"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["服饰运动", "美妆护肤"]
+  },
+  {
+    "id": "tablet_under_4000_not_apple",
+    "query": "4000以内非苹果平板，学习娱乐和多任务都要顺手",
+    "graded_relevance": {
+      "p_digital_011": 3,
+      "p_digital_019": 3
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "平板电脑",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["平板电脑"],
+      "brands_exclude": ["Apple 苹果", "苹果"],
+      "required_terms": ["平板"],
+      "price": {"max": 4000}
+    },
+    "must_not_include_product_ids": ["p_digital_013", "p_digital_024", "p_digital_025"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "ipad_light_study_not_pro",
+    "query": "轻薄学习娱乐用iPad，不想买Pro那么贵",
+    "graded_relevance": {
+      "p_digital_025": 3
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "平板电脑",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["平板电脑"],
+      "brands_include": ["Apple 苹果", "苹果"],
+      "negative_terms": ["Pro"],
+      "attributes_exclude": ["Pro"]
+    },
+    "must_not_include_product_ids": ["p_digital_013", "p_digital_024"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "服饰运动"]
+  },
+  {
+    "id": "laptop_light_portable",
+    "query": "轻薄便携笔记本，通勤办公和学习用，不要太重",
+    "graded_relevance": {
+      "p_digital_020": 3,
+      "p_digital_004": 2,
+      "p_digital_023": 2,
+      "p_digital_022": 1
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "笔记本电脑",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["笔记本电脑"],
+      "required_terms": ["笔记本", "轻薄"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["服饰运动", "美妆护肤"]
+  },
+  {
+    "id": "creative_design_laptop",
+    "query": "设计师剪视频用的高性能笔记本，内存和性能要强",
+    "graded_relevance": {
+      "p_digital_012": 3,
+      "p_digital_006": 2
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "笔记本电脑",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["笔记本电脑"],
+      "required_terms": ["笔记本", "高性能"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "食品饮料"]
+  },
+  {
+    "id": "thinkpad_business_laptop",
+    "query": "ThinkPad高端商务轻薄本，适合办公出差",
+    "graded_relevance": {
+      "p_digital_022": 3
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "笔记本电脑",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["笔记本电脑"],
+      "brands_include": ["联想"],
+      "required_terms": ["ThinkPad", "商务"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "macbook_air_not_pro",
+    "query": "苹果轻薄笔记本，不要MacBook Pro，预算一万以内",
+    "graded_relevance": {
+      "p_digital_020": 3
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "笔记本电脑",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["笔记本电脑"],
+      "brands_include": ["Apple 苹果"],
+      "negative_terms": ["Pro"],
+      "attributes_exclude": ["Pro"],
+      "price": {"max": 10000}
+    },
+    "must_not_include_product_ids": ["p_digital_006", "p_digital_012"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "服饰运动"]
+  },
+  {
+    "id": "xiaomi_large_battery_phone",
+    "query": "小米大屏长续航高性能手机，看剧和游戏为主",
+    "graded_relevance": {
+      "p_digital_009": 3,
+      "p_digital_008": 2
+    },
+    "expected_category": "数码电子",
+    "expected_subcategory": "智能手机",
+    "constraints": {
+      "categories": ["数码电子"],
+      "subcategories": ["智能手机"],
+      "brands_include": ["小米"],
+      "required_terms": ["手机"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "dry_tshirt_running",
+    "query": "夏天跑步训练穿的速干短袖T恤，轻薄透气一点",
+    "graded_relevance": {
+      "p_clothes_020": 3,
+      "p_clothes_021": 3,
+      "p_clothes_003": 2,
+      "p_clothes_002": 1
+    },
+    "expected_category": "服饰运动",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["速干T恤", "短袖T恤"],
+      "required_terms": ["速干", "短袖"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "食品饮料"]
+  },
+  {
+    "id": "tshirt_under_150",
+    "query": "150以内基础短袖T恤，日常穿或者运动都可以",
+    "graded_relevance": {
+      "p_clothes_001": 3,
+      "p_clothes_002": 3,
+      "p_clothes_020": 2
+    },
+    "expected_category": "服饰运动",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["短袖T恤", "速干T恤"],
+      "required_terms": ["短袖"],
+      "price": {"max": 150}
+    },
+    "must_not_include_product_ids": ["p_clothes_003", "p_clothes_021"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "sports_pants_commute",
+    "query": "日常休闲穿的束脚运动长裤，通勤也能穿",
+    "graded_relevance": {
+      "p_clothes_006": 3,
+      "p_clothes_004": 2
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "运动长裤",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["运动长裤"],
+      "required_terms": ["运动长裤"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "hoodie_under_300",
+    "query": "300以内的连帽卫衣，基础Logo款就行",
+    "graded_relevance": {
+      "p_clothes_005": 3
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "卫衣",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["卫衣"],
+      "required_terms": ["卫衣"],
+      "price": {"max": 300}
+    },
+    "must_not_include_product_ids": ["p_clothes_022"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "adidas_hoodie",
+    "query": "阿迪三叶草经典logo连帽卫衣",
+    "graded_relevance": {
+      "p_clothes_022": 3
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "卫衣",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["卫衣"],
+      "brands_include": ["阿迪达斯"],
+      "required_terms": ["卫衣"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "basketball_under_1200_not_nike",
+    "query": "1200以内不要Nike的实战篮球鞋，外场内场训练都能穿",
+    "graded_relevance": {
+      "p_clothes_012": 3,
+      "p_clothes_013": 2
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "篮球鞋",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["篮球鞋"],
+      "brands_exclude": ["Nike", "耐克"],
+      "required_terms": ["篮球鞋"],
+      "price": {"max": 1200}
+    },
+    "must_not_include_product_ids": ["p_clothes_011"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "数码电子"]
+  },
+  {
+    "id": "hiking_waterproof_shoes",
+    "query": "防水抓地的徒步登山鞋，轻量一些适合户外多地形",
+    "graded_relevance": {
+      "p_clothes_014": 3,
+      "p_clothes_015": 3
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "徒步鞋",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["徒步鞋"],
+      "required_terms": ["徒步鞋", "防水"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "outdoor_pants_durable",
+    "query": "耐磨弹力户外徒步长裤，爬山和攀爬都能用",
+    "graded_relevance": {
+      "p_clothes_017": 3
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "户外裤",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["户外裤"],
+      "required_terms": ["户外裤", "耐磨"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "yoga_pants_soft",
+    "query": "柔软裸感高腰瑜伽裤，女生练瑜伽穿",
+    "graded_relevance": {
+      "p_clothes_016": 3
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "瑜伽裤",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["瑜伽裤"],
+      "required_terms": ["瑜伽裤"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "backpack_commute_outdoor",
+    "query": "20L到28L通勤户外双肩背包，能放电脑也能短途出行",
+    "graded_relevance": {
+      "p_clothes_018": 3,
+      "p_clothes_025": 3,
+      "p_travel_015": 2,
+      "p_travel_022": 2,
+      "p_travel_025": 1
+    },
+    "constraints": {
+      "categories": ["服饰运动", "旅行户外"],
+      "subcategories": ["背包"],
+      "required_terms": ["背包"]
+    },
+    "expected_subcategory": "背包",
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "sun_hat_outdoor",
+    "query": "户外防晒透气帽子，鸭舌帽或者棒球帽都可以",
+    "graded_relevance": {
+      "p_clothes_024": 3,
+      "p_clothes_019": 2
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "帽子",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["帽子"],
+      "required_terms": ["帽子"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "shorts_training",
+    "query": "轻薄透气运动短裤，夏天训练穿",
+    "graded_relevance": {
+      "p_clothes_023": 3
+    },
+    "expected_category": "服饰运动",
+    "expected_subcategory": "运动短裤",
+    "constraints": {
+      "categories": ["服饰运动"],
+      "subcategories": ["运动短裤"],
+      "required_terms": ["运动短裤"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "sensitive_skin_cream",
+    "query": "敏感肌修护屏障保湿面霜，脸干发痒想舒缓",
+    "graded_relevance": {
+      "p_beauty_007": 3,
+      "p_beauty_012": 3
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "面霜",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["面霜"],
+      "required_terms": ["面霜", "敏感肌"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子", "服饰运动"]
+  },
+  {
+    "id": "anti_aging_cream",
+    "query": "抗初老紧致淡纹面霜，想要保湿和提拉",
+    "graded_relevance": {
+      "p_beauty_008": 3,
+      "p_beauty_007": 1,
+      "p_beauty_012": 1
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "面霜",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["面霜"],
+      "required_terms": ["面霜", "紧致"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "brightening_serum",
+    "query": "提亮肤色淡斑精华，顺便能淡纹保湿更好",
+    "graded_relevance": {
+      "p_beauty_005": 3,
+      "p_beauty_009": 3,
+      "p_beauty_024": 2,
+      "p_beauty_018": 1
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "精华",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["精华"],
+      "required_terms": ["精华", "提亮"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "repair_serum",
+    "query": "修护维稳精华，熬夜暗沉和肌底屏障都想照顾",
+    "graded_relevance": {
+      "p_beauty_002": 3,
+      "p_beauty_004": 3,
+      "p_beauty_001": 2
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "精华",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["精华"],
+      "required_terms": ["精华", "修护"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "cheap_niacinamide_serum",
+    "query": "100以内烟酰胺控油精华，平衡油脂和淡化毛孔",
+    "graded_relevance": {
+      "p_beauty_018": 3
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "精华",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["精华"],
+      "required_terms": ["精华", "烟酰胺"],
+      "price": {"max": 100}
+    },
+    "must_not_include_product_ids": ["p_beauty_001", "p_beauty_002", "p_beauty_005"],
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "sunscreen_outdoor_waterproof",
+    "query": "户外用高倍防晒，最好防水防汗，脸和身体都能涂",
+    "graded_relevance": {
+      "p_beauty_010": 3,
+      "p_beauty_023": 2,
+      "p_beauty_006": 1
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "防晒",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["防晒"],
+      "required_terms": ["防晒"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子", "服饰运动"]
+  },
+  {
+    "id": "sunscreen_oily_sensitive",
+    "query": "油皮敏感肌面部防晒，要清爽控油不厚重",
+    "graded_relevance": {
+      "p_beauty_023": 3,
+      "p_beauty_006": 2,
+      "p_beauty_010": 1
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "防晒",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["防晒"],
+      "required_terms": ["防晒", "控油"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "cleanser_foam",
+    "query": "温和泡沫洁面乳，想要细腻丰富泡沫清洁",
+    "graded_relevance": {
+      "p_beauty_011": 3
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "洁面",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["洁面"],
+      "required_terms": ["洁面"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "powder_oil_control",
+    "query": "控油定妆蜜粉散粉，想要隐匿毛孔和柔焦",
+    "graded_relevance": {
+      "p_beauty_013": 3,
+      "p_beauty_014": 3
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "蜜粉",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["蜜粉"],
+      "required_terms": ["蜜粉", "控油"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "eye_cream_dry_lines",
+    "query": "眼周干纹保湿眼霜，最好能紧致淡纹",
+    "graded_relevance": {
+      "p_beauty_021": 3,
+      "p_beauty_016": 2
+    },
+    "expected_category": "美妆护肤",
+    "expected_subcategory": "眼霜",
+    "constraints": {
+      "categories": ["美妆护肤"],
+      "subcategories": ["眼霜"],
+      "required_terms": ["眼霜"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "instant_black_coffee",
+    "query": "黑咖啡冻干速溶或者冷萃即溶，不要奶香三合一",
+    "graded_relevance": {
+      "p_food_022": 3,
+      "p_food_023": 3,
+      "p_food_001": 2
+    },
+    "expected_category": "食品饮料",
+    "expected_subcategory": "咖啡",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["咖啡"],
+      "required_terms": ["咖啡"],
+      "negative_terms": ["三合一"]
+    },
+    "must_not_include_product_ids": ["p_food_002"],
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子", "美妆护肤"]
+  },
+  {
+    "id": "instant_milk_coffee",
+    "query": "三合一奶香速溶咖啡粉，办公室冲泡方便",
+    "graded_relevance": {
+      "p_food_002": 3
+    },
+    "expected_category": "食品饮料",
+    "expected_subcategory": "咖啡",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["咖啡"],
+      "required_terms": ["咖啡", "三合一"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子", "美妆护肤"]
+  },
+  {
+    "id": "sugar_free_drinks",
+    "query": "0糖0脂0卡的气泡水或无糖汽水，想囤一箱",
+    "graded_relevance": {
+      "p_food_024": 3,
+      "p_food_015": 3,
+      "p_food_004": 2
+    },
+    "expected_category": "食品饮料",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["碳酸饮料"],
+      "required_terms": ["0糖", "饮料"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子", "美妆护肤"]
+  },
+  {
+    "id": "energy_drink_box",
+    "query": "整箱补充能量的功能饮料，含牛磺酸咖啡因那种",
+    "graded_relevance": {
+      "p_food_006": 3,
+      "p_food_005": 2
+    },
+    "expected_category": "食品饮料",
+    "expected_subcategory": "功能饮料",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["功能饮料"],
+      "required_terms": ["功能饮料", "能量"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "tea_drink_no_sugar",
+    "query": "无糖乌龙茶或者茉莉花茶饮料，低糖替代方案",
+    "graded_relevance": {
+      "p_food_003": 3,
+      "p_food_014": 3
+    },
+    "expected_category": "食品饮料",
+    "expected_subcategory": "茶饮",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["茶饮"],
+      "required_terms": ["茶饮"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子", "美妆护肤"]
+  },
+  {
+    "id": "milk_organic",
+    "query": "常温盒装纯牛奶，有机奶源或者高端奶都可以",
+    "graded_relevance": {
+      "p_food_007": 3,
+      "p_food_016": 2
+    },
+    "expected_category": "食品饮料",
+    "expected_subcategory": "牛奶",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["牛奶"],
+      "required_terms": ["牛奶"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "yogurt_box",
+    "query": "常温酸奶盒装原味，家里囤着当早餐",
+    "graded_relevance": {
+      "p_food_008": 3,
+      "p_food_017": 3
+    },
+    "expected_category": "食品饮料",
+    "expected_subcategory": "酸奶",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["酸奶"],
+      "required_terms": ["酸奶"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["数码电子"]
+  },
+  {
+    "id": "nuts_gift",
+    "query": "每日坚果独立小包装，办公室零食或者礼盒",
+    "graded_relevance": {
+      "p_food_009": 3,
+      "p_food_019": 3
+    },
+    "expected_category": "食品饮料",
+    "expected_subcategory": "坚果/零食",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["坚果/零食"],
+      "required_terms": ["坚果", "零食"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["宠物用品", "美妆护肤"]
+  },
+  {
+    "id": "instant_noodles_beef_cheap",
+    "query": "20元以内红烧牛肉面五连包，别给我整箱桶装",
+    "graded_relevance": {
+      "p_food_021": 3
+    },
+    "expected_category": "食品饮料",
+    "expected_subcategory": "方便食品",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["方便食品"],
+      "required_terms": ["红烧牛肉面"],
+      "negative_terms": ["整箱", "桶装"],
+      "price": {"max": 20}
+    },
+    "must_not_include_product_ids": ["p_food_011", "p_food_012"],
+    "should_return_empty": false,
+    "forbidden_categories": ["宠物用品"]
+  },
+  {
+    "id": "soy_sauce_home_kitchen",
+    "query": "家用厨房酱油，生抽老抽调味料都看看",
+    "graded_relevance": {
+      "p_food_013": 3,
+      "p_food_018": 3
+    },
+    "expected_category": "食品饮料",
+    "expected_subcategory": "调味品",
+    "constraints": {
+      "categories": ["食品饮料"],
+      "subcategories": ["调味品"],
+      "required_terms": ["酱油"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "cat_bed_stool",
+    "query": "猫窝脚凳，灰色或者浅粉色都可以",
+    "graded_relevance": {
+      "p_pet_001": 3,
+      "p_pet_003": 3
+    },
+    "expected_category": "宠物用品",
+    "expected_subcategory": "猫咪用品",
+    "constraints": {
+      "categories": ["宠物用品"],
+      "subcategories": ["猫咪用品"],
+      "required_terms": ["猫窝"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "食品饮料"]
+  },
+  {
+    "id": "cat_tree_large",
+    "query": "大号多层猫爬架猫抓柱，猫能玩也能磨爪",
+    "graded_relevance": {
+      "p_pet_011": 3,
+      "p_pet_016": 3,
+      "p_pet_007": 2,
+      "p_pet_025": 2,
+      "p_home_007": 1
+    },
+    "expected_category": "宠物用品",
+    "expected_subcategory": "猫咪用品",
+    "constraints": {
+      "categories": ["宠物用品"],
+      "subcategories": ["猫咪用品"],
+      "required_terms": ["猫爬架", "猫抓"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "cat_litter_clean",
+    "query": "猫砂清洁用品，轻结团或者5L猫砂",
+    "graded_relevance": {
+      "p_pet_018": 3,
+      "p_pet_008": 2
+    },
+    "expected_category": "宠物用品",
+    "expected_subcategory": "猫砂清洁",
+    "constraints": {
+      "categories": ["宠物用品"],
+      "subcategories": ["猫砂清洁"],
+      "required_terms": ["猫砂"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "食品饮料"]
+  },
+  {
+    "id": "dog_leash_harness",
+    "query": "大型犬红色胸背带和牵引绳，遛狗用耐用一点",
+    "graded_relevance": {
+      "p_pet_005": 3,
+      "p_pet_024": 3,
+      "p_pet_021": 1
+    },
+    "expected_category": "宠物用品",
+    "expected_subcategory": "牵引用品",
+    "constraints": {
+      "categories": ["宠物用品"],
+      "subcategories": ["牵引用品"],
+      "required_terms": ["牵引"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "pet_fence_with_door",
+    "query": "带门塑料宠物围栏，小狗小猫在家圈养用",
+    "graded_relevance": {
+      "p_pet_017": 3,
+      "p_pet_004": 2,
+      "p_pet_009": 1
+    },
+    "expected_category": "宠物用品",
+    "expected_subcategory": "宠物围栏",
+    "constraints": {
+      "categories": ["宠物用品"],
+      "subcategories": ["宠物围栏"],
+      "required_terms": ["宠物围栏"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "cat_food_salmon",
+    "query": "三文鱼米饭成猫全价干粮",
+    "graded_relevance": {
+      "p_pet_012": 3
+    },
+    "expected_category": "宠物用品",
+    "expected_subcategory": "宠物食品",
+    "constraints": {
+      "categories": ["宠物用品"],
+      "subcategories": ["宠物食品"],
+      "required_terms": ["成猫", "干粮"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["食品饮料", "美妆护肤"]
+  },
+  {
+    "id": "dog_treat_chicken",
+    "query": "犬用鸡肉干零食，训练奖励用",
+    "graded_relevance": {
+      "p_pet_014": 3
+    },
+    "expected_category": "宠物用品",
+    "expected_subcategory": "宠物零食",
+    "constraints": {
+      "categories": ["宠物用品"],
+      "subcategories": ["宠物零食"],
+      "required_terms": ["犬用", "零食"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["食品饮料", "美妆护肤"]
+  },
+  {
+    "id": "whiteboard_magnetic",
+    "query": "磁性办公白板，会议展示和墙面书写用",
+    "graded_relevance": {
+      "p_office_001": 3,
+      "p_office_004": 3
+    },
+    "expected_category": "办公文具",
+    "expected_subcategory": "白板展示",
+    "constraints": {
+      "categories": ["办公文具"],
+      "subcategories": ["白板展示"],
+      "required_terms": ["白板"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "markers_washable",
+    "query": "40色细头可水洗马克笔，做手账和办公标记",
+    "graded_relevance": {
+      "p_office_002": 3
+    },
+    "expected_category": "办公文具",
+    "expected_subcategory": "书写工具",
+    "constraints": {
+      "categories": ["办公文具"],
+      "subcategories": ["书写工具"],
+      "required_terms": ["马克笔"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "file_folder_management",
+    "query": "办公室文件夹隔页、活页夹和文件分类架，整理资料用",
+    "graded_relevance": {
+      "p_office_013": 3,
+      "p_office_015": 3,
+      "p_office_020": 2,
+      "p_office_021": 2,
+      "p_office_025": 1,
+      "p_office_016": 1
+    },
+    "expected_category": "办公文具",
+    "expected_subcategory": "文件管理",
+    "constraints": {
+      "categories": ["办公文具"],
+      "subcategories": ["文件管理"],
+      "required_terms": ["文件"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "desk_organizer_wall_grid",
+    "query": "桌面整理托盘和墙面网格收纳，办公室小物分类",
+    "graded_relevance": {
+      "p_office_012": 3,
+      "p_office_017": 3,
+      "p_office_022": 2,
+      "p_office_023": 2
+    },
+    "expected_category": "办公文具",
+    "expected_subcategory": "桌面整理",
+    "constraints": {
+      "categories": ["办公文具"],
+      "subcategories": ["桌面整理"],
+      "required_terms": ["整理", "收纳"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "bedding_soft_pillowcase",
+    "query": "轻柔床品套装或者桑蚕丝枕套，卧室换季用",
+    "graded_relevance": {
+      "p_home_003": 3,
+      "p_home_010": 3,
+      "p_home_009": 2,
+      "p_home_022": 2
+    },
+    "expected_category": "家居百货",
+    "expected_subcategory": "床品",
+    "constraints": {
+      "categories": ["家居百货"],
+      "subcategories": ["床品"],
+      "required_terms": ["床品"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "数码电子"]
+  },
+  {
+    "id": "blackout_curtain",
+    "query": "卧室遮光窗帘或门帘，灰色绿色都能接受",
+    "graded_relevance": {
+      "p_home_017": 3,
+      "p_home_024": 2,
+      "p_home_004": 1
+    },
+    "expected_category": "家居百货",
+    "expected_subcategory": "窗帘",
+    "constraints": {
+      "categories": ["家居百货"],
+      "subcategories": ["窗帘"],
+      "required_terms": ["窗帘"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "home_furniture_side_table",
+    "query": "客厅小家具，边桌、脚凳或咖啡桌，预算一百以内",
+    "graded_relevance": {
+      "p_home_006": 3,
+      "p_home_020": 3,
+      "p_home_025": 2,
+      "p_home_012": 1,
+      "p_home_013": 1
+    },
+    "expected_category": "家居百货",
+    "expected_subcategory": "家具",
+    "constraints": {
+      "categories": ["家居百货"],
+      "subcategories": ["家具"],
+      "required_terms": ["家具"],
+      "price": {"max": 100}
+    },
+    "must_not_include_product_ids": ["p_home_008", "p_home_018"],
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "数码电子"]
+  },
+  {
+    "id": "carry_on_luggage",
+    "query": "登机拉杆箱，55×40×20cm或国际登机尺寸，带TSA锁更好",
+    "graded_relevance": {
+      "p_travel_009": 3,
+      "p_travel_013": 3,
+      "p_travel_012": 2,
+      "p_travel_014": 2,
+      "p_travel_024": 1
+    },
+    "expected_category": "旅行户外",
+    "expected_subcategory": "旅行箱包",
+    "constraints": {
+      "categories": ["旅行户外"],
+      "subcategories": ["旅行箱包"],
+      "required_terms": ["登机箱", "拉杆箱"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
+  },
+  {
+    "id": "packing_cubes",
+    "query": "旅行收纳袋套装，衣物分装压缩整理用",
+    "graded_relevance": {
+      "p_travel_011": 3,
+      "p_travel_003": 2
+    },
+    "expected_category": "旅行户外",
+    "expected_subcategory": "旅行收纳",
+    "constraints": {
+      "categories": ["旅行户外"],
+      "subcategories": ["旅行收纳"],
+      "required_terms": ["旅行收纳"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤", "数码电子"]
+  },
+  {
+    "id": "rfid_wallet",
+    "query": "旅行用RFID防护真皮钱包，男女通用",
+    "graded_relevance": {
+      "p_travel_002": 3,
+      "p_travel_005": 3
+    },
+    "expected_category": "旅行户外",
+    "expected_subcategory": "钱包证件",
+    "constraints": {
+      "categories": ["旅行户外"],
+      "subcategories": ["钱包证件"],
+      "required_terms": ["RFID", "钱包"]
+    },
+    "should_return_empty": false,
+    "forbidden_categories": ["美妆护肤"]
   }
 ]
