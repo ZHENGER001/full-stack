@@ -115,6 +115,12 @@ class TurnParserHybridTest(unittest.TestCase):
         self.assertEqual(parsed.intent_type, "filter_refinement")
         self.assertEqual(parsed.route_hint, "direct_tool")
 
+    def test_clear_cart(self) -> None:
+        parsed = parse("清空购物车")
+
+        self.assertEqual(parsed.intent_type, "cart_clear")
+        self.assertEqual(parsed.route_hint, "bounded_react")
+
 
     def test_rule_constraints_are_preserved_when_llm_category_is_wrong(self) -> None:
         with patch("app.turn_parser_hybrid.parse_turn_with_llm", new=bad_snack_llm):

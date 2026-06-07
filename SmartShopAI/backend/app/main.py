@@ -465,9 +465,21 @@ def api_delete_cart_item(item_id: str):
         return get_cart(conn)
 
 
+@app.delete("/api/cart/items", response_model=CartResponse)
+def api_clear_cart():
+    with get_db() as conn:
+        conn.execute("DELETE FROM cart_items")
+        return get_cart(conn)
+
+
 @app.delete("/cart/items/{item_id}", response_model=CartResponse)
 def delete_item(item_id: str):
     return api_delete_cart_item(item_id)
+
+
+@app.delete("/cart/items", response_model=CartResponse)
+def clear_cart():
+    return api_clear_cart()
 
 
 @app.post("/api/orders", response_model=OrderResponse)

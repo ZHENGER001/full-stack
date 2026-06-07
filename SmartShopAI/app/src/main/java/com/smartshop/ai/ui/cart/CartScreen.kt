@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -90,6 +91,21 @@ class CartViewModel @Inject constructor(
                 .onFailure {
                     _uiState.value = CartUiState(
                         errorMessage = it.message ?: "购物车接口暂不可用"
+                    )
+                }
+        }
+    }
+
+    fun clearCart() {
+        if (_uiState.value.items.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { cartRepository.clear() }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(items = it, errorMessage = null)
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = it.message ?: "清空购物车失败"
                     )
                 }
         }
@@ -221,6 +237,16 @@ fun CartScreen(
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        }
+                    },
+                    actions = {
+                        if (uiState.items.isNotEmpty()) {
+                            TextButton(
+                                onClick = { viewModel.clearCart() },
+                                enabled = !uiState.isLoading && !uiState.isCheckoutLoading
+                            ) {
+                                Text("清空")
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(

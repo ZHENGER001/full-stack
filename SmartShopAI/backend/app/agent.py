@@ -8,13 +8,20 @@ import shutil
 import threading
 import uuid
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, AsyncIterator, Iterable
 
 from fastapi import HTTPException, UploadFile
 
 from .agent_tools import SearchProductsInput, call_search_products_tool
+from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn
 from .config import get_settings
-from .llm_client import LLMGenerationError, LLMGenerationResult, generate_agent_reply_with_status
+from .llm_client import (
+    LLMGenerationError,
+    LLMGenerationResult,
+    generate_agent_reply_with_status,
+    llm_model_name,
+    stream_agent_reply_chunks_with_status,
+)
 from .policy_engine import decide_policy
 from .query_parser import parse_user_filters
 from .schemas import ProductCard
@@ -130,6 +137,10 @@ def _stream_chat(
         parsed_turn = run_async_blocking(parse_turn_hybrid(message, chat_history, conversation_state))
         policy = decide_policy(parsed_turn, conversation_state)
         logger.info("agent_parsed_turn=%s", parsed_turn.model_dump(mode="json"))
+        if policy.route_hint == "bounded_react":
+            bounded_result = execute_bounded_turn(conn, parsed_turn, conversation_state)
+            yield from emit_bounded_result(conn, session_id, message, image_id, bounded_result)
+            return
         if not policy.should_call_search:
             assistant_content = policy.response_text or "这个操作我正在支持中。"
             yield sse_event("delta", {"text": assistant_content})
@@ -209,15 +220,21 @@ def _stream_chat(
     faq_context = load_faq_context(conn, [product["id"] for product in grounded_products])
     chat_history = load_chat_history(conn, session_id)
     actions = build_actions(conn, grounded_products)
-    if grounded_products:
-        yield sse_event("llm_status", {"mode": "calling", "provider": "poe"})
-    answer, llm_status = generate_grounded_answer(message, grounded_products, faq_context, chat_history)
     if not grounded_products and grounded_alternatives:
         answer = build_alternative_answer(message, grounded_alternatives)
         llm_status = {"mode": "fallback", "reason": "alternatives_available"}
+        yield sse_event("llm_status", llm_status)
+        yield sse_event("delta", {"text": answer})
+    else:
+        answer, llm_status = yield from stream_grounded_answer_events(
+            message,
+            grounded_products,
+            faq_context,
+            chat_history,
+        )
+        if grounded_products:
+            yield sse_event("llm_status", llm_status)
 
-    yield sse_event("llm_status", llm_status)
-    yield sse_event("delta", {"text": answer})
     if grounded_products:
         yield sse_event("products", {"products": grounded_products})
     elif grounded_alternatives:
@@ -234,6 +251,42 @@ def _stream_chat(
         last_recommended_product_ids=[product["id"] for product in visible_products],
         current_product_id=visible_products[0]["id"] if visible_products else current_product_id,
         last_actions=actions,
+    )
+    yield sse_event("done", {"session_id": session_id})
+
+
+def emit_bounded_result(
+    conn,
+    session_id: str,
+    message: str,
+    image_id: str | None,
+    result: BoundedToolResult,
+) -> Iterable[str]:
+    actions = normalize_actions(conn, result.actions)
+    yield sse_event(
+        "tool_diagnostics",
+        {
+            "tool_name": result.tool_name,
+            "status": result.status,
+            **result.diagnostics,
+        },
+    )
+    yield sse_event("delta", {"text": result.response_text})
+    if result.products:
+        yield sse_event("products", {"products": result.products})
+    if result.cart is not None:
+        yield sse_event("cart", result.cart)
+    if actions:
+        yield sse_event("actions", {"actions": actions})
+
+    store_assistant_message(conn, session_id, result.response_text, image_id)
+    update_session_state(
+        conn,
+        session_id,
+        last_query=message,
+        last_recommended_product_ids=result.product_ids or None,
+        current_product_id=result.current_product_id,
+        last_actions=actions or None,
     )
     yield sse_event("done", {"session_id": session_id})
 
@@ -449,6 +502,62 @@ def generate_grounded_answer(
         return build_template_answer(grounded_products, message), {"mode": "fallback", "reason": str(exc)}
     except Exception as exc:
         return build_template_answer(grounded_products, message), {"mode": "fallback", "reason": exc.__class__.__name__}
+
+
+def stream_grounded_answer_events(
+    message: str,
+    grounded_products: list[dict[str, Any]],
+    faq_context: list[dict[str, str]],
+    chat_history: list[dict[str, str]],
+):
+    if not grounded_products:
+        answer = build_template_answer(grounded_products, message)
+        status = {"mode": "fallback", "reason": "no_retrieved_products"}
+        yield sse_event("llm_status", status)
+        yield sse_event("delta", {"text": answer})
+        return answer, status
+
+    yield sse_event("llm_status", {"mode": "calling", "provider": "poe", "stream": True})
+    chunks: list[str] = []
+    try:
+        for chunk in iter_async_blocking(
+            stream_agent_reply_chunks_with_status(message, grounded_products, faq_context, chat_history)
+        ):
+            chunks.append(chunk)
+            yield sse_event("delta", {"text": chunk})
+        answer = " ".join("".join(chunks).split()).strip()
+        if not answer:
+            raise LLMGenerationError("LLM response is empty")
+        return answer, {"mode": "llm_stream", "provider": "poe", "model": llm_model_name()}
+    except LLMGenerationError as exc:
+        if chunks:
+            answer = " ".join("".join(chunks).split()).strip()
+            return answer, {"mode": "llm_stream_partial", "provider": "poe", "model": llm_model_name()}
+        answer = build_template_answer(grounded_products, message)
+        status = {"mode": "fallback", "reason": str(exc)}
+        yield sse_event("delta", {"text": answer})
+        return answer, status
+    except Exception as exc:
+        if chunks:
+            answer = " ".join("".join(chunks).split()).strip()
+            return answer, {"mode": "llm_stream_partial", "provider": "poe", "model": llm_model_name()}
+        answer = build_template_answer(grounded_products, message)
+        status = {"mode": "fallback", "reason": exc.__class__.__name__}
+        yield sse_event("delta", {"text": answer})
+        return answer, status
+
+
+def iter_async_blocking(async_iterable: AsyncIterator[str]) -> Iterable[str]:
+    loop = asyncio.new_event_loop()
+    try:
+        iterator = async_iterable.__aiter__()
+        while True:
+            try:
+                yield loop.run_until_complete(iterator.__anext__())
+            except StopAsyncIteration:
+                break
+    finally:
+        loop.close()
 
 
 def run_async_blocking(coro) -> Any:

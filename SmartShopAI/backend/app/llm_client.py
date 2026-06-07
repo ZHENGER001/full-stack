@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, AsyncIterator
 
 import httpx
 
@@ -32,6 +32,10 @@ def _timeout_seconds() -> float:
         return max(float(raw_value or "25"), 25.0)
     except ValueError:
         return 25.0
+
+
+def llm_model_name() -> str:
+    return _env_value("LLM_MODEL") or _env_value("QWEN_MODEL") or "gemini-3.5-flash"
 
 
 def _compact_product(product: dict[str, Any]) -> dict[str, Any]:
@@ -83,31 +87,39 @@ def _extract_content(data: dict[str, Any]) -> str:
     raise LLMGenerationError("LLM response content is invalid")
 
 
-async def generate_agent_reply(
+def _extract_stream_delta(data: dict[str, Any]) -> str:
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return ""
+    choice = choices[0] if isinstance(choices[0], dict) else {}
+    delta = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}
+    content = delta.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict) and isinstance(item.get("text"), str):
+                parts.append(item["text"])
+        return "".join(parts)
+    text = choice.get("text")
+    return text if isinstance(text, str) else ""
+
+
+def _build_chat_completion_request(
     user_message: str,
     retrieved_products: list[dict],
     faq_context: list[dict] | None = None,
     chat_history: list[dict] | None = None,
-) -> str | None:
-    try:
-        result = await generate_agent_reply_with_status(user_message, retrieved_products, faq_context, chat_history)
-        return result.content
-    except LLMGenerationError:
-        return None
-
-
-async def generate_agent_reply_with_status(
-    user_message: str,
-    retrieved_products: list[dict],
-    faq_context: list[dict] | None = None,
-    chat_history: list[dict] | None = None,
-) -> LLMGenerationResult:
+    *,
+    stream: bool = False,
+) -> tuple[str, dict[str, str], dict[str, Any], str]:
     api_key = _env_value("POE_API_KEY")
     if not api_key:
         raise LLMGenerationError("POE_API_KEY is not configured")
 
     base_url = (_env_value("POE_BASE_URL", "https://api.poe.com/v1") or "https://api.poe.com/v1").rstrip("/")
-    model = _env_value("QWEN_MODEL", "qwen3.6-plus") or "qwen3.6-plus"
+    model = llm_model_name()
     products = [_compact_product(product) for product in retrieved_products]
     grounded_context = {
         "user_message": user_message,
@@ -127,25 +139,56 @@ async def generate_agent_reply_with_status(
         "请用两句话回答：第一句说明是否找到匹配商品；第二句简要说明推荐依据。不要逐条列商品。\n"
         f"{json.dumps(grounded_context, ensure_ascii=False)}"
     )
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.3,
+        "max_tokens": 180,
+    }
+    if stream:
+        payload["stream"] = True
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    return f"{base_url}/chat/completions", headers, payload, model
 
+
+async def generate_agent_reply(
+    user_message: str,
+    retrieved_products: list[dict],
+    faq_context: list[dict] | None = None,
+    chat_history: list[dict] | None = None,
+) -> str | None:
     try:
+        result = await generate_agent_reply_with_status(user_message, retrieved_products, faq_context, chat_history)
+        return result.content
+    except LLMGenerationError:
+        return None
+
+
+async def generate_agent_reply_with_status(
+    user_message: str,
+    retrieved_products: list[dict],
+    faq_context: list[dict] | None = None,
+    chat_history: list[dict] | None = None,
+) -> LLMGenerationResult:
+    try:
+        url, headers, payload, model = _build_chat_completion_request(
+            user_message,
+            retrieved_products,
+            faq_context,
+            chat_history,
+        )
         timeout_seconds = _timeout_seconds()
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=8.0)) as client:
             response = await client.post(
-                f"{base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "temperature": 0.3,
-                    "max_tokens": 180,
-                },
+                url,
+                headers=headers,
+                json=payload,
             )
             response.raise_for_status()
             content = _extract_content(response.json())
@@ -163,3 +206,53 @@ async def generate_agent_reply_with_status(
         raise LLMGenerationError("LLM network error") from exc
     except Exception as exc:
         raise LLMGenerationError("LLM generation failed") from exc
+
+
+async def stream_agent_reply_chunks_with_status(
+    user_message: str,
+    retrieved_products: list[dict],
+    faq_context: list[dict] | None = None,
+    chat_history: list[dict] | None = None,
+) -> AsyncIterator[str]:
+    try:
+        url, headers, payload, _model = _build_chat_completion_request(
+            user_message,
+            retrieved_products,
+            faq_context,
+            chat_history,
+            stream=True,
+        )
+        timeout_seconds = _timeout_seconds()
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=8.0)) as client:
+            async with client.stream("POST", url, headers=headers, json=payload) as response:
+                response.raise_for_status()
+                async for raw_line in response.aiter_lines():
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    if line.startswith("data:"):
+                        data_text = line.removeprefix("data:").strip()
+                    elif line.startswith("{"):
+                        data_text = line
+                    else:
+                        continue
+                    if data_text == "[DONE]":
+                        break
+                    data = json.loads(data_text)
+                    if line.startswith("{"):
+                        content = _extract_content(data)
+                    else:
+                        content = _extract_stream_delta(data)
+                    if content:
+                        yield content
+    except LLMGenerationError:
+        raise
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code if exc.response is not None else "unknown"
+        raise LLMGenerationError(f"LLM HTTP status {status_code}") from exc
+    except httpx.TimeoutException as exc:
+        raise LLMGenerationError("LLM request timed out") from exc
+    except httpx.HTTPError as exc:
+        raise LLMGenerationError("LLM network error") from exc
+    except Exception as exc:
+        raise LLMGenerationError("LLM streaming failed") from exc

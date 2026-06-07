@@ -14,6 +14,7 @@ IntentType = Literal[
     "cart_remove",
     "cart_update_quantity",
     "cart_list",
+    "cart_clear",
     "bundle_recommendation",
     "greeting",
     "capability_question",

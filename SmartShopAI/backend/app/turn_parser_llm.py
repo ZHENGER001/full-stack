@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from .llm_client import LLMGenerationError, _env_value, _extract_content, _timeout_seconds
+from .llm_client import LLMGenerationError, _env_value, _extract_content, _timeout_seconds, llm_model_name
 from .turn_schema import ParsedTurn
 
 
@@ -39,7 +39,7 @@ async def parse_turn_with_llm(
         raise LLMGenerationError("POE_API_KEY is not configured")
 
     base_url = (_env_value("POE_BASE_URL", "https://api.poe.com/v1") or "https://api.poe.com/v1").rstrip("/")
-    model = _env_value("QWEN_MODEL", "qwen3.6-plus") or "qwen3.6-plus"
+    model = llm_model_name()
     payload = {
         "message": message,
         "chat_history": chat_history or [],

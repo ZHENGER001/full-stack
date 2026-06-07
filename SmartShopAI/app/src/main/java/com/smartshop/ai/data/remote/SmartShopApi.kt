@@ -54,6 +54,9 @@ interface SmartShopApi {
     @DELETE("api/cart/items/{itemId}")
     suspend fun deleteCartItem(@Path("itemId") itemId: String): CartDto
 
+    @DELETE("api/cart/items")
+    suspend fun clearCart(): CartDto
+
     @GET("api/profile/summary")
     suspend fun getProfileSummary(): ProfileSummaryDto
 

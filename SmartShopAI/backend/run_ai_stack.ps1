@@ -64,6 +64,7 @@ function Start-Milvus {
     Download-MilvusCompose
     Write-Host "Starting Milvus..."
     Invoke-Native -FilePath $DockerBin -Arguments @("compose", "-f", $MilvusCompose, "up", "-d")
+    Invoke-Native -FilePath $DockerBin -Arguments @("update", "--restart", "unless-stopped", "milvus-etcd", "milvus-minio", "milvus-standalone")
 }
 
 function Start-Embedding {

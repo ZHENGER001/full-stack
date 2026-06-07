@@ -2,6 +2,7 @@ package com.smartshop.ai.data.remote
 
 import android.net.Uri
 import com.smartshop.ai.BuildConfig
+import com.smartshop.ai.data.model.CartItem
 import com.smartshop.ai.data.model.Category
 import com.smartshop.ai.data.model.Product
 import com.smartshop.ai.data.model.ProductReview
@@ -87,6 +88,19 @@ fun CategoryDto.toCategory(index: Int): Category = Category(
     subcategories = subcategories.map { subcategory ->
         Category(id = subcategory, name = subcategory, icon = "")
     }
+)
+
+fun CartItemDto.toCartItem(): CartItem = CartItem(
+    id = id,
+    productId = product_id,
+    productName = title,
+    productImage = image_path.toAssetUrl(),
+    skuId = sku_id,
+    skuText = sku_name,
+    skuPrice = price,
+    quantity = quantity,
+    selected = selected,
+    brand = brand
 )
 
 private fun String.toAssetUrl(): String {

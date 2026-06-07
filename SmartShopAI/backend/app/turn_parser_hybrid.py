@@ -103,6 +103,8 @@ def parse_turn_with_rules(
             quantity=quantity or 1,
             source="rule",
         )
+    if "购物车" in raw and any(term in raw for term in ["清空", "全部删除", "全删", "清掉", "清除"]):
+        return ParsedTurn(raw_message=raw, intent_type="cart_clear", route_hint="bounded_react", source="rule")
     if "购物车" in raw and any(term in raw for term in ["删除", "移除", "不要"]):
         return ParsedTurn(raw_message=raw, intent_type="cart_remove", route_hint="bounded_react", references=references, source="rule")
     if "购物车" in raw and any(term in raw for term in ["改", "数量", "件"]):
@@ -209,6 +211,7 @@ def post_validate_parsed_turn(
         "cart_remove",
         "cart_update_quantity",
         "cart_list",
+        "cart_clear",
         "product_compare",
         "product_detail_qa",
         "greeting",
@@ -243,7 +246,7 @@ def post_validate_parsed_turn(
             }
         )
 
-    if parsed.intent_type in {"cart_add", "cart_remove", "cart_update_quantity", "cart_list", "product_compare", "product_detail_qa"}:
+    if parsed.intent_type in {"cart_add", "cart_remove", "cart_update_quantity", "cart_list", "cart_clear", "product_compare", "product_detail_qa"}:
         route_hint = "bounded_react"
     elif parsed.intent_type == "bundle_recommendation":
         route_hint = "plan_execute"
