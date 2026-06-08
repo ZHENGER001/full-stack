@@ -14,5 +14,8 @@ data class ChatMessage(
     val imageUri: String? = null,
     val productRecommendations: List<Product> = emptyList(),
     val actions: List<ChatAction> = emptyList(),
+    val cartItems: List<CartItem> = emptyList(),
+    val cartTotalAmount: Double? = null,
+    val orderStatusText: String? = null,
     val isLoading: Boolean = false
 )

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -277,6 +278,13 @@ class ProductDetailViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isPaymentLoading = true, paymentError = null)
             runCatching { accountRepository.payOrder(orderId, password) }
                 .onSuccess { order ->
+                    runCatching { productRepository.getProductDetail(order.productId) }
+                        .onSuccess { refreshedProduct ->
+                            _uiState.value = _uiState.value.copy(
+                                product = refreshedProduct,
+                                selectedSkuId = null
+                            )
+                        }
                     _uiState.value = _uiState.value.copy(
                         isPaymentLoading = false,
                         showPaymentSheet = false
@@ -560,6 +568,7 @@ private fun SkuActionSheet(
     onConfirm: () -> Unit
 ) {
     val selectedSku = product.skus.firstOrNull { it.id == selectedSkuId }
+    val hasSelectedSku = selectedSku != null
     val actionText = when (action) {
         SkuAction.AddToCart -> "加入购物车"
         SkuAction.BuyNow -> "立即购买"
@@ -574,6 +583,7 @@ private fun SkuActionSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.88f)
                 .padding(horizontal = 18.dp, vertical = 12.dp)
         ) {
             Text(
@@ -589,8 +599,13 @@ private fun SkuActionSheet(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(14.dp))
-            FlowRow(
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Spacer(modifier = Modifier.height(14.dp))
+                FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -627,6 +642,7 @@ private fun SkuActionSheet(
                     }
                 }
             }
+            }
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -642,7 +658,7 @@ private fun SkuActionSheet(
                     Text(
                         text = selectedSku?.let { "¥${"%.2f".format(it.price)}" } ?: "请选择规格",
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (selectedSku == null) {
+                        color = if (!hasSelectedSku) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         } else {
                             PriceColor
@@ -652,7 +668,7 @@ private fun SkuActionSheet(
                 }
                 Button(
                     onClick = onConfirm,
-                    enabled = !isLoading,
+                    enabled = !isLoading && hasSelectedSku,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (action == SkuAction.BuyNow) PriceColor else MaterialTheme.colorScheme.primary
                     )

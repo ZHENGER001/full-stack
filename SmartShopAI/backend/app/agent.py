@@ -13,7 +13,7 @@ from typing import Any, AsyncIterator, Iterable
 
 from fastapi import HTTPException, UploadFile
 
-from .agent_tools import SearchProductsInput, call_search_products_tool
+from .agentic_rag import plan_agentic_turn, retrieve_products_for_turn
 from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn
 from .catalog import get_cart
 from .config import get_settings
@@ -24,10 +24,7 @@ from .llm_client import (
     llm_model_name,
     stream_agent_reply_chunks_with_status,
 )
-from .policy_engine import decide_policy
-from .query_parser import parse_user_filters
 from .schemas import ProductCard
-from .turn_parser_hybrid import parse_turn_hybrid
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +41,20 @@ ALLOWED_ACTION_TYPES = set(ACTION_LABELS)
 
 def sse_event(event: str, payload: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def order_status_event(
+    status: str,
+    message: str,
+    order_id: str | None = None,
+    payment_id: str | None = None,
+) -> str:
+    payload: dict[str, Any] = {"status": status, "message": message}
+    if order_id:
+        payload["order_id"] = order_id
+    if payment_id:
+        payload["payment_id"] = payment_id
+    return sse_event("order_status", payload)
 
 
 def mock_detect_from_hint(user_hint: str | None, filename: str | None = None) -> dict[str, str]:
@@ -134,20 +145,24 @@ def _stream_chat(
 
     chat_history = previous_chat_history
     conversation_state = load_conversation_state(conn, session_id, current_product_id, cart_context)
+    if is_order_cancel_intent(message):
+        yield from emit_order_cancel_turn(conn, session_id, message, image_id)
+        return
     if is_checkout_intent(message):
         yield from emit_checkout_turn(conn, session_id, message, image_id)
         return
+    turn_plan = None
     parsed_turn = None
     try:
-        parsed_turn = run_async_blocking(parse_turn_hybrid(message, chat_history, conversation_state))
-        policy = decide_policy(parsed_turn, conversation_state)
+        turn_plan = run_async_blocking(plan_agentic_turn(message, chat_history, conversation_state))
+        parsed_turn = turn_plan.parsed_turn
         logger.info("agent_parsed_turn=%s", parsed_turn.model_dump(mode="json"))
-        if policy.route_hint == "bounded_react":
+        if turn_plan.should_run_bounded_tool:
             bounded_result = execute_bounded_turn(conn, parsed_turn, conversation_state)
             yield from emit_bounded_result(conn, session_id, message, image_id, bounded_result)
             return
-        if not policy.should_call_search:
-            assistant_content = policy.response_text or "这个操作我正在支持中。"
+        if not turn_plan.should_search_products:
+            assistant_content = turn_plan.policy.response_text or "这个操作我正在支持中。"
             yield sse_event("delta", {"text": assistant_content})
             store_assistant_message(conn, session_id, assistant_content, image_id)
             update_session_state(conn, session_id, last_query=message)
@@ -211,7 +226,8 @@ def _stream_chat(
         )
 
     final_user_query = build_final_user_query(conn, message, image_query, current_product_id, session_id)
-    parsed_filters = parse_user_filters(final_user_query, load_known_brands(conn))
+    retrieval_result = retrieve_products_for_turn(conn, final_user_query, load_known_brands(conn), turn_plan)
+    parsed_filters = retrieval_result.parsed_filters
     logger.info("agent_final_user_query=%s parsed_filters=%s", final_user_query, parsed_filters)
     for waiting_text in build_waiting_deltas(message, parsed_filters, image_id, bool(chat_history)):
         yield sse_event("delta", {"text": f"{waiting_text}\n"})
@@ -221,10 +237,10 @@ def _stream_chat(
         {
             "final_user_query": final_user_query,
             "parsed_filters": parsed_filters,
-            "pipeline": ["query_router", "dense_milvus", "bm25", "keyword", "rrf", "sqlite_hydrate", "verifier"],
-            "sources": ["dense_milvus", "bm25", "keyword"],
-            "fusion": "rrf",
-            "vector_backend": "milvus",
+            "pipeline": retrieval_result.pipeline,
+            "sources": retrieval_result.sources,
+            "fusion": retrieval_result.fusion,
+            "vector_backend": retrieval_result.vector_backend,
             "turn": {
                 "intent_type": parsed_turn.intent_type if parsed_turn else "unknown",
                 "route_hint": parsed_turn.route_hint if parsed_turn else "direct_tool",
@@ -232,15 +248,7 @@ def _stream_chat(
             },
         },
     )
-    search_result = call_search_products_tool(
-        conn,
-        SearchProductsInput(
-            query=final_user_query,
-            top_k=3,
-            constraints=parsed_turn.constraints.model_dump(mode="json") if parsed_turn else {},
-            retrieval_policy=parsed_turn.retrieval_policy_hint.model_dump(mode="json") if parsed_turn else {},
-        ),
-    )
+    search_result = retrieval_result.search_result
     products = search_result.products
     alternatives = search_result.alternatives
     yield sse_event("retrieval_diagnostics", search_result.diagnostics)
@@ -327,18 +335,47 @@ def emit_checkout_turn(
     message: str,
     image_id: str | None,
 ) -> Iterable[str]:
+    if is_checkout_cancel_intent(message):
+        assistant_content = "已取消本次下单，购物车商品会继续保留。需要时可以再次回复“结算”。"
+        yield order_status_event("cancelled", "已取消下单")
+        yield sse_event("delta", {"text": assistant_content})
+        yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
+        store_assistant_message(conn, session_id, assistant_content, image_id)
+        update_session_state(conn, session_id, last_query=message, last_actions=None)
+        yield sse_event("done", {"session_id": session_id})
+        return
+
     if is_address_change_intent(message):
         assistant_content = "可以先到地址管理新增或修改收货地址。地址确认后，回到这里回复“结算”或“确认下单”，我会重新汇总订单。"
+        yield order_status_event("need_address", "等待补充收货地址")
+        yield sse_event("delta", {"text": assistant_content})
+        yield sse_event("actions", {"actions": [{"type": "search_more", "label": "修改收货地址", "product_id": None}]})
+        store_assistant_message(conn, session_id, assistant_content, image_id)
+        update_session_state(
+            conn,
+            session_id,
+            last_query=message,
+            last_actions=[{"type": "search_more", "label": "修改收货地址", "product_id": None}],
+        )
+        yield sse_event("done", {"session_id": session_id})
+        return
+
+    yield order_status_event("checking_cart", "正在读取购物车")
+    cart = get_cart(conn).model_dump(mode="json")
+    selected_items = [item for item in cart.get("items", []) if item.get("selected", True)]
+    if not cart.get("items"):
+        assistant_content = "购物车现在是空的，先加入商品后我再帮你确认订单。"
+        yield order_status_event("failed", "购物车为空")
         yield sse_event("delta", {"text": assistant_content})
         store_assistant_message(conn, session_id, assistant_content, image_id)
         update_session_state(conn, session_id, last_query=message)
         yield sse_event("done", {"session_id": session_id})
         return
-
-    cart = get_cart(conn).model_dump(mode="json")
-    if not cart.get("items"):
-        assistant_content = "购物车现在是空的，先加入商品后我再帮你确认订单。"
+    if not selected_items:
+        assistant_content = "购物车里没有选中的商品，请先选择要结算的商品。"
+        yield order_status_event("failed", "没有选中商品")
         yield sse_event("delta", {"text": assistant_content})
+        yield sse_event("cart", cart)
         store_assistant_message(conn, session_id, assistant_content, image_id)
         update_session_state(conn, session_id, last_query=message)
         yield sse_event("done", {"session_id": session_id})
@@ -348,13 +385,36 @@ def emit_checkout_turn(
     if is_checkout_confirm_intent(message):
         if not address:
             assistant_content = "下单前需要先补充收货地址。请到地址管理新增地址后，再回复“确认下单”。"
+            actions = [{"type": "search_more", "label": "修改收货地址", "product_id": None}]
+            yield order_status_event("need_address", "等待补充收货地址")
             yield sse_event("delta", {"text": assistant_content})
+            yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
-            update_session_state(conn, session_id, last_query=message)
+            update_session_state(conn, session_id, last_query=message, last_actions=actions)
             yield sse_event("done", {"session_id": session_id})
             return
-        order = create_paid_order_from_cart(conn, address)
+        yield order_status_event("creating_order", "正在创建订单")
+        time.sleep(0.2)
+        try:
+            order = create_paid_order_from_cart(conn, address)
+        except ValueError as exc:
+            assistant_content = str(exc)
+            yield order_status_event("failed", "下单失败")
+            yield sse_event("delta", {"text": assistant_content})
+            yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
+            store_assistant_message(conn, session_id, assistant_content, image_id)
+            update_session_state(conn, session_id, last_query=message, last_actions=None)
+            yield sse_event("done", {"session_id": session_id})
+            return
+        yield order_status_event("paying", "正在模拟支付")
+        time.sleep(0.2)
         assistant_content = build_order_success_text(order)
+        yield order_status_event(
+            "paid",
+            f"支付成功，订单号 {order['order_id']}",
+            order_id=order["order_id"],
+            payment_id=order["payment_id"],
+        )
         yield sse_event("delta", {"text": assistant_content})
         yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
         store_assistant_message(conn, session_id, assistant_content, image_id)
@@ -363,18 +423,58 @@ def emit_checkout_turn(
         return
 
     assistant_content = build_checkout_confirmation_text(cart, address)
-    actions = normalize_actions(
-        conn,
-        [
-            {"type": "search_more", "label": "确认下单并支付", "product_id": None},
-            {"type": "search_more", "label": "修改收货地址", "product_id": None},
-        ],
+    raw_actions = [
+        {"type": "search_more", "label": "修改收货地址", "product_id": None},
+        {"type": "search_more", "label": "取消下单", "product_id": None},
+    ]
+    if address:
+        raw_actions.insert(0, {"type": "search_more", "label": "确认下单并支付", "product_id": None})
+    actions = normalize_actions(conn, raw_actions)
+    yield order_status_event(
+        "awaiting_confirmation" if address else "need_address",
+        "等待确认下单" if address else "等待补充收货地址",
     )
     yield sse_event("delta", {"text": assistant_content})
     yield sse_event("cart", cart)
     yield sse_event("actions", {"actions": actions})
     store_assistant_message(conn, session_id, assistant_content, image_id)
     update_session_state(conn, session_id, last_query=message, last_actions=actions)
+    yield sse_event("done", {"session_id": session_id})
+
+
+def emit_order_cancel_turn(
+    conn,
+    session_id: str,
+    message: str,
+    image_id: str | None,
+) -> Iterable[str]:
+    order = resolve_cancel_order(conn, message)
+    if not order:
+        assistant_content = "没有找到可取消的订单。你可以到“我的订单”里查看当前订单状态。"
+        yield order_status_event("failed", "没有可取消订单")
+        yield sse_event("delta", {"text": assistant_content})
+        store_assistant_message(conn, session_id, assistant_content, image_id)
+        update_session_state(conn, session_id, last_query=message)
+        yield sse_event("done", {"session_id": session_id})
+        return
+    if order["status"] == "cancelled":
+        assistant_content = f"订单 {order['id']} 已经是已取消状态。"
+        yield order_status_event("cancelled", "订单已取消", order_id=order["id"])
+        yield sse_event("delta", {"text": assistant_content})
+        store_assistant_message(conn, session_id, assistant_content, image_id)
+        update_session_state(conn, session_id, last_query=message)
+        yield sse_event("done", {"session_id": session_id})
+        return
+    if order["status"] == "paid":
+        restore_order_stock(conn, order["id"])
+    conn.execute("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", ("cancelled", order["id"]))
+    assistant_content = f"已取消订单 {order['id']}。"
+    if order["status"] == "paid":
+        assistant_content += " 已同步恢复对应商品库存。"
+    yield order_status_event("cancelled", "订单已取消", order_id=order["id"])
+    yield sse_event("delta", {"text": assistant_content})
+    store_assistant_message(conn, session_id, assistant_content, image_id)
+    update_session_state(conn, session_id, last_query=message)
     yield sse_event("done", {"session_id": session_id})
 
 
@@ -644,11 +744,15 @@ def load_conversation_state(
         "SELECT last_query, last_recommended_product_ids, current_product_id FROM chat_sessions WHERE id = ?",
         (session_id,),
     ).fetchone()
+    cart_items = cart_context or [
+        item.model_dump(mode="json")
+        for item in get_cart(conn).items
+    ]
     return {
         "last_query": row["last_query"] if row else None,
         "last_recommended_product_ids": parse_product_id_list(row["last_recommended_product_ids"] if row else None),
         "current_product_id": current_product_id or (row["current_product_id"] if row else None),
-        "cart_context": cart_context or [],
+        "cart_context": cart_items,
     }
 
 
@@ -694,9 +798,19 @@ def build_waiting_deltas(
 
 def is_checkout_intent(message: str) -> bool:
     text = message.strip()
-    return is_address_change_intent(text) or is_checkout_confirm_intent(text) or any(
+    return is_checkout_cancel_intent(text) or is_address_change_intent(text) or is_checkout_confirm_intent(text) or any(
         word in text for word in ("结算", "下单", "提交订单", "确认订单", "去支付", "支付")
     )
+
+
+def is_order_cancel_intent(message: str) -> bool:
+    text = message.strip()
+    return "订单" in text and any(word in text for word in ("取消", "撤销", "关闭", "退掉", "不要了"))
+
+
+def is_checkout_cancel_intent(message: str) -> bool:
+    text = message.strip()
+    return any(word in text for word in ("取消下单", "取消支付", "暂不下单", "先不买", "不下单"))
 
 
 def is_checkout_confirm_intent(message: str) -> bool:
@@ -716,7 +830,36 @@ def load_default_address(conn) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
+def resolve_cancel_order(conn, message: str) -> dict[str, Any] | None:
+    match = re.search(r"ord_[0-9a-fA-F]{10}", message)
+    if match:
+        row = conn.execute("SELECT * FROM orders WHERE id = ?", (match.group(0),)).fetchone()
+        return dict(row) if row else None
+    row = conn.execute(
+        """
+        SELECT *
+        FROM orders
+        WHERE status IN ('pending_payment', 'paid')
+        ORDER BY created_at DESC
+        LIMIT 1
+        """
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def restore_order_stock(conn, order_id: str) -> None:
+    rows = conn.execute("SELECT sku_id, quantity FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+    for row in rows:
+        if not row["sku_id"]:
+            continue
+        conn.execute(
+            "UPDATE product_skus SET stock = stock + ? WHERE id = ?",
+            (int(row["quantity"]), row["sku_id"]),
+        )
+
+
 def build_checkout_confirmation_text(cart: dict[str, Any], address: dict[str, Any] | None) -> str:
+    selected_items = [item for item in cart.get("items", []) if item.get("selected", True)]
     address_text = (
         f"{address['receiver_name']} {address['phone']}，{address['province']}{address['city']}{address['district']}{address['detail']}"
         if address
@@ -727,12 +870,12 @@ def build_checkout_confirmation_text(cart: dict[str, Any], address: dict[str, An
         f"收货地址：{address_text}",
         "订单商品：",
     ]
-    for index, item in enumerate((cart.get("items") or [])[:4], start=1):
+    for index, item in enumerate(selected_items[:4], start=1):
         lines.append(
             f"{index}. {item['title']}｜{item.get('sku_name') or '默认规格'}｜x{item.get('quantity') or 1}｜¥{float(item.get('price') or 0):.2f}"
         )
-    if len(cart.get("items") or []) > 4:
-        lines.append(f"还有 {len(cart['items']) - 4} 件商品未展开。")
+    if len(selected_items) > 4:
+        lines.append(f"还有 {len(selected_items) - 4} 件商品未展开。")
     lines.append(f"合计 ¥{float(cart.get('total_amount') or 0):.2f}")
     if address:
         lines.append("确认无误后点“确认下单并支付”，我会模拟完成支付。")
@@ -744,46 +887,66 @@ def build_checkout_confirmation_text(cart: dict[str, Any], address: dict[str, An
 def create_paid_order_from_cart(conn, address: dict[str, Any]) -> dict[str, Any]:
     cart = get_cart(conn)
     selected_items = [item for item in cart.items if item.selected]
+    if not selected_items:
+        raise ValueError("购物车里没有选中的商品，请先选择要结算的商品。")
+    stock_problem = find_stock_problem(conn, selected_items)
+    if stock_problem:
+        raise ValueError(stock_problem)
+
     order_id = f"ord_{uuid.uuid4().hex[:10]}"
     total = round(sum(item.price * item.quantity for item in selected_items), 2)
-    conn.execute(
-        """
-        INSERT INTO orders(id, status, total_amount, address_id, address_snapshot)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            order_id,
-            "paid",
-            total,
-            address["id"],
-            json.dumps(address, ensure_ascii=False),
-        ),
-    )
-    for item in selected_items:
+    payment_id = f"pay_{uuid.uuid4().hex[:10]}"
+    conn.execute("SAVEPOINT checkout_order")
+    try:
         conn.execute(
             """
-            INSERT INTO order_items(id, order_id, product_id, sku_id, title, brand, image_path, sku_name, price, quantity)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO orders(id, status, total_amount, address_id, address_snapshot)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
-                f"oi_{uuid.uuid4().hex[:10]}",
                 order_id,
-                item.product_id,
-                item.sku_id,
-                item.title,
-                item.brand,
-                item.image_path,
-                item.sku_name,
-                item.price,
-                item.quantity,
+                "paid",
+                total,
+                address["id"],
+                json.dumps(address, ensure_ascii=False),
             ),
         )
-    conn.executemany("DELETE FROM cart_items WHERE id = ?", [(item.id,) for item in selected_items])
-    payment_id = f"pay_{uuid.uuid4().hex[:10]}"
-    conn.execute(
-        "INSERT INTO payments(id, order_id, status, amount) VALUES (?, ?, ?, ?)",
-        (payment_id, order_id, "paid", total),
-    )
+        for item in selected_items:
+            sku_id = checkout_sku_id(conn, item)
+            conn.execute(
+                """
+                INSERT INTO order_items(id, order_id, product_id, sku_id, title, brand, image_path, sku_name, price, quantity)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"oi_{uuid.uuid4().hex[:10]}",
+                    order_id,
+                    item.product_id,
+                    sku_id,
+                    item.title,
+                    item.brand,
+                    item.image_path,
+                    item.sku_name,
+                    item.price,
+                    item.quantity,
+                ),
+            )
+            updated = conn.execute(
+                "UPDATE product_skus SET stock = stock - ? WHERE id = ? AND stock >= ?",
+                (item.quantity, sku_id, item.quantity),
+            )
+            if updated.rowcount != 1:
+                raise ValueError(f"{item.title}（{item.sku_name}）库存刚刚发生变化，请重新确认后再下单。")
+        conn.executemany("DELETE FROM cart_items WHERE id = ?", [(item.id,) for item in selected_items])
+        conn.execute(
+            "INSERT INTO payments(id, order_id, status, amount) VALUES (?, ?, ?, ?)",
+            (payment_id, order_id, "paid", total),
+        )
+        conn.execute("RELEASE checkout_order")
+    except Exception:
+        conn.execute("ROLLBACK TO checkout_order")
+        conn.execute("RELEASE checkout_order")
+        raise
     return {
         "order_id": order_id,
         "payment_id": payment_id,
@@ -791,6 +954,37 @@ def create_paid_order_from_cart(conn, address: dict[str, Any]) -> dict[str, Any]
         "items": selected_items,
         "address": address,
     }
+
+
+def checkout_sku_id(conn, item: Any) -> str:
+    if item.sku_id:
+        return item.sku_id
+    row = conn.execute(
+        "SELECT id FROM product_skus WHERE product_id = ? ORDER BY price ASC LIMIT 1",
+        (item.product_id,),
+    ).fetchone()
+    if not row:
+        raise ValueError(f"{item.title} 没有可购买规格，请重新选择商品。")
+    return row["id"]
+
+
+def find_stock_problem(conn, items: list[Any]) -> str | None:
+    for item in items:
+        sku_id = checkout_sku_id(conn, item)
+        row = conn.execute(
+            """
+            SELECT stock
+            FROM product_skus
+            WHERE id = ? AND product_id = ?
+            """,
+            (sku_id, item.product_id),
+        ).fetchone()
+        if not row:
+            return f"{item.title} 的规格已不存在，请重新选择规格后再下单。"
+        stock = int(row["stock"] or 0)
+        if stock < item.quantity:
+            return f"{item.title}（{item.sku_name}）库存不足，当前只剩 {stock} 件，请调整数量后再下单。"
+    return None
 
 
 def build_order_success_text(order: dict[str, Any]) -> str:

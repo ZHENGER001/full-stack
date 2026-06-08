@@ -446,6 +446,10 @@ def api_patch_cart_item(item_id: str, payload: CartItemPatch):
             raise HTTPException(status_code=404, detail="Cart item not found")
         quantity = payload.quantity if payload.quantity is not None else current["quantity"]
         selected = int(payload.selected) if payload.selected is not None else current["selected"]
+        if payload.quantity is not None:
+            stock = cart_item_stock(conn, current)
+            if stock is not None and quantity > stock:
+                raise HTTPException(status_code=400, detail=f"库存不足，当前最多可买 {stock} 件")
         conn.execute(
             "UPDATE cart_items SET quantity = ?, selected = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (quantity, selected, item_id),
@@ -513,6 +517,9 @@ def api_create_order(payload: OrderCreate | None = None):
             selected_items = [item for item in cart.items if item.id in cart_item_ids]
         if not selected_items:
             raise HTTPException(status_code=400, detail="No selected cart items")
+        stock_problem = find_order_stock_problem(conn, selected_items)
+        if stock_problem:
+            raise HTTPException(status_code=400, detail=stock_problem)
         address = (
             conn.execute("SELECT * FROM addresses WHERE id = ?", (payload.address_id,)).fetchone()
             if payload.address_id
@@ -536,6 +543,7 @@ def api_create_order(payload: OrderCreate | None = None):
             ),
         )
         for item in selected_items:
+            sku_id = checkout_sku_id(conn, item)
             conn.execute(
                 """
                 INSERT INTO order_items(id, order_id, product_id, sku_id, title, brand, image_path, sku_name, price, quantity)
@@ -545,7 +553,7 @@ def api_create_order(payload: OrderCreate | None = None):
                     f"oi_{uuid.uuid4().hex[:10]}",
                     order_id,
                     item.product_id,
-                    item.sku_id,
+                    sku_id,
                     item.title,
                     item.brand,
                     item.image_path,
@@ -583,13 +591,37 @@ def read_order(order_id: str):
     return api_get_order(order_id)
 
 
+@app.patch("/api/orders/{order_id}/cancel", response_model=OrderResponse)
+def api_cancel_order(order_id: str):
+    with get_db() as conn:
+        order = get_order(conn, order_id)
+        if order.status == "cancelled":
+            return order
+        if order.status == "paid":
+            restore_order_stock(conn, order.items)
+        conn.execute("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", ("cancelled", order_id))
+        return get_order(conn, order_id)
+
+
+@app.patch("/orders/{order_id}/cancel", response_model=OrderResponse)
+def cancel_order(order_id: str):
+    return api_cancel_order(order_id)
+
+
 @app.post("/api/payments/mock", response_model=MockPaymentResponse)
 def api_mock_payment(payload: MockPaymentRequest):
     if payload.password != "123456":
         raise HTTPException(status_code=400, detail="Payment password is incorrect")
     with get_db() as conn:
         order = get_order(conn, payload.order_id)
+        if order.status == "cancelled":
+            raise HTTPException(status_code=400, detail="Order is cancelled")
         status = "paid" if payload.success else "failed"
+        if status == "paid" and order.status != "paid":
+            stock_problem = find_order_stock_problem(conn, order.items)
+            if stock_problem:
+                raise HTTPException(status_code=400, detail=stock_problem)
+            decrement_order_stock(conn, order.items)
         payment_id = f"pay_{uuid.uuid4().hex[:10]}"
         conn.execute(
             "INSERT INTO payments(id, order_id, status, amount) VALUES (?, ?, ?, ?)",
@@ -602,6 +634,70 @@ def api_mock_payment(payload: MockPaymentRequest):
             status=status,
             amount=order.total_amount,
         )
+
+
+def checkout_sku_id(conn, item) -> str:
+    sku_id = getattr(item, "sku_id", None)
+    if sku_id:
+        return sku_id
+    row = conn.execute(
+        "SELECT id FROM product_skus WHERE product_id = ? ORDER BY price ASC LIMIT 1",
+        (getattr(item, "product_id"),),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=400, detail=f"{getattr(item, 'title')} 没有可购买规格")
+    return row["id"]
+
+
+def find_order_stock_problem(conn, items) -> str | None:
+    for item in items:
+        sku_id = checkout_sku_id(conn, item)
+        row = conn.execute(
+            "SELECT stock FROM product_skus WHERE id = ? AND product_id = ?",
+            (sku_id, getattr(item, "product_id")),
+        ).fetchone()
+        if not row:
+            return f"{getattr(item, 'title')} 的规格已不存在，请重新选择规格"
+        stock = int(row["stock"] or 0)
+        quantity = int(getattr(item, "quantity"))
+        if stock < quantity:
+            return f"{getattr(item, 'title')}（{getattr(item, 'sku_name')}）库存不足，当前只剩 {stock} 件"
+    return None
+
+
+def decrement_order_stock(conn, items) -> None:
+    for item in items:
+        sku_id = checkout_sku_id(conn, item)
+        quantity = int(getattr(item, "quantity"))
+        updated = conn.execute(
+            "UPDATE product_skus SET stock = stock - ? WHERE id = ? AND stock >= ?",
+            (quantity, sku_id, quantity),
+        )
+        if updated.rowcount != 1:
+            raise HTTPException(status_code=400, detail=f"{getattr(item, 'title')} 库存刚刚发生变化，请重新确认")
+
+
+def restore_order_stock(conn, items) -> None:
+    for item in items:
+        sku_id = checkout_sku_id(conn, item)
+        quantity = int(getattr(item, "quantity"))
+        conn.execute(
+            "UPDATE product_skus SET stock = stock + ? WHERE id = ?",
+            (quantity, sku_id),
+        )
+
+
+def cart_item_stock(conn, item) -> int | None:
+    sku_id = item.get("sku_id") if isinstance(item, dict) else getattr(item, "sku_id", None)
+    product_id = item.get("product_id") if isinstance(item, dict) else getattr(item, "product_id", None)
+    if not sku_id:
+        row = conn.execute(
+            "SELECT stock FROM product_skus WHERE product_id = ? ORDER BY price ASC LIMIT 1",
+            (product_id,),
+        ).fetchone()
+    else:
+        row = conn.execute("SELECT stock FROM product_skus WHERE id = ?", (sku_id,)).fetchone()
+    return int(row["stock"]) if row else None
 
 
 @app.post("/payments/mock", response_model=MockPaymentResponse)

@@ -19,7 +19,27 @@ OpenAPI docs are available at `http://127.0.0.1:8000/docs`.
 
 ## AI Agent Design
 
-用户通过文本或图片输入需求，后端先统一成 `final_user_query`，再进入 `query_router -> dense(Milvus) / BM25 / keyword -> RRF -> SQLite hydrate -> verifier` 的检索链路，并构造 grounded context。生成链路会把 grounded context 交给 Poe/Qwen 生成自然语言导购回复，但商品、价格、库存、SKU、图片、FAQ 和评价等事实仍只来自 SQLite。
+后端现在采用轻量 Agentic RAG 编排。`app/agent.py` 负责 SSE、会话写入和订单/购物车执行入口；`app/agentic_rag.py` 负责可迁移到 LangGraph 的图式节点：`turn_memory -> intent_parser -> policy_router -> retrieval -> verifier -> grounded_writer`。
+
+核心流程：
+
+```text
+用户输入
+-> turn_memory: 读取历史、当前商品、购物车上下文
+-> intent_parser: 解析意图、引用、否定条件、价格/品牌/类目约束
+-> policy_router: 决定走确定性工具、商品检索、澄清问题或交易流程
+-> bounded tools: 购物车 CRUD、商品详情、对比、下单、取消订单等结构化操作
+-> retrieval: dense(Milvus) / BM25 / keyword 多路召回
+-> RRF fusion
+-> SQLite hydrate: 回查商品、SKU、库存、图片、FAQ、评价事实
+-> verifier: 过滤不满足硬约束的候选
+-> grounded_writer: 用召回商品生成导购文案和追问气泡
+-> SSE: 实时返回 delta/products/cart/order_status/actions
+```
+
+推荐咨询走 RAG：用户通过文本或图片输入需求，后端先统一成 `final_user_query`，再进入 `dense(Milvus) / BM25 / keyword -> RRF -> SQLite hydrate -> verifier` 的检索链路，并构造 grounded context。生成链路会把 grounded context 交给 Poe/Qwen 生成自然语言导购回复，但商品、价格、库存、SKU、图片、FAQ 和评价等事实仍只来自 SQLite。
+
+交易执行走确定性工具：加购、删除购物车商品、修改数量、清空购物车、结算、支付、取消订单等操作不让大模型直接改数据库，而是先解析成结构化意图，再调用 bounded tools 或订单流程。这样可以保证库存扣减、订单状态、购物车详情和客户端展示是一致的。
 
 前端通过 SSE 接收回答、商品卡片和结构化 actions。用户点击 action chip 时不再把按钮文本重新发送给后端，而是根据 action 类型直接执行查看详情、加入购物车、打开购物车或继续搜索。
 

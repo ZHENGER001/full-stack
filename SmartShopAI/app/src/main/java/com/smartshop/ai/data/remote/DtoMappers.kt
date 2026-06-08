@@ -29,7 +29,7 @@ fun ProductCardDto.toProduct(): Product = Product(
     skuSummaries = sku_summary?.takeIf { it.isNotBlank() }?.let { listOf(it) }.orEmpty(),
     faqSummaries = faq_summary,
     reviewSummaries = review_summary,
-    aiComment = reason.orEmpty()
+    aiComment = userFacingComment(reason, marketing_description)
 )
 
 fun ProductDetailDto.toProduct(): Product = Product(
@@ -114,4 +114,13 @@ private fun String.toAssetUrl(): String {
         .split("/")
         .joinToString("/") { segment -> Uri.encode(segment) }
     return "$base/assets/$encodedPath"
+}
+
+private fun userFacingComment(reason: String?, marketingDescription: String?): String {
+    val candidate = reason
+        ?.takeIf { it.isNotBlank() }
+        ?.takeUnless { it.contains("RRF", ignoreCase = true) }
+        ?.takeUnless { it.contains("retrieval", ignoreCase = true) }
+        ?.takeUnless { it.contains("Matched by", ignoreCase = true) }
+    return candidate ?: marketingDescription.orEmpty()
 }

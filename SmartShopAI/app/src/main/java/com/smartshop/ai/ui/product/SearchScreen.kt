@@ -54,6 +54,7 @@ import com.smartshop.ai.data.model.Product
 import com.smartshop.ai.data.product.ProductRepository
 import com.smartshop.ai.ui.components.CategoryChip
 import com.smartshop.ai.ui.components.ProductCard
+import com.smartshop.ai.ui.components.ShimmerProductGrid
 import com.smartshop.ai.ui.components.SmartShopSearchBar
 import com.smartshop.ai.ui.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -304,11 +305,9 @@ fun SearchScreen(
                     }
                     if (uiState.isLoading) {
                         item(span = { GridItemSpan(2) }) {
-                            Text(
-                                text = "正在加载数据集商品...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 24.dp)
+                            ShimmerProductGrid(
+                                rows = 2,
+                                modifier = Modifier.padding(top = 12.dp)
                             )
                         }
                     } else {
@@ -347,18 +346,12 @@ fun SearchScreen(
 
                 // Results grid
                 if (uiState.isLoading) {
-                    Column(
+                    ShimmerProductGrid(
+                        rows = 3,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 60.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "正在搜索数据集商品...",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                            .padding(top = 12.dp)
+                    )
                 } else if (uiState.results.isEmpty()) {
                     Column(
                         modifier = Modifier

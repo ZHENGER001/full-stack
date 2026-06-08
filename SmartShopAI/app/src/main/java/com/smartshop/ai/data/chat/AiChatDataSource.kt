@@ -3,8 +3,11 @@ package com.smartshop.ai.data.chat
 import android.content.Context
 import android.net.Uri
 import com.smartshop.ai.data.model.ChatAction
+import com.smartshop.ai.data.model.CartItem
+import com.smartshop.ai.data.remote.CartItemDto
 import com.smartshop.ai.data.remote.ChatStreamRequestDto
 import com.smartshop.ai.data.remote.SmartShopApi
+import com.smartshop.ai.data.remote.toCartItem
 import com.smartshop.ai.data.remote.toProduct
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +31,8 @@ class AiChatDataSource @Inject constructor(
 
     fun streamAssistantReply(
         text: String,
-        imageUri: Uri?
+        imageUri: Uri?,
+        cartContext: List<CartItem> = emptyList()
     ): Flow<AiChatEvent> = flow {
         var receivedDone = false
         val imageHint = imageUri?.let { imageUnderstandingRepository.describeImage(it) }.orEmpty()
@@ -44,7 +48,8 @@ class AiChatDataSource @Inject constructor(
             ChatStreamRequestDto(
                 session_id = stableSessionId(),
                 message = message,
-                image_id = imageId
+                image_id = imageId,
+                cart_context = cartContext.map { it.toAgentCartContext() }
             )
         )
         if (!response.isSuccessful) {
@@ -109,7 +114,13 @@ class AiChatDataSource @Inject constructor(
                         price = item.getDouble("price"),
                         rating = item.optDouble("rating", 0.0).toFloat(),
                         image_path = item.optString("image_path"),
-                        reason = item.optString("reason").ifBlank { null }
+                        reason = item.optString("reason").ifBlank { null },
+                        marketing_description = item.optString("marketing_description").ifBlank { null },
+                        review_count = item.optInt("review_count", 0),
+                        sku_count = item.optInt("sku_count", 0),
+                        faq_count = item.optInt("faq_count", 0),
+                        stock = item.optInt("stock", 0),
+                        sku_summary = item.optString("sku_summary").ifBlank { null }
                     ).toProduct()
                 }
                 AiChatEvent.Products(products)
@@ -127,7 +138,13 @@ class AiChatDataSource @Inject constructor(
                         price = item.getDouble("price"),
                         rating = item.optDouble("rating", 0.0).toFloat(),
                         image_path = item.optString("image_path"),
-                        reason = item.optString("reason").ifBlank { null }
+                        reason = item.optString("reason").ifBlank { null },
+                        marketing_description = item.optString("marketing_description").ifBlank { null },
+                        review_count = item.optInt("review_count", 0),
+                        sku_count = item.optInt("sku_count", 0),
+                        faq_count = item.optInt("faq_count", 0),
+                        stock = item.optInt("stock", 0),
+                        sku_summary = item.optString("sku_summary").ifBlank { null }
                     ).toProduct()
                 }
                 AiChatEvent.Alternatives(products)
@@ -139,6 +156,31 @@ class AiChatDataSource @Inject constructor(
                 }
                 AiChatEvent.Actions(actions)
             }
+            "cart" -> {
+                val itemsJson = json.optJSONArray("items") ?: return null
+                val items = (0 until itemsJson.length()).map { index ->
+                    val item = itemsJson.getJSONObject(index)
+                    CartItemDto(
+                        id = item.getString("id"),
+                        product_id = item.getString("product_id"),
+                        sku_id = item.optString("sku_id").ifBlank { null },
+                        title = item.getString("title"),
+                        brand = item.getString("brand"),
+                        image_path = item.optString("image_path"),
+                        sku_name = item.optString("sku_name").ifBlank { "默认规格" },
+                        price = item.optDouble("price", 0.0),
+                        quantity = item.optInt("quantity", 1),
+                        selected = item.optBoolean("selected", true)
+                    ).toCartItem()
+                }
+                AiChatEvent.Cart(items = items, totalAmount = json.optDouble("total_amount", 0.0))
+            }
+            "order_status" -> AiChatEvent.OrderStatus(
+                status = json.optString("status"),
+                message = json.optString("message").ifBlank { defaultOrderStatusMessage(json.optString("status")) },
+                orderId = json.optString("order_id").ifBlank { null },
+                paymentId = json.optString("payment_id").ifBlank { null }
+            )
             "done" -> AiChatEvent.Done
             else -> null
         }
@@ -196,6 +238,31 @@ class AiChatDataSource @Inject constructor(
             "open_cart" -> "打开购物车"
             "search_more" -> "查看更多"
             else -> "执行"
+        }
+
+    private fun defaultOrderStatusMessage(status: String): String =
+        when (status) {
+            "checking_cart" -> "正在读取购物车"
+            "need_address" -> "等待补充收货地址"
+            "awaiting_confirmation" -> "等待确认下单"
+            "creating_order" -> "正在创建订单"
+            "paying" -> "正在模拟支付"
+            "paid" -> "支付成功"
+            "failed" -> "下单失败"
+            "cancelled" -> "已取消下单"
+            else -> "订单状态更新"
+        }
+
+    private fun CartItem.toAgentCartContext(): Map<String, Any> =
+        buildMap {
+            put("id", id)
+            put("product_id", productId)
+            put("productId", productId)
+            skuId?.let { put("sku_id", it) }
+            put("title", productName)
+            put("sku_name", skuText)
+            put("quantity", quantity)
+            put("selected", selected)
         }
 
     private companion object {

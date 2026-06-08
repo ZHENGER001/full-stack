@@ -6,6 +6,7 @@ import com.smartshop.ai.data.model.ProductSku
 import com.smartshop.ai.data.product.ProductRepository
 import com.smartshop.ai.data.remote.AddCartItemRequest
 import com.smartshop.ai.data.remote.SmartShopApi
+import com.smartshop.ai.data.remote.UpdateCartItemRequest
 import com.smartshop.ai.data.remote.toCartItem
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -61,6 +62,27 @@ class CartRepository @Inject constructor(
             .getOrElse {
                 cartItems.clear()
                 emptyList()
+            }
+
+    suspend fun updateQuantity(itemId: String, quantity: Int): List<CartItem> {
+        if (quantity <= 0) return deleteItem(itemId)
+        return runCatching {
+            syncRemoteCart {
+                api.updateCartItem(itemId, UpdateCartItemRequest(quantity = quantity)).items.map { it.toCartItem() }
+            }
+        }.getOrElse {
+            cartItems[itemId]?.let { current ->
+                cartItems[itemId] = current.copy(quantity = quantity, selected = true)
+            }
+            cartItems.values.toList()
+        }
+    }
+
+    suspend fun deleteItem(itemId: String): List<CartItem> =
+        runCatching { syncRemoteCart { api.deleteCartItem(itemId).items.map { it.toCartItem() } } }
+            .getOrElse {
+                cartItems.remove(itemId)
+                cartItems.values.toList()
             }
 
     suspend fun selectedItems(): List<CartItem> =

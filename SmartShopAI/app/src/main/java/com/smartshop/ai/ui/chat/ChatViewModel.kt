@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -48,13 +49,14 @@ class ChatViewModel @Inject constructor(
         _inputText.value = text
     }
 
-    fun sendMessage(text: String = _inputText.value, imageUri: Uri? = null) {
+    fun sendMessage(text: String = _inputText.value, imageUri: Uri? = null, displayText: String? = null) {
         if (text.isBlank() && imageUri == null) return
 
         val normalizedText = text.trim()
+        val visibleText = displayText?.trim()?.ifBlank { null } ?: normalizedText
         setMessages(
             _messages.value + ChatMessage(
-                content = normalizedText.ifBlank { "请根据这张图片推荐相关商品" },
+                content = visibleText.ifBlank { "请根据这张图片推荐相关商品" },
                 isUser = true,
                 imageUri = imageUri?.toString()
             )
@@ -73,11 +75,10 @@ class ChatViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
-            chatRepository.streamAssistantReply(normalizedText, imageUri).collect { event ->
+            val cartContext = runCatching { cartRepository.getCart() }.getOrDefault(emptyList())
+            chatRepository.streamAssistantReply(normalizedText, imageUri, cartContext).collect { event ->
                 when (event) {
-                    is AiChatEvent.Delta -> updateAssistantMessage(assistantMessageId) {
-                        it.copy(content = it.content + event.text, isLoading = false)
-                    }
+                    is AiChatEvent.Delta -> appendAssistantTextAnimated(assistantMessageId, event.text)
                     is AiChatEvent.Products -> updateAssistantMessage(assistantMessageId) {
                         it.copy(productRecommendations = event.products)
                     }
@@ -87,8 +88,39 @@ class ChatViewModel @Inject constructor(
                     is AiChatEvent.Actions -> updateAssistantMessage(assistantMessageId) {
                         it.copy(actions = event.actions)
                     }
+                    is AiChatEvent.Cart -> updateAssistantMessage(assistantMessageId) {
+                        it.copy(cartItems = event.items, cartTotalAmount = event.totalAmount)
+                    }
+                    is AiChatEvent.OrderStatus -> {
+                        updateAssistantMessage(assistantMessageId) {
+                            it.copy(orderStatusText = event.message, isLoading = false)
+                        }
+                        if (event.status == "paid") {
+                            runCatching { cartRepository.getCart() }
+                        }
+                    }
                     AiChatEvent.Done -> _isTyping.value = false
                 }
+            }
+        }
+    }
+
+    fun requestAddToCart(productId: String) {
+        sendMessage(text = "加入购物车:$productId", displayText = "加入购物车")
+    }
+
+    private suspend fun appendAssistantTextAnimated(messageId: String, text: String) {
+        if (text.isBlank()) {
+            updateAssistantMessage(messageId) { it.copy(content = it.content + text, isLoading = false) }
+            return
+        }
+
+        text.chunked(TYPING_CHUNK_SIZE).forEach { chunk ->
+            updateAssistantMessage(messageId) {
+                it.copy(content = it.content + chunk, isLoading = false)
+            }
+            if (chunk.any { it != '\n' }) {
+                delay(TYPING_CHUNK_DELAY_MS)
             }
         }
     }
@@ -115,5 +147,10 @@ class ChatViewModel @Inject constructor(
     private fun setMessages(messages: List<ChatMessage>) {
         _messages.value = messages
         chatHistoryRepository.saveMessages(messages)
+    }
+
+    private companion object {
+        const val TYPING_CHUNK_SIZE = 2
+        const val TYPING_CHUNK_DELAY_MS = 18L
     }
 }

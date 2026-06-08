@@ -17,6 +17,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
@@ -111,6 +114,34 @@ class CartViewModel @Inject constructor(
         }
     }
 
+    fun increment(item: CartItem) {
+        updateQuantity(item, item.quantity + 1)
+    }
+
+    fun decrement(item: CartItem) {
+        updateQuantity(item, item.quantity - 1)
+    }
+
+    fun deleteItem(item: CartItem) {
+        viewModelScope.launch {
+            runCatching { cartRepository.deleteItem(item.id) }
+                .onSuccess { _uiState.value = _uiState.value.copy(items = it, errorMessage = null) }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(errorMessage = error.message ?: "删除商品失败")
+                }
+        }
+    }
+
+    private fun updateQuantity(item: CartItem, quantity: Int) {
+        viewModelScope.launch {
+            runCatching { cartRepository.updateQuantity(item.id, quantity) }
+                .onSuccess { _uiState.value = _uiState.value.copy(items = it, errorMessage = null) }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(errorMessage = error.message ?: "修改数量失败")
+                }
+        }
+    }
+
     fun checkout() {
         val selectedItems = _uiState.value.items.filter { it.selected }
         if (
@@ -168,6 +199,7 @@ class CartViewModel @Inject constructor(
             runCatching { accountRepository.payOrder(orderId, password) }
                 .onSuccess {
                     dismissPayment()
+                    load()
                     onSuccess(amount, productName, skuText)
                 }
                 .onFailure { error ->
@@ -271,7 +303,12 @@ fun CartScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(uiState.items, key = { it.id }) { item ->
-                                CartItemRow(item = item)
+                                CartItemRow(
+                                    item = item,
+                                    onIncrement = { viewModel.increment(item) },
+                                    onDecrement = { viewModel.decrement(item) },
+                                    onDelete = { viewModel.deleteItem(item) }
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.height(12.dp))
@@ -310,7 +347,12 @@ fun CartScreen(
 }
 
 @Composable
-private fun CartItemRow(item: CartItem) {
+private fun CartItemRow(
+    item: CartItem,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit,
+    onDelete: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -350,7 +392,18 @@ private fun CartItemRow(item: CartItem) {
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("x${item.quantity}")
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Remove, contentDescription = "减少数量")
+                        }
+                        Text("x${item.quantity}", fontWeight = FontWeight.SemiBold)
+                        IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Add, contentDescription = "增加数量")
+                        }
+                        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "删除商品")
+                        }
+                    }
                 }
             }
         }

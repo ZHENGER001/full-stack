@@ -53,6 +53,7 @@ data class Order(
             "paid" -> "已支付"
             "failed" -> "支付失败"
             "pending_payment" -> "待付款"
+            "cancelled" -> "已取消"
             else -> status
         }
 }

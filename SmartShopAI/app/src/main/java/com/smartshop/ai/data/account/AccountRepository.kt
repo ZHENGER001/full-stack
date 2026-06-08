@@ -11,6 +11,12 @@ import com.smartshop.ai.data.model.ProfileSummary
 import com.smartshop.ai.data.model.ShippingAddress
 import com.smartshop.ai.data.payment.MockPaymentPolicy
 import com.smartshop.ai.data.product.ProductRepository
+import com.smartshop.ai.data.remote.OrderCreateRequest
+import com.smartshop.ai.data.remote.OrderDto
+import com.smartshop.ai.data.remote.OrderItemDto
+import com.smartshop.ai.data.remote.PaymentRequest
+import com.smartshop.ai.data.remote.SmartShopApi
+import com.smartshop.ai.data.remote.AddressDto
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,7 +24,8 @@ import javax.inject.Singleton
 @Singleton
 class AccountRepository @Inject constructor(
     private val productRepository: ProductRepository,
-    private val cartRepository: CartRepository
+    private val cartRepository: CartRepository,
+    private val api: SmartShopApi
 ) {
     private val favoriteProductIds = linkedSetOf<String>()
     private val footprints = linkedMapOf<String, FootprintItem>()
@@ -99,9 +106,27 @@ class AccountRepository @Inject constructor(
         return address
     }
 
-    suspend fun getOrders(): List<Order> = orders.toList().asReversed()
+    suspend fun getOrders(): List<Order> =
+        runCatching {
+            api.getOrders().items.map { it.toOrder() }.also { remoteOrders ->
+                orders.clear()
+                orders += remoteOrders
+            }
+        }.getOrElse { orders.toList().asReversed() }
 
     suspend fun createOrderFromCart(cartItemIds: List<String>? = null, addressId: String? = null): Order {
+        runCatching {
+            api.createOrder(
+                OrderCreateRequest(
+                    cart_item_ids = cartItemIds,
+                    address_id = addressId
+                )
+            ).toOrder()
+        }.onSuccess { order ->
+            orders += order
+            return order
+        }
+
         val selected = cartRepository.selectedItems()
             .filter { item -> cartItemIds == null || item.id in cartItemIds }
         require(selected.isNotEmpty()) { "请选择要结算的商品" }
@@ -137,7 +162,21 @@ class AccountRepository @Inject constructor(
         return createOrderForProduct(product, sku, addressId)
     }
 
-    fun createOrderForProduct(product: Product, sku: ProductSku, addressId: String? = null): Order {
+    suspend fun createOrderForProduct(product: Product, sku: ProductSku, addressId: String? = null): Order {
+        runCatching {
+            api.createOrder(
+                OrderCreateRequest(
+                    product_id = product.id,
+                    sku_id = sku.id,
+                    quantity = 1,
+                    address_id = addressId
+                )
+            ).toOrder()
+        }.onSuccess { order ->
+            orders += order
+            return order
+        }
+
         val orderItem = OrderItem(
             id = "order_item_${UUID.randomUUID()}",
             productId = product.id,
@@ -152,13 +191,44 @@ class AccountRepository @Inject constructor(
         return createOrder(listOf(orderItem), sku.price, addressId)
     }
 
-    fun payOrder(orderId: String, password: String): Order {
+    suspend fun payOrder(orderId: String, password: String): Order {
         require(MockPaymentPolicy.accepts(password)) { "支付密码错误，请输入 123456" }
+        runCatching {
+            api.payOrder(PaymentRequest(order_id = orderId, password = password))
+            api.getOrders().items.firstOrNull { it.id == orderId }?.toOrder()
+        }.getOrNull()?.let { paidOrder ->
+            val index = orders.indexOfFirst { it.id == orderId }
+            if (index >= 0) {
+                orders[index] = paidOrder
+            } else {
+                orders += paidOrder
+            }
+            return paidOrder
+        }
+
         val index = orders.indexOfFirst { it.id == orderId }
         require(index >= 0) { "订单不存在" }
         val paidOrder = orders[index].copy(status = "paid")
         orders[index] = paidOrder
         return paidOrder
+    }
+
+    suspend fun cancelOrder(orderId: String): Order {
+        runCatching { api.cancelOrder(orderId).toOrder() }
+            .onSuccess { cancelledOrder ->
+                val index = orders.indexOfFirst { it.id == orderId }
+                if (index >= 0) {
+                    orders[index] = cancelledOrder
+                } else {
+                    orders += cancelledOrder
+                }
+                return cancelledOrder
+            }
+        val index = orders.indexOfFirst { it.id == orderId }
+        require(index >= 0) { "订单不存在" }
+        val cancelledOrder = orders[index].copy(status = "cancelled")
+        orders[index] = cancelledOrder
+        return cancelledOrder
     }
 
     private fun createOrder(items: List<OrderItem>, amount: Double, addressId: String?): Order {
@@ -183,6 +253,41 @@ class AccountRepository @Inject constructor(
     }
 
     private fun nowDate(): String = "2026-05-30"
+
+    private fun OrderDto.toOrder(): Order =
+        Order(
+            id = id,
+            status = status,
+            totalAmount = total_amount,
+            address = address?.toShippingAddress(),
+            items = items.map { it.toOrderItem() },
+            createdAt = nowDate()
+        )
+
+    private fun OrderItemDto.toOrderItem(): OrderItem =
+        OrderItem(
+            id = id,
+            productId = product_id,
+            skuId = sku_id,
+            title = title,
+            brand = brand,
+            imagePath = image_path,
+            skuName = sku_name,
+            price = price,
+            quantity = quantity
+        )
+
+    private fun AddressDto.toShippingAddress(): ShippingAddress =
+        ShippingAddress(
+            id = id,
+            receiverName = receiver_name,
+            phone = phone,
+            province = province,
+            city = city,
+            district = district,
+            detail = detail,
+            isDefault = is_default
+        )
 
     private companion object {
         val defaultAddress = ShippingAddress(

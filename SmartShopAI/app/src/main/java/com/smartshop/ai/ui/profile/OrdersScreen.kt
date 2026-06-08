@@ -22,6 +22,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -67,6 +68,22 @@ class OrdersViewModel @Inject constructor(
                         isLoading = false,
                         errorMessage = error.message ?: "订单接口暂不可用"
                     )
+                }
+        }
+    }
+
+    fun cancelOrder(order: Order) {
+        if (order.status == "cancelled") return
+        viewModelScope.launch {
+            runCatching { accountRepository.cancelOrder(order.id) }
+                .onSuccess { cancelled ->
+                    _uiState.value = _uiState.value.copy(
+                        orders = _uiState.value.orders.map { if (it.id == cancelled.id) cancelled else it },
+                        errorMessage = null
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(errorMessage = error.message ?: "取消订单失败")
                 }
         }
     }
@@ -122,7 +139,10 @@ fun OrdersScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(uiState.orders, key = { it.id }) { order ->
-                        OrderCard(order)
+                        OrderCard(
+                            order = order,
+                            onCancel = { viewModel.cancelOrder(order) }
+                        )
                     }
                 }
             }
@@ -131,7 +151,10 @@ fun OrdersScreen(
 }
 
 @Composable
-private fun OrderCard(order: Order) {
+private fun OrderCard(
+    order: Order,
+    onCancel: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
@@ -180,6 +203,14 @@ private fun OrderCard(order: Order) {
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
+            if (order.status in setOf("pending_payment", "paid")) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onCancel) {
+                        Text("取消订单")
+                    }
+                }
+            }
         }
     }
 }

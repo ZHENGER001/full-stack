@@ -211,21 +211,54 @@ def _handle_cart_update_quantity(conn, parsed_turn: ParsedTurn, conversation_sta
     guard = _guard_tool(parsed_turn.intent_type, tool_name)
     if guard:
         return guard
-    if not parsed_turn.quantity:
-        return _needs_reference(tool_name, "你想把数量改成几件？", {"reason": "missing_quantity"})
+    quantity_delta = _cart_quantity_delta(parsed_turn.raw_message)
+    if not parsed_turn.quantity and quantity_delta is None:
+        return _needs_reference(tool_name, "你想把数量改成几件，或者增加/减少几件？", {"reason": "missing_quantity"})
     item_ids, diagnostics = resolve_cart_item_references(conn, parsed_turn.references, conversation_state)
     if not item_ids:
         return _needs_reference(tool_name, "你想修改购物车里的哪一项？", diagnostics)
-    conn.executemany(
-        "UPDATE cart_items SET quantity = ?, selected = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        [(parsed_turn.quantity, item_id) for item_id in item_ids],
-    )
     titles = _cart_item_titles(conn, item_ids)
+    changed: list[tuple[int, str]] = []
+    removed: list[str] = []
+    if quantity_delta is not None:
+        rows = conn.execute(
+            f"SELECT id, quantity FROM cart_items WHERE id IN ({','.join('?' for _ in item_ids)})",
+            item_ids,
+        ).fetchall()
+        for row in rows:
+            next_quantity = int(row["quantity"]) + quantity_delta
+            if next_quantity <= 0:
+                removed.append(row["id"])
+            else:
+                changed.append((next_quantity, row["id"]))
+    else:
+        changed = [(parsed_turn.quantity or 1, item_id) for item_id in item_ids]
+    stock_problem = _cart_quantity_stock_problem(conn, changed)
+    if stock_problem:
+        return BoundedToolResult(
+            tool_name=tool_name,
+            status="guard_blocked",
+            response_text=stock_problem,
+            cart=_cart_payload(conn),
+            diagnostics={**diagnostics, "intent_type": parsed_turn.intent_type, "status": "stock_blocked"},
+        )
+    if changed:
+        conn.executemany(
+            "UPDATE cart_items SET quantity = ?, selected = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            changed,
+        )
+    if removed:
+        conn.executemany("DELETE FROM cart_items WHERE id = ?", [(item_id,) for item_id in removed])
     title_text = "、".join(titles) if titles else f"{len(item_ids)} 项商品"
+    action_text = (
+        f"数量已{'增加' if quantity_delta and quantity_delta > 0 else '减少'} {abs(quantity_delta)} 件"
+        if quantity_delta is not None
+        else f"数量改为 {parsed_turn.quantity}"
+    )
     return BoundedToolResult(
         tool_name=tool_name,
         status="ok",
-        response_text=f"已把 {title_text} 的数量改为 {parsed_turn.quantity}。",
+        response_text=f"已把 {title_text} 的{action_text}。",
         cart=_cart_payload(conn),
         diagnostics={**diagnostics, "intent_type": parsed_turn.intent_type, "status": "ok"},
     )
@@ -270,6 +303,42 @@ def _handle_cart_clear(conn) -> BoundedToolResult:
     )
 
 
+def _cart_quantity_delta(raw: str) -> int | None:
+    if any(term in raw for term in ["增加", "加一", "再加", "多加", "加到购物车"]):
+        return _quantity_amount(raw) or 1
+    if any(term in raw for term in ["减少", "减一", "少一", "少买"]):
+        return -(_quantity_amount(raw) or 1)
+    return None
+
+
+def _quantity_amount(raw: str) -> int | None:
+    match = re.search(r"(\d+)\s*(?:件|个|份)?", raw)
+    if match:
+        return max(int(match.group(1)), 1)
+    if "一" in raw and any(term in raw for term in ["件", "个", "份"]):
+        return 1
+    if "两" in raw and any(term in raw for term in ["件", "个", "份"]):
+        return 2
+    return None
+
+
+def _cart_quantity_stock_problem(conn, changes: list[tuple[int, str]]) -> str | None:
+    for quantity, item_id in changes:
+        row = conn.execute(
+            """
+            SELECT c.quantity, p.title, COALESCE(s.stock, 999999) AS stock
+            FROM cart_items c
+            JOIN products p ON p.id = c.product_id
+            LEFT JOIN product_skus s ON s.id = c.sku_id
+            WHERE c.id = ?
+            """,
+            (item_id,),
+        ).fetchone()
+        if row and int(row["stock"]) < quantity:
+            return f"{row['title']} 库存不足，当前最多可买 {int(row['stock'])} 件。"
+    return None
+
+
 def resolve_product_references(
     conn,
     references: list[ProductReference],
@@ -305,6 +374,14 @@ def resolve_cart_item_references(
     cart = get_cart(conn)
     current_product_id = (conversation_state or {}).get("current_product_id")
     resolved: list[str] = []
+    if not references and len(cart.items) == 1:
+        return [cart.items[0].id], {
+            "tool_gate": "bounded_react",
+            "reference_count": 0,
+            "cart_item_count": len(cart.items),
+            "resolved_cart_item_ids": [cart.items[0].id],
+            "resolution": "single_cart_item_default",
+        }
     for reference in references:
         if reference.reference_type == "position" and reference.position:
             index = reference.position - 1
@@ -635,4 +712,3 @@ def _cart_item_titles(conn, item_ids: list[str]) -> list[str]:
 
 def _cart_payload(conn) -> dict[str, Any]:
     return get_cart(conn).model_dump(mode="json")
-

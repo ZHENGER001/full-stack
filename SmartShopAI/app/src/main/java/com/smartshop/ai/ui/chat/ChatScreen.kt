@@ -311,21 +311,34 @@ fun ChatScreen(
                         onProductClick = { productId ->
                             navController.navigate(Screen.ProductDetail.createRoute(productId))
                         },
-                        onAddToCart = { productId -> viewModel.addToCart(productId) },
+                        onAddToCart = { productId -> viewModel.requestAddToCart(productId) },
+                        onOpenCart = {
+                            navController.navigate(Screen.Cart.route) {
+                                launchSingleTop = true
+                            }
+                        },
                         onActionClick = { action ->
                             when (action.type) {
                                 "go_detail" -> action.productId?.let { productId ->
                                     navController.navigate(Screen.ProductDetail.createRoute(productId))
                                 }
                                 "add_to_cart" -> action.productId?.let { productId ->
-                                    viewModel.addToCart(productId)
+                                    viewModel.requestAddToCart(productId)
                                 }
                                 "open_cart" -> {
                                     navController.navigate(Screen.Cart.route) {
                                         launchSingleTop = true
                                     }
                                 }
-                                "search_more" -> viewModel.sendMessage(action.label)
+                                "search_more" -> {
+                                    if (action.label == "修改收货地址") {
+                                        navController.navigate(Screen.Addresses.route) {
+                                            launchSingleTop = true
+                                        }
+                                    } else {
+                                        viewModel.sendMessage(action.label)
+                                    }
+                                }
                             }
                         }
                     )

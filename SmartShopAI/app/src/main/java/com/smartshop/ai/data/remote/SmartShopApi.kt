@@ -87,6 +87,9 @@ interface SmartShopApi {
     @POST("api/orders")
     suspend fun createOrder(@Body body: OrderCreateRequest): OrderDto
 
+    @PATCH("api/orders/{orderId}/cancel")
+    suspend fun cancelOrder(@Path("orderId") orderId: String): OrderDto
+
     @POST("api/payments/mock")
     suspend fun payOrder(@Body body: PaymentRequest): PaymentDto
 

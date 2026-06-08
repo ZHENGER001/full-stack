@@ -32,29 +32,25 @@ class ProductRepository @Inject constructor(
         sort: String? = null,
         limit: Int? = 500
     ): List<Product> {
-        val localProducts = loadLocalProducts()
-        val products = if (localProducts.isNotEmpty()) {
-            localProducts
-                .filterByKeyword(keyword)
-                .filterByCategory(category)
-                .filterBySubcategory(subcategory)
+        val remoteProducts = runCatching {
+            api.getProducts(
+                keyword = keyword,
+                category = category,
+                subcategory = subcategory,
+                minPrice = minPrice,
+                maxPrice = maxPrice,
+                sort = sort,
+                limit = limit
+            ).items.map { it.toProduct() }
+        }.getOrNull()
+        val products = remoteProducts ?: loadLocalProducts()
+            .filterByKeyword(keyword)
+            .filterByCategory(category)
+            .filterBySubcategory(subcategory)
                 .filter { product -> minPrice == null || product.price >= minPrice }
                 .filter { product -> maxPrice == null || product.price <= maxPrice }
                 .sortedBySort(sort)
                 .let { products -> limit?.let(products::take) ?: products }
-        } else {
-            runCatching {
-                api.getProducts(
-                    keyword = keyword,
-                    category = category,
-                    subcategory = subcategory,
-                    minPrice = minPrice,
-                    maxPrice = maxPrice,
-                    sort = sort,
-                    limit = limit
-                ).items.map { it.toProduct() }
-            }.getOrElse { emptyList() }
-        }
         cacheProducts(products)
         if (keyword == null && category == null && subcategory == null && minPrice == null && maxPrice == null) {
             cachedAllProducts = products
@@ -63,10 +59,11 @@ class ProductRepository @Inject constructor(
     }
 
     suspend fun getProductDetail(productId: String): Product {
-        val product = productCache[productId]
+        val product = runCatching { api.getProductDetail(productId).toProduct() }
+            .getOrNull()
+            ?: productCache[productId]
             ?: loadLocalProducts().firstOrNull { it.id == productId }
-            ?: runCatching { api.getProductDetail(productId).toProduct() }
-                .getOrElse { throw NoSuchElementException("商品不存在：$productId") }
+            ?: throw NoSuchElementException("商品不存在：$productId")
         productCache[product.id] = product
         return product
     }
@@ -109,17 +106,17 @@ class ProductRepository @Inject constructor(
     }
 
     suspend fun searchProducts(query: String, category: String? = null): List<Product> {
-        val products = loadLocalProducts()
-            .takeIf { it.isNotEmpty() }
-            ?.let {
-                cacheProducts(it)
-                searchCachedProducts(query, category)
-            }
-            ?: runCatching {
-                api.searchProducts(query, category = category, limit = 500).items.map { it.toProduct() }
-            }.getOrElse {
-                searchCachedProducts(query, category)
-            }
+        val products = runCatching {
+            api.searchProducts(query, category = category, limit = 500).items.map { it.toProduct() }
+        }.getOrElse {
+            loadLocalProducts()
+                .takeIf { it.isNotEmpty() }
+                ?.let {
+                    cacheProducts(it)
+                    searchCachedProducts(query, category)
+                }
+                ?: searchCachedProducts(query, category)
+        }
         cacheProducts(products)
         return products
     }

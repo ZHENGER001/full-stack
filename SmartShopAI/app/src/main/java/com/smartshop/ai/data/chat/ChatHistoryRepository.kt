@@ -2,6 +2,7 @@ package com.smartshop.ai.data.chat
 
 import android.content.Context
 import com.smartshop.ai.data.model.ChatAction
+import com.smartshop.ai.data.model.CartItem
 import com.smartshop.ai.data.model.ChatMessage
 import com.smartshop.ai.data.model.Product
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -48,6 +49,11 @@ class ChatHistoryRepository @Inject constructor(
         put("actions", JSONArray().also { array ->
             actions.forEach { array.put(it.toJson()) }
         })
+        put("cartItems", JSONArray().also { array ->
+            cartItems.forEach { array.put(it.toJson()) }
+        })
+        put("cartTotalAmount", cartTotalAmount)
+        put("orderStatusText", orderStatusText)
     }
 
     private fun JSONObject.toChatMessage(): ChatMessage =
@@ -58,7 +64,10 @@ class ChatHistoryRepository @Inject constructor(
             timestamp = optLong("timestamp"),
             imageUri = optString("imageUri").ifBlank { null },
             productRecommendations = optJSONArray("products").toProductList(),
-            actions = optJSONArray("actions").toActionList()
+            actions = optJSONArray("actions").toActionList(),
+            cartItems = optJSONArray("cartItems").toCartItemList(),
+            cartTotalAmount = if (isNull("cartTotalAmount")) null else optDouble("cartTotalAmount"),
+            orderStatusText = optString("orderStatusText").ifBlank { null }
         )
 
     private fun Product.toJson(): JSONObject = JSONObject().apply {
@@ -102,11 +111,38 @@ class ChatHistoryRepository @Inject constructor(
         put("productId", productId)
     }
 
+    private fun CartItem.toJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("productId", productId)
+        put("productName", productName)
+        put("productImage", productImage)
+        put("skuId", skuId)
+        put("skuText", skuText)
+        put("skuPrice", skuPrice)
+        put("quantity", quantity)
+        put("selected", selected)
+        put("brand", brand)
+    }
+
     private fun JSONObject.toChatAction(): ChatAction =
         ChatAction(
             type = optString("type"),
             label = optString("label"),
             productId = optString("productId").ifBlank { null }
+        )
+
+    private fun JSONObject.toCartItem(): CartItem =
+        CartItem(
+            id = optString("id"),
+            productId = optString("productId"),
+            productName = optString("productName"),
+            productImage = optString("productImage"),
+            skuId = optString("skuId").ifBlank { null },
+            skuText = optString("skuText"),
+            skuPrice = optDouble("skuPrice"),
+            quantity = optInt("quantity", 1),
+            selected = optBoolean("selected", true),
+            brand = optString("brand")
         )
 
     private fun JSONArray?.toProductList(): List<Product> {
@@ -117,6 +153,11 @@ class ChatHistoryRepository @Inject constructor(
     private fun JSONArray?.toActionList(): List<ChatAction> {
         if (this == null) return emptyList()
         return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toChatAction() }
+    }
+
+    private fun JSONArray?.toCartItemList(): List<CartItem> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toCartItem() }
     }
 
     private fun JSONObject?.toStringMap(): Map<String, String> {

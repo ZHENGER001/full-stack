@@ -118,6 +118,11 @@ def parse_turn_with_rules(
     _apply_price(raw, constraints)
     _apply_brand_filters(raw, constraints)
 
+    has_cart_context = _has_cart_context(conversation_state)
+    cart_quantity_terms = ["改", "数量", "件", "增加", "加一", "再加", "多加", "减少", "减一", "少一", "少买"]
+    cart_scope = "购物车" in raw or has_cart_context or (bool(references) and any(term in raw for term in cart_quantity_terms))
+    cart_remove_terms = ["删除", "移除", "去掉", "拿掉"]
+
     if any(term in raw for term in ["购物车", "加购", "加入"]) and any(term in raw for term in ["加", "加入", "放入"]):
         return ParsedTurn(
             raw_message=raw,
@@ -130,9 +135,9 @@ def parse_turn_with_rules(
         )
     if "购物车" in raw and any(term in raw for term in ["清空", "全部删除", "全删", "清掉", "清除"]):
         return ParsedTurn(raw_message=raw, intent_type="cart_clear", route_hint="bounded_react", source="rule")
-    if "购物车" in raw and any(term in raw for term in ["删除", "移除", "不要"]):
+    if _is_cart_remove_request(raw, references, has_cart_context, cart_remove_terms):
         return ParsedTurn(raw_message=raw, intent_type="cart_remove", route_hint="bounded_react", references=references, source="rule")
-    if "购物车" in raw and any(term in raw for term in ["改", "数量", "件"]):
+    if cart_scope and any(term in raw for term in cart_quantity_terms):
         return ParsedTurn(
             raw_message=raw,
             intent_type="cart_update_quantity",
@@ -365,11 +370,32 @@ def _extract_references(raw: str) -> list[ProductReference]:
     return refs
 
 
+def _has_cart_context(conversation_state: dict | None) -> bool:
+    return bool((conversation_state or {}).get("cart_context"))
+
+
+def _is_cart_remove_request(
+    raw: str,
+    references: list[ProductReference],
+    has_cart_context: bool,
+    remove_terms: list[str],
+) -> bool:
+    if "购物车" in raw and any(term in raw for term in [*remove_terms, "不要"]):
+        return True
+    if references and any(term in raw for term in remove_terms):
+        return True
+    if references and has_cart_context and "不要" in raw:
+        return True
+    return False
+
+
 def _extract_quantity(raw: str) -> int | None:
     match = re.search(r"(\d+)\s*(?:件|个|份)?", raw)
-    if match and any(term in raw for term in ["购物车", "加购", "加入"]):
+    if match and any(term in raw for term in ["购物车", "加购", "加入", "数量", "改成", "改为", "改到", "增加", "减少"]):
         return max(int(match.group(1)), 1)
-    if "两" in raw and any(term in raw for term in ["件", "个", "份"]):
+    if any(term in raw for term in ["一件", "一个", "一份"]):
+        return 1
+    if "两" in raw and any(term in raw for term in ["件", "个", "份", "数量", "改成", "改为"]):
         return 2
     return None
 
