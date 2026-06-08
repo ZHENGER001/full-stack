@@ -354,6 +354,8 @@ def emit_bounded_events(
         },
     )
     yield sse_event("delta", {"text": result.response_text})
+    if result.comparison:
+        yield sse_event("comparison", result.comparison)
     if result.products:
         yield sse_event("products", {"products": result.products})
     if result.cart is not None:

@@ -14,6 +14,10 @@ captures/
 *.dex
 *.class
 
+# Local tool/runtime directories
+.tools/
+.run/
+
 # IDE / OS
 .idea/
 .vscode/
@@ -23,6 +27,7 @@ Thumbs.db
 # Secrets
 .env
 SmartShopAI/backend/data/*.log
+SmartShopAI/backend/*.log
 SmartShopAI/backend/docker-compose.milvus.yml
 SmartShopAI/backend/models/
 SmartShopAI/backend/volumes/

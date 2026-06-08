@@ -59,6 +59,7 @@ import coil.compose.AsyncImage
 import com.smartshop.ai.data.model.CartItem
 import com.smartshop.ai.data.model.ChatAction
 import com.smartshop.ai.data.model.ChatMessage
+import com.smartshop.ai.data.model.ComparisonContent
 import com.smartshop.ai.data.model.Product
 import com.smartshop.ai.ui.theme.AiBubble
 import com.smartshop.ai.ui.theme.AiBubbleText
@@ -162,11 +163,18 @@ fun ChatBubble(
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
 
-                            if (message.isLoading && message.content.isBlank()) {
+                            val comparison = if (!isUser) message.comparison else null
+                            if (message.isLoading && message.content.isBlank() && comparison == null) {
                                 Text(
                                     text = "正在思考...",
                                     color = if (isUser) UserBubbleText else AiBubbleText,
                                     style = MaterialTheme.typography.bodyMedium
+                                )
+                            } else if (comparison != null) {
+                                ComparisonPanel(
+                                    comparison = comparison,
+                                    products = message.productRecommendations.take(3),
+                                    onProductClick = onProductClick
                                 )
                             } else {
                                 Text(
@@ -182,7 +190,7 @@ fun ChatBubble(
                                 OrderStatusPill(text = message.orderStatusText)
                             }
 
-                            if (!isUser && message.productRecommendations.isNotEmpty()) {
+                            if (!isUser && message.productRecommendations.isNotEmpty() && comparison == null) {
                                 Spacer(modifier = Modifier.height(14.dp))
                                 InlineRecommendationList(
                                     products = message.productRecommendations.take(3),
@@ -264,6 +272,253 @@ private fun OrderStatusPill(text: String) {
             color = Primary,
             fontWeight = FontWeight.Medium
         )
+    }
+}
+
+@Composable
+private fun ComparisonPanel(
+    comparison: ComparisonContent,
+    products: List<Product>,
+    onProductClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = comparison.title,
+            style = MaterialTheme.typography.titleLarge,
+            color = AiBubbleText,
+            fontWeight = FontWeight.Bold,
+            lineHeight = 27.sp
+        )
+        Text(
+            text = comparison.summary,
+            style = MaterialTheme.typography.bodyMedium,
+            color = AiBubbleText,
+            lineHeight = 22.sp
+        )
+        Text(
+            text = "核心差异一览",
+            style = MaterialTheme.typography.titleMedium,
+            color = AiBubbleText,
+            fontWeight = FontWeight.Bold
+        )
+        ComparisonTable(comparison)
+        ComparisonSections(comparison)
+        if (products.isNotEmpty()) {
+            ComparisonProductStrip(
+                products = products,
+                onProductClick = onProductClick
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = PrimaryLight.copy(alpha = 0.55f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                .border(
+                    width = 1.dp,
+                    color = Primary.copy(alpha = 0.22f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                .padding(10.dp)
+        ) {
+            Text(
+                text = comparison.recommendation,
+                style = MaterialTheme.typography.bodyMedium,
+                color = AiBubbleText,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        comparison.footnote?.takeIf { it.isNotBlank() }?.let { footnote ->
+            Text(
+                text = footnote,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun ComparisonTable(comparison: ComparisonContent) {
+    val columns = comparison.columns.take(3)
+    val rows = comparison.rows.filter { row ->
+        row.dimension.isNotBlank() && row.values.isNotEmpty()
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.White)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
+                shape = RoundedCornerShape(8.dp)
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(Primary)
+        )
+        Row(modifier = Modifier.fillMaxWidth()) {
+            ComparisonCell(
+                text = "维度",
+                isHeader = true,
+                modifier = Modifier.weight(0.85f)
+            )
+            columns.forEach { column ->
+                ComparisonCell(
+                    text = column.label,
+                    isHeader = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        rows.forEach { row ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                ComparisonCell(
+                    text = row.dimension,
+                    modifier = Modifier.weight(0.85f)
+                )
+                columns.forEachIndexed { index, _ ->
+                    ComparisonCell(
+                        text = row.values.getOrNull(index).orEmpty(),
+                        highlighted = row.highlightIndex == index,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComparisonCell(
+    text: String,
+    modifier: Modifier = Modifier,
+    isHeader: Boolean = false,
+    highlighted: Boolean = false
+) {
+    Box(
+        modifier = modifier
+            .height(74.dp)
+            .border(
+                width = 0.5.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.13f)
+            )
+            .background(
+                color = when {
+                    isHeader -> MaterialTheme.colorScheme.surface
+                    highlighted -> PrimaryLight.copy(alpha = 0.38f)
+                    else -> Color.White
+                }
+            )
+            .padding(horizontal = 8.dp, vertical = 9.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = text.ifBlank { "暂无" },
+            style = if (isHeader) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodySmall,
+            color = AiBubbleText,
+            fontWeight = if (isHeader || highlighted) FontWeight.Bold else FontWeight.Normal,
+            lineHeight = 17.sp,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun ComparisonSections(comparison: ComparisonContent) {
+    val sections = comparison.sections.filter { it.bullets.isNotEmpty() }.take(3)
+    if (sections.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "怎么选不吃亏",
+            style = MaterialTheme.typography.titleMedium,
+            color = AiBubbleText,
+            fontWeight = FontWeight.Bold
+        )
+        sections.forEach { section ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = section.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AiBubbleText,
+                    fontWeight = FontWeight.Bold
+                )
+                section.bullets.take(3).forEach { bullet ->
+                    Text(
+                        text = "· $bullet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AiBubbleText,
+                        lineHeight = 22.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComparisonProductStrip(
+    products: List<Product>,
+    onProductClick: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "对应商品",
+            style = MaterialTheme.typography.titleMedium,
+            color = AiBubbleText,
+            fontWeight = FontWeight.Bold
+        )
+        products.take(2).forEach { product ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White)
+                    .clickable { onProductClick(product.id) }
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = product.name,
+                    modifier = Modifier
+                        .size(58.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = product.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AiBubbleText,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "¥${"%.2f".format(product.price)} · ${product.brand} · ${product.category.ifBlank { "商品" }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -697,7 +952,7 @@ private fun String.toCompleteReason(maxLength: Int): String {
 }
 
 private fun String.isUserFacingRecommendationReason(): Boolean {
-    if (isBlank()) return false
+    if (isBlank() || trim().equals("null", ignoreCase = true)) return false
     val technicalTokens = listOf("Matched by", "retrieval", "RRF", "bm25", "dense", "keyword", "score")
     return technicalTokens.none { contains(it, ignoreCase = true) }
 }

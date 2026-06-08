@@ -4,6 +4,10 @@ import android.content.Context
 import com.smartshop.ai.data.model.ChatAction
 import com.smartshop.ai.data.model.CartItem
 import com.smartshop.ai.data.model.ChatMessage
+import com.smartshop.ai.data.model.ComparisonColumn
+import com.smartshop.ai.data.model.ComparisonContent
+import com.smartshop.ai.data.model.ComparisonRow
+import com.smartshop.ai.data.model.ComparisonSection
 import com.smartshop.ai.data.model.Product
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONArray
@@ -46,6 +50,7 @@ class ChatHistoryRepository @Inject constructor(
         put("products", JSONArray().also { array ->
             productRecommendations.forEach { array.put(it.toJson()) }
         })
+        put("comparison", comparison?.toJson())
         put("actions", JSONArray().also { array ->
             actions.forEach { array.put(it.toJson()) }
         })
@@ -64,10 +69,79 @@ class ChatHistoryRepository @Inject constructor(
             timestamp = optLong("timestamp"),
             imageUri = optString("imageUri").ifBlank { null },
             productRecommendations = optJSONArray("products").toProductList(),
+            comparison = optJSONObject("comparison")?.toComparisonContent(),
             actions = optJSONArray("actions").toActionList(),
             cartItems = optJSONArray("cartItems").toCartItemList(),
             cartTotalAmount = if (isNull("cartTotalAmount")) null else optDouble("cartTotalAmount"),
             orderStatusText = optString("orderStatusText").ifBlank { null }
+        )
+
+    private fun ComparisonContent.toJson(): JSONObject = JSONObject().apply {
+        put("title", title)
+        put("summary", summary)
+        put("columns", JSONArray().also { array ->
+            columns.forEach { array.put(it.toJson()) }
+        })
+        put("rows", JSONArray().also { array ->
+            rows.forEach { array.put(it.toJson()) }
+        })
+        put("sections", JSONArray().also { array ->
+            sections.forEach { array.put(it.toJson()) }
+        })
+        put("recommendation", recommendation)
+        put("footnote", footnote)
+    }
+
+    private fun ComparisonColumn.toJson(): JSONObject = JSONObject().apply {
+        put("label", label)
+        put("productId", productId)
+    }
+
+    private fun ComparisonRow.toJson(): JSONObject = JSONObject().apply {
+        put("dimension", dimension)
+        put("values", JSONArray().also { array -> values.forEach { array.put(it) } })
+        put("highlightIndex", highlightIndex)
+    }
+
+    private fun ComparisonSection.toJson(): JSONObject = JSONObject().apply {
+        put("title", title)
+        put("productId", productId)
+        put("bullets", JSONArray().also { array -> bullets.forEach { array.put(it) } })
+    }
+
+    private fun JSONObject.toComparisonContent(): ComparisonContent =
+        ComparisonContent(
+            title = optString("title"),
+            summary = optString("summary"),
+            columns = optJSONArray("columns").toComparisonColumns(),
+            rows = optJSONArray("rows").toComparisonRows(),
+            sections = optJSONArray("sections").toComparisonSections(),
+            recommendation = optString("recommendation"),
+            footnote = optString("footnote").ifBlank { null }
+        )
+
+    private fun JSONObject.toComparisonColumn(): ComparisonColumn =
+        ComparisonColumn(
+            label = optString("label"),
+            productId = optString("productId").ifBlank { optString("product_id") }.ifBlank { null }
+        )
+
+    private fun JSONObject.toComparisonRow(): ComparisonRow =
+        ComparisonRow(
+            dimension = optString("dimension"),
+            values = optJSONArray("values").toStringList(),
+            highlightIndex = when {
+                has("highlightIndex") && !isNull("highlightIndex") -> optInt("highlightIndex")
+                has("highlight_index") && !isNull("highlight_index") -> optInt("highlight_index")
+                else -> null
+            }
+        )
+
+    private fun JSONObject.toComparisonSection(): ComparisonSection =
+        ComparisonSection(
+            title = optString("title"),
+            productId = optString("productId").ifBlank { optString("product_id") }.ifBlank { null },
+            bullets = optJSONArray("bullets").toStringList()
         )
 
     private fun Product.toJson(): JSONObject = JSONObject().apply {
@@ -155,9 +229,29 @@ class ChatHistoryRepository @Inject constructor(
         return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toChatAction() }
     }
 
+    private fun JSONArray?.toComparisonColumns(): List<ComparisonColumn> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toComparisonColumn() }
+    }
+
+    private fun JSONArray?.toComparisonRows(): List<ComparisonRow> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toComparisonRow() }
+    }
+
+    private fun JSONArray?.toComparisonSections(): List<ComparisonSection> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toComparisonSection() }
+    }
+
     private fun JSONArray?.toCartItemList(): List<CartItem> {
         if (this == null) return emptyList()
         return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toCartItem() }
+    }
+
+    private fun JSONArray?.toStringList(): List<String> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index -> optString(index).takeIf { it.isNotBlank() } }
     }
 
     private fun JSONObject?.toStringMap(): Map<String, String> {

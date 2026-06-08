@@ -85,6 +85,9 @@ class ChatViewModel @Inject constructor(
                     is AiChatEvent.Alternatives -> updateAssistantMessage(assistantMessageId) {
                         it.copy(productRecommendations = event.products)
                     }
+                    is AiChatEvent.Comparison -> updateAssistantMessage(assistantMessageId) {
+                        it.copy(comparison = event.comparison, isLoading = false)
+                    }
                     is AiChatEvent.Actions -> updateAssistantMessage(assistantMessageId) {
                         it.copy(actions = event.actions)
                     }

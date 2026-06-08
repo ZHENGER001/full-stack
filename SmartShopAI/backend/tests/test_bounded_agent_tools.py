@@ -3,9 +3,11 @@ from __future__ import annotations
 import sqlite3
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from app.bounded_agent_tools import execute_bounded_turn
+from app.bounded_agent_tools import _sanitize_llm_comparison_payload, execute_bounded_turn
 from app.database import dict_factory
+from app.llm_client import LLMGenerationError
 from app.turn_schema import ParsedTurn, ProductReference
 
 
@@ -31,7 +33,11 @@ class BoundedAgentToolsTest(unittest.TestCase):
             quantity=2,
         )
 
-        result = execute_bounded_turn(self.conn, parsed, self._state())
+        with patch(
+            "app.bounded_agent_tools._write_compare_payload_with_llm",
+            side_effect=LLMGenerationError("skip network"),
+        ):
+            result = execute_bounded_turn(self.conn, parsed, self._state())
 
         self.assertEqual(result.status, "ok")
         self.assertEqual(result.product_ids, ["p2"])
@@ -56,8 +62,70 @@ class BoundedAgentToolsTest(unittest.TestCase):
 
         self.assertEqual(result.status, "ok")
         self.assertEqual(result.product_ids, ["p1", "p2"])
+        self.assertIn("建议", result.response_text)
         self.assertIn("Beta Phone", result.response_text)
+        self.assertIsNotNone(result.comparison)
+        self.assertEqual(result.comparison["title"], "Alpha vs Beta 对比")
+        self.assertIn("价格", [row["dimension"] for row in result.comparison["rows"]])
+        self.assertNotIn("品类", [row["dimension"] for row in result.comparison["rows"]])
+        self.assertEqual(len(result.comparison["sections"]), 2)
         self.assertEqual([product["id"] for product in result.products], ["p1", "p2"])
+
+    def test_overall_compare_does_not_use_stock_as_default_winner_reason(self) -> None:
+        parsed = ParsedTurn(
+            raw_message="对比前两个",
+            intent_type="product_compare",
+            route_hint="bounded_react",
+            references=[
+                ProductReference(reference_type="position", position=1),
+                ProductReference(reference_type="position", position=2),
+            ],
+            compare_dimensions=["overall"],
+        )
+
+        with patch(
+            "app.bounded_agent_tools._write_compare_payload_with_llm",
+            side_effect=LLMGenerationError("skip network"),
+        ):
+            result = execute_bounded_turn(self.conn, parsed, self._state())
+
+        dimensions = [row["dimension"] for row in result.comparison["rows"]]
+        self.assertNotIn("库存", dimensions)
+        self.assertNotIn("库存更多", result.comparison["recommendation"])
+
+    def test_llm_compare_payload_is_sanitized_and_keeps_stock_out_by_default(self) -> None:
+        fallback = {
+            "title": "Alpha vs Beta 对比",
+            "summary": "核心差异在价格。",
+            "columns": [{"label": "Alpha", "product_id": "p1"}, {"label": "Beta", "product_id": "p2"}],
+            "rows": [{"dimension": "价格", "values": ["¥100", "¥60（更低）"], "highlight_index": 1}],
+            "sections": [
+                {"title": "选Alpha如果", "product_id": "p1", "bullets": ["更看重品牌"]},
+                {"title": "选Beta如果", "product_id": "p2", "bullets": ["更看重价格"]},
+            ],
+            "recommendation": "预算优先选 Beta Phone。",
+            "footnote": "仅基于当前商品库。",
+        }
+        llm_payload = {
+            "summary": "Beta 更便宜，但 Alpha 库存更多。",
+            "rows": [
+                {"dimension": "库存", "values": ["约5件", "约3件"], "highlight_index": 0},
+                {"dimension": "核心卖点", "values": ["品牌更明确", "价格更低"], "highlight_index": 1},
+            ],
+            "sections": [
+                {"product_id": "p1", "title": "选Alpha如果", "bullets": ["偏好Alpha品牌", "库存更多"]},
+                {"product_id": "p2", "title": "选Beta如果", "bullets": ["预算更敏感"]},
+            ],
+            "recommendation": "建议选 Alpha，因为库存更多。",
+        }
+
+        result = _sanitize_llm_comparison_payload(llm_payload, fallback, self._snapshots(["p1", "p2"]), set())
+
+        self.assertNotIn("库存", result["summary"])
+        self.assertNotIn("库存", [row["dimension"] for row in result["rows"]])
+        self.assertNotIn("库存", result["recommendation"])
+        for section in result["sections"]:
+            self.assertTrue(all("库存" not in bullet for bullet in section["bullets"]))
 
     def test_answers_current_product_stock_from_database(self) -> None:
         parsed = ParsedTurn(
@@ -158,6 +226,11 @@ class BoundedAgentToolsTest(unittest.TestCase):
             "INSERT INTO product_skus(id, product_id, sku_name, properties_json, price, stock) VALUES (?, ?, ?, ?, ?, ?)",
             (f"sku_{product_id}", product_id, "默认规格", "{}", price, stock),
         )
+
+    def _snapshots(self, product_ids: list[str]):
+        from app.bounded_agent_tools import _fetch_product_snapshots
+
+        return _fetch_product_snapshots(self.conn, product_ids)
 
 
 if __name__ == "__main__":

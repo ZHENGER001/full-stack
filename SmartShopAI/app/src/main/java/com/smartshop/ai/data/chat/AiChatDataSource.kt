@@ -4,6 +4,10 @@ import android.content.Context
 import android.net.Uri
 import com.smartshop.ai.data.model.ChatAction
 import com.smartshop.ai.data.model.CartItem
+import com.smartshop.ai.data.model.ComparisonColumn
+import com.smartshop.ai.data.model.ComparisonContent
+import com.smartshop.ai.data.model.ComparisonRow
+import com.smartshop.ai.data.model.ComparisonSection
 import com.smartshop.ai.data.remote.CartItemDto
 import com.smartshop.ai.data.remote.ChatStreamRequestDto
 import com.smartshop.ai.data.remote.SmartShopApi
@@ -19,6 +23,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 import javax.inject.Inject
@@ -114,13 +119,13 @@ class AiChatDataSource @Inject constructor(
                         price = item.getDouble("price"),
                         rating = item.optDouble("rating", 0.0).toFloat(),
                         image_path = item.optString("image_path"),
-                        reason = item.optString("reason").ifBlank { null },
-                        marketing_description = item.optString("marketing_description").ifBlank { null },
+                        reason = item.optNullableString("reason"),
+                        marketing_description = item.optNullableString("marketing_description"),
                         review_count = item.optInt("review_count", 0),
                         sku_count = item.optInt("sku_count", 0),
                         faq_count = item.optInt("faq_count", 0),
                         stock = item.optInt("stock", 0),
-                        sku_summary = item.optString("sku_summary").ifBlank { null }
+                        sku_summary = item.optNullableString("sku_summary")
                     ).toProduct()
                 }
                 AiChatEvent.Products(products)
@@ -138,17 +143,18 @@ class AiChatDataSource @Inject constructor(
                         price = item.getDouble("price"),
                         rating = item.optDouble("rating", 0.0).toFloat(),
                         image_path = item.optString("image_path"),
-                        reason = item.optString("reason").ifBlank { null },
-                        marketing_description = item.optString("marketing_description").ifBlank { null },
+                        reason = item.optNullableString("reason"),
+                        marketing_description = item.optNullableString("marketing_description"),
                         review_count = item.optInt("review_count", 0),
                         sku_count = item.optInt("sku_count", 0),
                         faq_count = item.optInt("faq_count", 0),
                         stock = item.optInt("stock", 0),
-                        sku_summary = item.optString("sku_summary").ifBlank { null }
+                        sku_summary = item.optNullableString("sku_summary")
                     ).toProduct()
                 }
                 AiChatEvent.Alternatives(products)
             }
+            "comparison" -> AiChatEvent.Comparison(json.toComparisonContent())
             "actions" -> {
                 val actionsJson = json.optJSONArray("actions") ?: return null
                 val actions = (0 until actionsJson.length()).mapNotNull { index ->
@@ -184,6 +190,70 @@ class AiChatDataSource @Inject constructor(
             "done" -> AiChatEvent.Done
             else -> null
         }
+    }
+
+    private fun JSONObject.optNullableString(key: String): String? {
+        if (!has(key) || isNull(key)) return null
+        val value = optString(key).trim()
+        return value.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+    }
+
+    private fun JSONObject.toComparisonContent(): ComparisonContent =
+        ComparisonContent(
+            title = optString("title"),
+            summary = optString("summary"),
+            columns = optJSONArray("columns").toComparisonColumns(),
+            rows = optJSONArray("rows").toComparisonRows(),
+            sections = optJSONArray("sections").toComparisonSections(),
+            recommendation = optString("recommendation"),
+            footnote = optNullableString("footnote")
+        )
+
+    private fun JSONArray?.toComparisonColumns(): List<ComparisonColumn> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                ComparisonColumn(
+                    label = item.optString("label"),
+                    productId = item.optNullableString("product_id")
+                )
+            }
+        }
+    }
+
+    private fun JSONArray?.toComparisonRows(): List<ComparisonRow> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                ComparisonRow(
+                    dimension = item.optString("dimension"),
+                    values = item.optJSONArray("values").toStringList(),
+                    highlightIndex = if (item.has("highlight_index") && !item.isNull("highlight_index")) {
+                        item.optInt("highlight_index")
+                    } else {
+                        null
+                    }
+                )
+            }
+        }
+    }
+
+    private fun JSONArray?.toComparisonSections(): List<ComparisonSection> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                ComparisonSection(
+                    title = item.optString("title"),
+                    productId = item.optNullableString("product_id"),
+                    bullets = item.optJSONArray("bullets").toStringList()
+                )
+            }
+        }
+    }
+
+    private fun JSONArray?.toStringList(): List<String> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index -> optString(index).trim().takeIf { it.isNotBlank() } }
     }
 
     private fun parseAction(raw: Any): ChatAction? {

@@ -118,7 +118,7 @@ private fun String.toAssetUrl(): String {
 
 private fun userFacingComment(reason: String?, marketingDescription: String?): String {
     val candidate = reason
-        ?.takeIf { it.isNotBlank() }
+        ?.takeIf { it.isNotBlank() && !it.trim().equals("null", ignoreCase = true) }
         ?.takeUnless { it.contains("RRF", ignoreCase = true) }
         ?.takeUnless { it.contains("retrieval", ignoreCase = true) }
         ?.takeUnless { it.contains("Matched by", ignoreCase = true) }

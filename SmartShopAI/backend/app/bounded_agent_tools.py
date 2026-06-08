@@ -6,7 +6,10 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+import httpx
+
 from .catalog import first_sku, get_cart, row_to_product_card
+from .llm_client import LLMGenerationError, _env_value, _extract_content, _extract_json_object, llm_model_name
 from .turn_schema import ParsedTurn, ProductReference
 
 
@@ -34,6 +37,7 @@ class BoundedToolResult:
     actions: list[dict[str, Any]] = field(default_factory=list)
     current_product_id: str | None = None
     cart: dict[str, Any] | None = None
+    comparison: dict[str, Any] | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
@@ -124,17 +128,16 @@ def _handle_product_compare(conn, parsed_turn: ParsedTurn, conversation_state: d
     if len(snapshots) < 2:
         return _not_found(tool_name, diagnostics)
 
-    dimensions = set(parsed_turn.compare_dimensions or ["price", "rating", "stock"])
-    if "price" in dimensions:
-        cheapest = min(snapshots, key=lambda item: item.price)
-        parts = [f"{item.title} ¥{item.price:.0f}" for item in snapshots]
-        text = f"{'；'.join(parts)}。更便宜的是 {cheapest.title}。"
-    else:
-        parts = [
-            f"{item.title}：¥{item.price:.0f}、评分 {item.rating:.1f}、库存 {item.stock} 件"
-            for item in snapshots
-        ]
-        text = "；".join(parts) + "。"
+    priority_dimensions = set(parsed_turn.compare_dimensions or [])
+    dimensions = priority_dimensions or {"price", "rating", "feature"}
+    comparison = _build_compare_payload(snapshots, dimensions, priority_dimensions)
+    compare_writer = "rule"
+    try:
+        comparison = _write_compare_payload_with_llm(parsed_turn.raw_message, snapshots, comparison, priority_dimensions)
+        compare_writer = "llm"
+    except LLMGenerationError:
+        compare_writer = "rule_fallback"
+    text = _build_compare_response(comparison)
     product_cards = _fetch_product_cards(conn, [item.id for item in snapshots])
     return BoundedToolResult(
         tool_name=tool_name,
@@ -143,8 +146,364 @@ def _handle_product_compare(conn, parsed_turn: ParsedTurn, conversation_state: d
         product_ids=[item.id for item in snapshots],
         products=product_cards,
         current_product_id=snapshots[0].id,
-        diagnostics={**diagnostics, "intent_type": parsed_turn.intent_type, "status": "ok"},
+        comparison=comparison,
+        diagnostics={**diagnostics, "intent_type": parsed_turn.intent_type, "status": "ok", "compare_writer": compare_writer},
     )
+
+
+def _build_compare_payload(
+    products: list[ProductSnapshot],
+    dimensions: set[str],
+    priority_dimensions: set[str],
+) -> dict[str, Any]:
+    columns = _comparison_columns(products)
+    rows = _comparison_rows(products, dimensions)
+    sections = [
+        {
+            "title": f"选{column['label']}如果",
+            "product_id": column["product_id"],
+            "bullets": _product_advantages(product, products, priority_dimensions),
+        }
+        for column, product in zip(columns, products)
+    ]
+    recommendation = _compare_recommendation(products, priority_dimensions)
+    return {
+        "title": f"{' vs '.join(column['label'] for column in columns)} 对比",
+        "summary": _compare_summary(products, columns, rows, priority_dimensions),
+        "columns": columns,
+        "rows": rows,
+        "sections": sections,
+        "recommendation": recommendation,
+        "footnote": "仅基于当前商品库里的价格、评分、库存和商品说明生成。",
+    }
+
+
+def _build_compare_response(comparison: dict[str, Any]) -> str:
+    return f"{comparison['title']}\n{comparison['summary']}\n{comparison['recommendation']}"
+
+
+def _comparison_columns(products: list[ProductSnapshot]) -> list[dict[str, str]]:
+    brands = [item.brand.strip() or _compact_title(item.title, 12) for item in products]
+    if len(set(brands)) < len(brands):
+        brands = [_compact_title(item.title, 12) for item in products]
+    return [
+        {"label": brand, "product_id": product.id}
+        for brand, product in zip(brands, products)
+    ]
+
+
+def _comparison_rows(products: list[ProductSnapshot], dimensions: set[str]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if _has_distinct_values(products, lambda item: f"{item.category}/{item.subcategory}"):
+        rows.append({"dimension": "品类", "values": [f"{item.category}/{item.subcategory}" for item in products]})
+
+    price_needed = "price" in dimensions or _has_distinct_values(products, lambda item: item.price)
+    if price_needed:
+        min_price = min(item.price for item in products)
+        values = []
+        highlight_index = None
+        for item in products:
+            value = f"¥{item.price:.0f}"
+            if item.price == min_price and _has_distinct_values(products, lambda product: product.price):
+                value += "（更低）"
+                highlight_index = products.index(item)
+            values.append(value)
+        rows.append({"dimension": "价格", "values": values, "highlight_index": highlight_index})
+
+    if _has_distinct_values(products, lambda item: item.rating):
+        max_rating = max(item.rating for item in products)
+        values = []
+        highlight_index = None
+        for item in products:
+            value = f"{item.rating:.1f}"
+            if item.rating == max_rating:
+                value += "（更高）"
+                highlight_index = products.index(item)
+            values.append(value)
+        rows.append({"dimension": "评分", "values": values, "highlight_index": highlight_index})
+
+    if "stock" in dimensions and _has_distinct_values(products, lambda item: item.stock):
+        max_stock = max(item.stock for item in products)
+        values = []
+        highlight_index = None
+        for item in products:
+            value = f"约 {item.stock} 件"
+            if item.stock == max_stock:
+                value += "（更多）"
+                highlight_index = products.index(item)
+            values.append(value)
+        rows.append({"dimension": "库存", "values": values, "highlight_index": highlight_index})
+
+    marketing_values = [_compact_marketing(item.marketing_description, max_length=18) for item in products]
+    if any(marketing_values) and len(set(marketing_values)) > 1:
+        rows.append({"dimension": "核心卖点", "values": [value or "暂无明确说明" for value in marketing_values]})
+
+    if not rows:
+        rows.append({"dimension": "差异", "values": ["当前核心字段差异不明显" for _ in products]})
+    return rows
+
+
+def _compare_summary(
+    products: list[ProductSnapshot],
+    columns: list[dict[str, str]],
+    rows: list[dict[str, Any]],
+    priority_dimensions: set[str],
+) -> str:
+    dimensions = "、".join(row["dimension"] for row in rows if row["dimension"] not in {"核心卖点"})
+    if not dimensions:
+        dimensions = "商品说明"
+    recommended = _recommended_product(products, priority_dimensions)
+    recommended_label = next(
+        (column["label"] for column in columns if column["product_id"] == recommended.id),
+        recommended.brand or recommended.title,
+    )
+    return f"这几款的共同点不用重复看，核心差异主要在{dimensions}。简单说：{recommended_label} 目前更值得优先看。"
+
+
+def _product_advantages(product: ProductSnapshot, products: list[ProductSnapshot], priority_dimensions: set[str]) -> list[str]:
+    advantages: list[str] = []
+    prices = [item.price for item in products]
+    ratings = [item.rating for item in products]
+    stocks = [item.stock for item in products]
+
+    if len(set(prices)) > 1 and product.price == min(prices):
+        gap = max(prices) - product.price
+        advantages.append(f"价格更低，比最高价低约 ¥{gap:.0f}。")
+    if len(set(ratings)) > 1 and product.rating == max(ratings):
+        advantages.append(f"评分更高，当前评分 {product.rating:.1f}。")
+    if "stock" in priority_dimensions and len(set(stocks)) > 1 and product.stock == max(stocks):
+        advantages.append(f"库存更多，当前约 {product.stock} 件。")
+
+    marketing = _compact_marketing(product.marketing_description)
+    if marketing:
+        distinct_marketing = _has_distinct_values(products, lambda item: _compact_marketing(item.marketing_description))
+        if distinct_marketing:
+            advantages.append(f"商品说明提到：{marketing}")
+    if not advantages:
+        advantages.append("当前结构化数据里没有明显领先项，可按品牌、外观或规格偏好作为备选。")
+    return advantages[:3]
+
+
+def _compare_recommendation(products: list[ProductSnapshot], priority_dimensions: set[str]) -> str:
+    recommended = _recommended_product(products, priority_dimensions)
+    reasons = []
+    if recommended.price == min(item.price for item in products) and _has_distinct_values(products, lambda item: item.price):
+        reasons.append("价格更低")
+    if recommended.rating == max(item.rating for item in products) and _has_distinct_values(products, lambda item: item.rating):
+        reasons.append("评分更高")
+    if "stock" in priority_dimensions and recommended.stock == max(item.stock for item in products) and _has_distinct_values(products, lambda item: item.stock):
+        reasons.append("库存更多")
+    reason_text = "、".join(reasons) if reasons else "核心字段更均衡"
+    return f"建议：如果没有更明确的品牌或规格偏好，优先看 {recommended.title}，因为它在{reason_text}上更占优。"
+
+
+def _recommended_product(products: list[ProductSnapshot], priority_dimensions: set[str]) -> ProductSnapshot:
+    if "price" in priority_dimensions:
+        return min(products, key=lambda item: item.price)
+    if "rating" in priority_dimensions:
+        return max(products, key=lambda item: item.rating)
+    if "stock" in priority_dimensions:
+        return max(products, key=lambda item: item.stock)
+    return max(products, key=lambda item: _recommendation_score(item, products))
+
+
+def _recommendation_score(product: ProductSnapshot, products: list[ProductSnapshot]) -> tuple[int, float, int]:
+    price_score = 1 if product.price == min(item.price for item in products) else 0
+    rating_score = 1 if product.rating == max(item.rating for item in products) else 0
+    return (price_score + rating_score, product.rating, -int(product.price))
+
+
+def _write_compare_payload_with_llm(
+    user_message: str,
+    products: list[ProductSnapshot],
+    fallback: dict[str, Any],
+    priority_dimensions: set[str],
+) -> dict[str, Any]:
+    api_key = _env_value("POE_API_KEY")
+    if not api_key:
+        raise LLMGenerationError("POE_API_KEY is not configured")
+    base_url = (_env_value("POE_BASE_URL", "https://api.poe.com/v1") or "https://api.poe.com/v1").rstrip("/")
+    timeout = _compare_writer_timeout_seconds()
+    evidence = {
+        "user_message": user_message,
+        "rule_fallback": fallback,
+        "priority_dimensions": sorted(priority_dimensions),
+        "strict_rules": [
+            "只能基于 products 和 rule_fallback 输出，不得新增商品事实",
+            "库存默认只表示购买状态，不能作为推荐理由；除非 priority_dimensions 包含 stock",
+            "表格单元格要短，避免超过手机屏幕",
+            "不要把两款共同点重复列成差异",
+        ],
+        "products": [_comparison_evidence(product) for product in products],
+        "output_schema": {
+            "summary": "不超过70字",
+            "rows": [{"dimension": "维度名", "values": ["每个商品一个短值"], "highlight_index": 0}],
+            "sections": [{"product_id": "商品id", "title": "选X如果", "bullets": ["每条不超过24字"]}],
+            "recommendation": "不超过90字，允许按不同偏好给建议",
+        },
+    }
+    system_prompt = (
+        "你是电商商品对比文案生成器。你只能压缩和改写输入事实，不能编造价格、评分、库存、功能、品牌或评价。"
+        "输出必须是 JSON object。rows 最多 5 行；每个 values 长度必须等于商品数量；sections 每个商品最多 3 条。"
+        "如果证据不足，就写“当前数据不足”。不要输出 Markdown。"
+    )
+    try:
+        with httpx.Client(timeout=httpx.Timeout(timeout, connect=4.0)) as client:
+            response = client.post(
+                f"{base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": llm_model_name(),
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": json.dumps(evidence, ensure_ascii=False)},
+                    ],
+                    "temperature": 0.45,
+                    "max_tokens": 900,
+                },
+            )
+            response.raise_for_status()
+            data = json.loads(_extract_json_object(_extract_content(response.json())))
+            return _sanitize_llm_comparison_payload(data, fallback, products, priority_dimensions)
+    except LLMGenerationError:
+        raise
+    except (json.JSONDecodeError, httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+        raise LLMGenerationError("comparison writer failed") from exc
+
+
+def _comparison_evidence(product: ProductSnapshot) -> dict[str, Any]:
+    return {
+        "id": product.id,
+        "title": product.title,
+        "brand": product.brand,
+        "category": product.category,
+        "subcategory": product.subcategory,
+        "price": product.price,
+        "rating": product.rating,
+        "purchase_status": "有货" if product.stock > 0 else "无货",
+        "sku_summary": product.sku_summary,
+        "marketing_description": product.marketing_description[:260],
+    }
+
+
+def _sanitize_llm_comparison_payload(
+    data: dict[str, Any],
+    fallback: dict[str, Any],
+    products: list[ProductSnapshot],
+    priority_dimensions: set[str],
+) -> dict[str, Any]:
+    product_ids = [product.id for product in products]
+    column_count = len(product_ids)
+    rows = _sanitize_llm_rows(data.get("rows"), fallback["rows"], column_count, priority_dimensions)
+    sections = _sanitize_llm_sections(data.get("sections"), fallback["sections"], product_ids, priority_dimensions)
+    recommendation = _clean_compare_text(str(data.get("recommendation") or ""), 100)
+    if not recommendation or ("stock" not in priority_dimensions and "库存" in recommendation):
+        recommendation = fallback["recommendation"]
+    summary = _clean_compare_text(str(data.get("summary") or ""), 80) or fallback["summary"]
+    if "stock" not in priority_dimensions and "库存" in summary:
+        summary = fallback["summary"]
+    return {
+        **fallback,
+        "summary": summary,
+        "rows": rows,
+        "sections": sections,
+        "recommendation": recommendation,
+    }
+
+
+def _sanitize_llm_rows(
+    raw_rows: Any,
+    fallback_rows: list[dict[str, Any]],
+    column_count: int,
+    priority_dimensions: set[str],
+) -> list[dict[str, Any]]:
+    if not isinstance(raw_rows, list):
+        return fallback_rows
+    rows: list[dict[str, Any]] = []
+    for row in raw_rows[:6]:
+        if not isinstance(row, dict):
+            continue
+        dimension = _clean_compare_text(str(row.get("dimension") or ""), 8)
+        if not dimension:
+            continue
+        if "stock" not in priority_dimensions and any(term in dimension for term in ("库存", "有货", "现货")):
+            continue
+        raw_values = row.get("values")
+        if not isinstance(raw_values, list) or len(raw_values) < column_count:
+            continue
+        values = [_clean_compare_text(str(value), 18) or "当前数据不足" for value in raw_values[:column_count]]
+        highlight_index = row.get("highlight_index")
+        if not isinstance(highlight_index, int) or not 0 <= highlight_index < column_count:
+            highlight_index = None
+        rows.append({"dimension": dimension, "values": values, "highlight_index": highlight_index})
+    return rows or fallback_rows
+
+
+def _sanitize_llm_sections(
+    raw_sections: Any,
+    fallback_sections: list[dict[str, Any]],
+    product_ids: list[str],
+    priority_dimensions: set[str],
+) -> list[dict[str, Any]]:
+    if not isinstance(raw_sections, list):
+        return fallback_sections
+    by_product: dict[str, dict[str, Any]] = {}
+    for section in raw_sections:
+        if not isinstance(section, dict):
+            continue
+        product_id = str(section.get("product_id") or "")
+        if product_id not in product_ids:
+            continue
+        bullets_raw = section.get("bullets")
+        if not isinstance(bullets_raw, list):
+            continue
+        bullets = []
+        for bullet in bullets_raw[:3]:
+            text = _clean_compare_text(str(bullet), 26)
+            if text and ("stock" in priority_dimensions or "库存" not in text):
+                bullets.append(text)
+        if bullets:
+            by_product[product_id] = {
+                "title": _clean_compare_text(str(section.get("title") or ""), 12) or f"选这款如果",
+                "product_id": product_id,
+                "bullets": bullets,
+            }
+    ordered = [by_product[product_id] for product_id in product_ids if product_id in by_product]
+    return ordered if len(ordered) == len(product_ids) else fallback_sections
+
+
+def _clean_compare_text(text: str, max_length: int) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip(" ，,。；;")
+    forbidden = ("RRF", "BM25", "retrieval", "score", "dense", "keyword", "SQL")
+    if not cleaned or any(token.lower() in cleaned.lower() for token in forbidden):
+        return ""
+    return cleaned[:max_length].rstrip("，,。；; ")
+
+
+def _compare_writer_timeout_seconds() -> float:
+    raw = _env_value("COMPARE_LLM_TIMEOUT_SECONDS", "8")
+    try:
+        return min(max(float(raw or "8"), 3.0), 12.0)
+    except ValueError:
+        return 8.0
+
+
+def _has_distinct_values(products: list[ProductSnapshot], getter) -> bool:
+    return len({getter(item) for item in products}) > 1
+
+
+def _compact_title(title: str, max_length: int = 24) -> str:
+    return title if len(title) <= max_length else title[: max_length - 1].rstrip() + "…"
+
+
+def _compact_marketing(text: str, max_length: int = 48) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    if not cleaned:
+        return ""
+    sentence = re.split(r"[。！？；]", cleaned, maxsplit=1)[0].strip()
+    if not sentence:
+        return ""
+    return sentence if len(sentence) <= max_length else sentence[: max_length - 1].rstrip() + "…"
 
 
 def _handle_cart_add(conn, parsed_turn: ParsedTurn, conversation_state: dict[str, Any] | None) -> BoundedToolResult:
