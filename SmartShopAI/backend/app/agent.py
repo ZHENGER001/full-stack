@@ -15,16 +15,20 @@ from fastapi import HTTPException, UploadFile
 
 from .agentic_rag import plan_agentic_turn, retrieve_products_for_turn
 from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn
+from .bundle_recommendation import build_bundle_answer, retrieve_bundle_recommendations
 from .catalog import get_cart
 from .config import get_settings
 from .llm_client import (
     LLMGenerationError,
     LLMGenerationResult,
     generate_agent_reply_with_status,
+    generate_product_presentations,
     llm_model_name,
     stream_agent_reply_chunks_with_status,
 )
+from .react_planner import has_checkout_signal, message_with_sku_hint, plan_react_transaction, product_reference_from_step
 from .schemas import ProductCard
+from .turn_schema import ParsedTurn
 
 
 logger = logging.getLogger(__name__)
@@ -148,6 +152,24 @@ def _stream_chat(
     if is_order_cancel_intent(message):
         yield from emit_order_cancel_turn(conn, session_id, message, image_id)
         return
+    pending_checkout_message = pending_cart_add_checkout_message(message, chat_history)
+    if pending_checkout_message:
+        yield from emit_cart_add_checkout_turn(
+            conn,
+            session_id,
+            f"{pending_checkout_message} {message}",
+            image_id,
+            chat_history,
+            conversation_state,
+        )
+        return
+    react_plan = run_async_blocking(plan_react_transaction(message, chat_history, conversation_state))
+    if react_plan.should_execute and any(step.action in {"cart_add", "checkout"} for step in react_plan.steps):
+        yield from emit_react_transaction_turn(conn, session_id, message, image_id, react_plan)
+        return
+    if is_cart_add_checkout_intent(message):
+        yield from emit_cart_add_checkout_turn(conn, session_id, message, image_id, chat_history, conversation_state)
+        return
     if is_checkout_intent(message):
         yield from emit_checkout_turn(conn, session_id, message, image_id)
         return
@@ -161,11 +183,17 @@ def _stream_chat(
             bounded_result = execute_bounded_turn(conn, parsed_turn, conversation_state)
             yield from emit_bounded_result(conn, session_id, message, image_id, bounded_result)
             return
+        if parsed_turn.intent_type == "bundle_recommendation":
+            yield from emit_bundle_recommendation_turn(conn, session_id, message, image_id, turn_plan)
+            return
         if not turn_plan.should_search_products:
             assistant_content = turn_plan.policy.response_text or "这个操作我正在支持中。"
+            actions = build_clarification_actions(conn, parsed_turn.clarification_question or assistant_content)
             yield sse_event("delta", {"text": assistant_content})
+            if actions:
+                yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
-            update_session_state(conn, session_id, last_query=message)
+            update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
             yield sse_event("done", {"session_id": session_id})
             return
     except Exception as exc:
@@ -241,10 +269,12 @@ def _stream_chat(
             "sources": retrieval_result.sources,
             "fusion": retrieval_result.fusion,
             "vector_backend": retrieval_result.vector_backend,
+            "graph_backend": retrieval_result.graph_backend,
             "turn": {
                 "intent_type": parsed_turn.intent_type if parsed_turn else "unknown",
                 "route_hint": parsed_turn.route_hint if parsed_turn else "direct_tool",
                 "needs_clarification": parsed_turn.needs_clarification if parsed_turn else False,
+                "graph_backend": turn_plan.graph_backend if turn_plan else "langgraph_fallback",
             },
         },
     )
@@ -255,6 +285,7 @@ def _stream_chat(
     grounded_products = build_grounded_products(conn, products)
     grounded_alternatives = [] if grounded_products else build_grounded_products(conn, alternatives)
     visible_products = grounded_products or grounded_alternatives
+    enrich_product_presentations(message, visible_products)
     faq_context = load_faq_context(conn, [product["id"] for product in grounded_products])
     chat_history = load_chat_history(conn, session_id)
     actions = build_actions(conn, visible_products, final_user_query, parsed_filters)
@@ -300,6 +331,19 @@ def emit_bounded_result(
     image_id: str | None,
     result: BoundedToolResult,
 ) -> Iterable[str]:
+    yield from emit_bounded_events(conn, session_id, message, image_id, result, store=True, done=True)
+
+
+def emit_bounded_events(
+    conn,
+    session_id: str,
+    message: str,
+    image_id: str | None,
+    result: BoundedToolResult,
+    *,
+    store: bool,
+    done: bool,
+) -> Iterable[str]:
     actions = normalize_actions(conn, result.actions)
     yield sse_event(
         "tool_diagnostics",
@@ -314,9 +358,13 @@ def emit_bounded_result(
         yield sse_event("products", {"products": result.products})
     if result.cart is not None:
         yield sse_event("cart", result.cart)
+    if result.status == "needs_reference" and not actions:
+        actions = build_reference_clarification_actions(conn, result.response_text)
     if actions:
         yield sse_event("actions", {"actions": actions})
 
+    if not store:
+        return
     store_assistant_message(conn, session_id, result.response_text, image_id)
     update_session_state(
         conn,
@@ -324,6 +372,188 @@ def emit_bounded_result(
         last_query=message,
         last_recommended_product_ids=result.product_ids or None,
         current_product_id=result.current_product_id,
+        last_actions=actions or None,
+    )
+    if done:
+        yield sse_event("done", {"session_id": session_id})
+
+
+def emit_cart_add_checkout_turn(
+    conn,
+    session_id: str,
+    message: str,
+    image_id: str | None,
+    chat_history: list[dict[str, str]],
+    conversation_state: dict[str, Any],
+) -> Iterable[str]:
+    try:
+        turn_plan = run_async_blocking(plan_agentic_turn(message, chat_history, conversation_state))
+        parsed_turn = turn_plan.parsed_turn
+    except Exception as exc:
+        logger.info("cart_add_checkout_parse_failed=%s", exc.__class__.__name__)
+        yield from emit_checkout_turn(conn, session_id, message, image_id)
+        return
+
+    if parsed_turn.intent_type != "cart_add":
+        yield from emit_checkout_turn(conn, session_id, message, image_id)
+        return
+
+    add_result = execute_bounded_turn(conn, parsed_turn, conversation_state)
+    yield sse_event(
+        "workflow_status",
+        {
+            "workflow": "cart_add_checkout",
+            "step": "cart_add",
+            "status": add_result.status,
+            "graph_backend": turn_plan.graph_backend,
+        },
+    )
+    yield from emit_bounded_events(conn, session_id, message, image_id, add_result, store=True, done=False)
+    if add_result.status != "ok":
+        yield sse_event("done", {"session_id": session_id})
+        return
+
+    yield sse_event(
+        "workflow_status",
+        {
+            "workflow": "cart_add_checkout",
+            "step": "checkout",
+            "status": "start",
+            "graph_backend": turn_plan.graph_backend,
+        },
+    )
+    checkout_message = "确认下单并支付" if should_auto_confirm_checkout(message) else message
+    yield from emit_checkout_turn(conn, session_id, checkout_message, image_id)
+
+
+def emit_react_transaction_turn(
+    conn,
+    session_id: str,
+    message: str,
+    image_id: str | None,
+    react_plan,
+) -> Iterable[str]:
+    yield sse_event(
+        "workflow_status",
+        {
+            "workflow": "react_transaction",
+            "step": "planner",
+            "status": "ok",
+            "confidence": react_plan.confidence,
+            "actions": [step.action for step in react_plan.steps],
+        },
+    )
+    completed_any_step = False
+    for step in react_plan.steps:
+        if step.action == "cart_add":
+            parsed_turn = ParsedTurn(
+                raw_message=message_with_sku_hint(message, step),
+                intent_type="cart_add",
+                route_hint="bounded_react",
+                references=product_reference_from_step(step),
+                quantity=step.quantity or 1,
+                source="llm",
+            )
+            result = execute_bounded_turn(conn, parsed_turn, load_conversation_state(conn, session_id, None, None))
+            yield sse_event(
+                "workflow_status",
+                {
+                    "workflow": "react_transaction",
+                    "step": "cart_add",
+                    "status": result.status,
+                },
+            )
+            yield from emit_bounded_events(conn, session_id, message, image_id, result, store=True, done=False)
+            if result.status != "ok":
+                yield sse_event("done", {"session_id": session_id})
+                return
+            completed_any_step = True
+            continue
+        if step.action == "checkout":
+            if not completed_any_step and not get_cart(conn).items:
+                assistant_content = "我还不知道你想买哪一款商品。请先告诉我具体商品，或先让我推荐几款再说“第一款 42 码直接买”。"
+                actions = normalize_actions(
+                    conn,
+                    [
+                        {"type": "search_more", "label": "重新推荐几款", "product_id": None},
+                        {"type": "open_cart", "label": "打开购物车", "product_id": None},
+                        {"type": "search_more", "label": "我说商品名称", "product_id": None},
+                    ],
+                )
+                yield order_status_event("failed", "缺少商品引用")
+                yield sse_event("delta", {"text": assistant_content})
+                if actions:
+                    yield sse_event("actions", {"actions": actions})
+                store_assistant_message(conn, session_id, assistant_content, image_id)
+                update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+                yield sse_event("done", {"session_id": session_id})
+                return
+            checkout_message = "确认下单并支付" if step.confirm_payment else "结算"
+            yield sse_event(
+                "workflow_status",
+                {
+                    "workflow": "react_transaction",
+                    "step": "checkout",
+                    "status": "start",
+                    "confirm_payment": step.confirm_payment,
+                    "use_default_address": step.use_default_address,
+                },
+            )
+            yield from emit_checkout_turn(conn, session_id, checkout_message, image_id)
+            return
+    if completed_any_step:
+        yield sse_event("done", {"session_id": session_id})
+
+
+def emit_bundle_recommendation_turn(
+    conn,
+    session_id: str,
+    message: str,
+    image_id: str | None,
+    turn_plan,
+) -> Iterable[str]:
+    yield sse_event("delta", {"text": "我先把这个场景拆成几个需要购买的部分。\n"})
+    time.sleep(0.2)
+    yield sse_event("delta", {"text": "再分别匹配防护、穿搭、鞋包和护理类商品。\n"})
+    result = retrieve_bundle_recommendations(conn, message, top_k_per_slot=1)
+    yield sse_event(
+        "retrieval_status",
+        {
+            "final_user_query": message,
+            "parsed_filters": {},
+            "pipeline": [
+                "scene_planner",
+                "category_planner",
+                "parallel_retrieve",
+                "slot_verifier",
+                "bundle_writer",
+            ],
+            "sources": ["dense_milvus", "bm25", "keyword"],
+            "fusion": "slot_rrf",
+            "vector_backend": "milvus",
+            "graph_backend": turn_plan.graph_backend,
+            "turn": turn_plan.status_payload(),
+            "bundle": result.diagnostics,
+        },
+    )
+    grounded_products = build_grounded_products(conn, result.products)
+    enrich_product_presentations(message, grounded_products)
+    if grounded_products:
+        yield sse_event("products", {"products": grounded_products})
+    answer = build_bundle_answer(result)
+    yield sse_event("llm_status", {"mode": "bundle_template", "reason": "multi_slot_grounded"})
+    yield sse_event("delta", {"text": answer})
+    actions = build_actions(conn, grounded_products, message, {})
+    if actions:
+        yield sse_event("actions", {"actions": actions})
+    assistant_content = append_recommendation_marker(answer, grounded_products)
+    store_assistant_message(conn, session_id, assistant_content, image_id)
+    update_session_state(
+        conn,
+        session_id,
+        last_query=message,
+        last_recommended_product_ids=[product["id"] for product in grounded_products],
+        current_product_id=grounded_products[0]["id"] if grounded_products else None,
         last_actions=actions or None,
     )
     yield sse_event("done", {"session_id": session_id})
@@ -399,11 +629,14 @@ def emit_checkout_turn(
             order = create_paid_order_from_cart(conn, address)
         except ValueError as exc:
             assistant_content = str(exc)
+            actions = normalize_actions(conn, build_checkout_failure_actions(assistant_content))
             yield order_status_event("failed", "下单失败")
             yield sse_event("delta", {"text": assistant_content})
             yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
+            if actions:
+                yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
-            update_session_state(conn, session_id, last_query=message, last_actions=None)
+            update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
             yield sse_event("done", {"session_id": session_id})
             return
         yield order_status_event("paying", "正在模拟支付")
@@ -496,6 +729,11 @@ def build_final_user_query(
     parts = [message.strip()]
     if image_query:
         parts.append(image_query)
+    if should_merge_last_query(message):
+        row = conn.execute("SELECT last_query FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
+        last_query = row["last_query"] if row else None
+        if last_query and last_query not in message:
+            parts.append(str(last_query))
     anchor_product_id = current_product_id
     if not anchor_product_id and any(word in message for word in ["这个", "这款", "刚刚", "刚才", "类似", "同款"]):
         row = conn.execute("SELECT current_product_id FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
@@ -516,6 +754,42 @@ def build_final_user_query(
                 ]
             )
     return " ".join(part for part in parts if part)
+
+
+def should_merge_last_query(message: str) -> bool:
+    text = message.strip()
+    if not text:
+        return False
+    has_catalog_term = any(
+        term in text
+        for term in (
+            "手机",
+            "耳机",
+            "电脑",
+            "笔记本",
+            "篮球鞋",
+            "跑鞋",
+            "防晒",
+            "背包",
+            "行李箱",
+        )
+    )
+    refinement_terms = (
+        "拍照",
+        "续航",
+        "性能",
+        "性价比",
+        "预算",
+        "优先",
+        "便宜",
+        "贵点",
+        "不要",
+        "排除",
+        "降噪",
+        "通勤",
+        "实战",
+    )
+    return not has_catalog_term and any(term in text for term in refinement_terms)
 
 
 def product_exists(conn, product_id: str | None) -> bool:
@@ -559,6 +833,72 @@ def build_actions(
         for label in build_follow_up_questions(products, query, parsed_filters)
     ]
     return normalize_actions(conn, actions)
+
+
+def build_clarification_actions(conn, question: str) -> list[dict[str, Any]]:
+    if "哪类带" in question:
+        labels = build_attribute_category_labels(question)
+    elif "换一批推荐" in question and "删除购物车" in question:
+        labels = [
+            "换一批推荐",
+            "删除购物车商品",
+            "加入购物车",
+        ]
+    elif "拍照" in question and "续航" in question:
+        labels = [
+            "拍照优先，预算4000",
+            "续航优先，预算3000",
+            "性价比优先，预算2500",
+        ]
+    elif "降噪" in question and "音质" in question:
+        labels = [
+            "降噪优先，预算500",
+            "音质优先，预算800",
+            "佩戴舒适，预算300",
+        ]
+    elif "实战" in question or "跑步" in question:
+        labels = [
+            "实战优先，预算500",
+            "通勤穿搭，预算300",
+            "跑步缓震，预算600",
+        ]
+    else:
+        labels = ["预算低一点", "品牌不限", "更看重性价比"]
+    return normalize_actions(
+        conn,
+        [{"type": "search_more", "label": label, "product_id": None} for label in labels],
+    )
+
+
+def build_attribute_category_labels(question: str) -> list[str]:
+    if "蓝牙" in question:
+        return ["找蓝牙耳机", "找蓝牙音箱", "找蓝牙键盘"]
+    if "防水" in question:
+        return ["找防水背包", "找防水鞋", "找防水外套"]
+    if "轻薄" in question:
+        return ["找轻薄笔记本", "找轻薄外套", "找轻薄背包"]
+    if "降噪" in question:
+        return ["找降噪耳机", "找降噪耳塞", "找通勤耳机"]
+    if "续航" in question:
+        return ["找长续航手机", "找长续航耳机", "找长续航笔记本"]
+    return ["找耳机", "找背包", "找鞋服"]
+
+
+def build_reference_clarification_actions(conn, response_text: str) -> list[dict[str, Any]]:
+    if "购物车" in response_text:
+        labels = ["打开购物车", "删除购物车第一项", "清空购物车"]
+        raw_actions = [
+            {"type": "open_cart", "label": labels[0], "product_id": None},
+            {"type": "search_more", "label": labels[1], "product_id": None},
+            {"type": "search_more", "label": labels[2], "product_id": None},
+        ]
+    else:
+        raw_actions = [
+            {"type": "search_more", "label": "重新推荐几款", "product_id": None},
+            {"type": "open_cart", "label": "打开购物车", "product_id": None},
+            {"type": "search_more", "label": "我说商品名称", "product_id": None},
+        ]
+    return normalize_actions(conn, raw_actions)
 
 
 def build_empty_result_follow_up_questions(
@@ -701,6 +1041,55 @@ def build_grounded_products(conn, products: list[ProductCard]) -> list[dict[str,
     return grounded
 
 
+def enrich_product_presentations(user_message: str, products: list[dict[str, Any]]) -> None:
+    if not products:
+        return
+    try:
+        presentations = run_async_blocking(generate_product_presentations(user_message, products))
+    except Exception as exc:
+        logger.info("presentation_generation_failed=%s", exc.__class__.__name__)
+        presentations = {}
+    for index, product in enumerate(products):
+        generated = presentations.get(str(product.get("id"))) if presentations else None
+        fallback_title, fallback_reason = fallback_product_presentation(user_message, product, index)
+        product["recommendation_title"] = (generated or {}).get("recommendation_title") or fallback_title
+        product["reason"] = (generated or {}).get("reason") or user_facing_reason(product.get("reason")) or fallback_reason
+
+
+def fallback_product_presentation(user_message: str, product: dict[str, Any], index: int) -> tuple[str, str]:
+    title = str(product.get("title") or "")
+    category = str(product.get("subcategory") or product.get("category") or "商品")
+    reason = str(product.get("reason") or "")
+    price = float(product.get("price") or 0)
+    if "预算" in reason or "放宽" in reason:
+        return "预算备选", f"这款{category}是放宽预算后的相近选择，适合作为对比备选。"
+    if any(term in user_message + title + reason for term in ("拍照", "影像", "摄影")) and "手机" in title:
+        return "拍照优先", "更偏拍照和影像体验，适合把相机表现放在第一位的需求。"
+    if any(term in user_message + title + reason for term in ("续航", "长续航")):
+        return "长续航款", "更偏长时间稳定使用，适合通勤、出差或重度使用。"
+    if any(term in user_message + title + reason for term in ("性能", "游戏")):
+        return "性能配置", "更适合看重流畅度、配置和游戏表现的需求。"
+    if any(term in user_message + title + reason for term in ("降噪", "通勤")) and "耳机" in title:
+        return "通勤降噪", "更适合通勤、办公和嘈杂环境，重点看降噪和佩戴体验。"
+    if any(term in user_message + title + reason for term in ("防晒", "海边", "三亚")):
+        return "防晒防护", "适合户外或海边场景，重点看防护、轻便和便携性。"
+    if any(term in title + category for term in ("篮球鞋", "球鞋")):
+        return "实战支撑", "更适合运动和日常穿搭，重点看支撑、缓震和耐磨。"
+    if price <= 300:
+        return "高性价比", f"这款{category}价格更友好，适合作为预算有限时的实用选择。"
+    return ("综合匹配" if index == 0 else "对比备选", f"这款{category}匹配当前需求，可结合价格、品牌和库存一起对比。")
+
+
+def user_facing_reason(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    technical_tokens = ("RRF", "BM25", "retrieval", "Matched by", "score", "dense", "keyword")
+    if any(token.lower() in text.lower() for token in technical_tokens):
+        return None
+    return text
+
+
 def load_faq_context(conn, product_ids: list[str]) -> list[dict[str, str]]:
     if not product_ids:
         return []
@@ -803,6 +1192,37 @@ def is_checkout_intent(message: str) -> bool:
     )
 
 
+def is_cart_add_checkout_intent(message: str) -> bool:
+    text = message.strip()
+    has_add = any(word in text for word in ("加入购物车", "加购物车", "加购", "放购物车", "加入"))
+    has_checkout = any(word in text for word in ("结算", "下单", "提交订单", "确认订单", "去支付", "支付"))
+    return has_add and has_checkout
+
+
+def pending_cart_add_checkout_message(message: str, chat_history: list[dict[str, str]]) -> str | None:
+    if not is_sku_selection_message(message):
+        return None
+    for item in reversed(chat_history[-4:]):
+        if item.get("role") != "user":
+            continue
+        content = str(item.get("content") or "")
+        if is_cart_add_checkout_intent(content) or is_pending_direct_buy_intent(content):
+            return content
+        break
+    return None
+
+
+def is_pending_direct_buy_intent(message: str) -> bool:
+    text = message.strip()
+    has_reference = any(term in text for term in ("这双", "这款", "这个", "刚才", "刚刚", "第一", "第二", "第三"))
+    return has_reference and has_checkout_signal(text)
+
+
+def should_auto_confirm_checkout(message: str) -> bool:
+    text = message.strip()
+    return any(word in text for word in ("直接下单", "下单吧", "默认地址", "地址用默认", "用默认地址", "确认下单", "去支付"))
+
+
 def is_order_cancel_intent(message: str) -> bool:
     text = message.strip()
     return "订单" in text and any(word in text for word in ("取消", "撤销", "关闭", "退掉", "不要了"))
@@ -815,7 +1235,10 @@ def is_checkout_cancel_intent(message: str) -> bool:
 
 def is_checkout_confirm_intent(message: str) -> bool:
     text = message.strip()
-    return any(word in text for word in ("确认下单", "确认下单并支付", "提交订单", "确认支付", "去支付"))
+    return any(
+        word in text
+        for word in ("确认下单", "确认下单并支付", "提交订单", "确认支付", "去支付", "直接下单", "下单吧", "默认地址", "地址用默认", "用默认地址")
+    )
 
 
 def is_address_change_intent(message: str) -> bool:
@@ -882,6 +1305,21 @@ def build_checkout_confirmation_text(cart: dict[str, Any], address: dict[str, An
     else:
         lines.append("请先补充收货地址，再继续下单。")
     return "\n".join(lines)
+
+
+def build_checkout_failure_actions(message: str) -> list[dict[str, Any]]:
+    if any(term in message for term in ("库存不足", "库存刚刚发生变化")):
+        return [
+            {"type": "open_cart", "label": "打开购物车", "product_id": None},
+            {"type": "search_more", "label": "把数量改少一点", "product_id": None},
+            {"type": "search_more", "label": "重新推荐替代商品", "product_id": None},
+        ]
+    if any(term in message for term in ("规格已不存在", "没有可购买规格")):
+        return [
+            {"type": "open_cart", "label": "打开购物车", "product_id": None},
+            {"type": "search_more", "label": "重新选择规格", "product_id": None},
+        ]
+    return [{"type": "open_cart", "label": "打开购物车", "product_id": None}]
 
 
 def create_paid_order_from_cart(conn, address: dict[str, Any]) -> dict[str, Any]:

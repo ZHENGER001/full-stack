@@ -276,7 +276,7 @@ def build_alternative_products(candidates: list[dict[str, Any]], filters: dict[s
     cards: list[ProductCard] = []
     for product in alternatives:
         item = dict(product)
-        item["reason"] = "Alternative match after relaxing the price constraint."
+        item["reason"] = "预算条件放宽后的相近选择，品类仍匹配你的需求，但价格可能高于原预算。"
         item["rerank_reason"] = item["reason"]
         cards.append(product_dict_to_product_card(item))
     return cards

@@ -113,6 +113,17 @@ def parse_turn_with_rules(
         return ParsedTurn(raw_message=raw, intent_type="greeting", route_hint="no_tool")
     if any(term in raw for term in ["你能做什么", "你会什么", "怎么用"]):
         return ParsedTurn(raw_message=raw, intent_type="capability_question", route_hint="no_tool")
+    if _is_bundle_request(raw):
+        return ParsedTurn(raw_message=raw, intent_type="bundle_recommendation", route_hint="plan_execute", source="rule")
+    if _is_ambiguous_action_request(raw):
+        return ParsedTurn(
+            raw_message=raw,
+            intent_type="unknown",
+            route_hint="no_tool",
+            needs_clarification=True,
+            clarification_question="我需要确认一下，你是想换一批推荐、删除购物车商品，还是加入购物车/直接购买？",
+            source="rule",
+        )
 
     _apply_catalog_terms(raw, constraints)
     _apply_price(raw, constraints)
@@ -231,6 +242,16 @@ def post_validate_parsed_turn(
                 "needs_clarification": True,
                 "route_hint": "no_tool",
                 "clarification_question": f"你想找哪类带{compact}功能的商品？",
+                "retrieval_policy_hint": retrieval,
+            }
+        )
+
+    if _needs_preference_clarification(parsed, constraints, has_context):
+        return parsed.model_copy(
+            update={
+                "needs_clarification": True,
+                "route_hint": "no_tool",
+                "clarification_question": build_preference_clarification_question(constraints),
                 "retrieval_policy_hint": retrieval,
             }
         )
@@ -415,6 +436,46 @@ def _explicit_cart_product_id(raw: str) -> str | None:
 
 def _matches_catalog(raw: str) -> bool:
     return any(term in raw for item in CATALOG_TERMS for term in item["terms"])
+
+
+def _is_bundle_request(raw: str) -> bool:
+    has_bundle_word = any(term in raw for term in ("搭配", "一套", "方案", "组合", "清单", "从", "到"))
+    has_scene_word = any(term in raw for term in ("度假", "三亚", "海边", "沙滩", "旅行", "通勤", "上班", "户外"))
+    return has_bundle_word and has_scene_word
+
+
+def _is_ambiguous_action_request(raw: str) -> bool:
+    if not any(term in raw for term in ("弄一下", "处理一下", "搞一下", "安排", "不要了", "再来一个", "然后买", "买了")):
+        return False
+    has_reference = bool(_extract_references(raw)) or any(term in raw for term in ("这个", "这款", "这双", "刚才", "刚刚"))
+    has_clear_action = any(term in raw for term in ("加入购物车", "加购", "删除购物车", "删掉购物车", "下单吧", "确认下单", "直接买"))
+    return has_reference and not has_clear_action
+
+
+def _needs_preference_clarification(parsed: ParsedTurn, constraints: TurnConstraints, has_context: bool) -> bool:
+    if parsed.needs_clarification:
+        return False
+    if parsed.intent_type not in {"product_search", "filter_refinement", "unknown"}:
+        return False
+    if len(constraints.subcategories) != 1:
+        return False
+    if constraints.price.min is not None or constraints.price.max is not None:
+        return False
+    if constraints.brands_include or constraints.attributes_include or constraints.scene_terms:
+        return False
+    broad_subcategories = {"智能手机", "真无线耳机", "笔记本电脑", "篮球鞋", "跑步鞋"}
+    return constraints.subcategories[0] in broad_subcategories
+
+
+def build_preference_clarification_question(constraints: TurnConstraints) -> str:
+    subcategory = constraints.subcategories[0] if constraints.subcategories else "商品"
+    if subcategory == "智能手机":
+        return "请问你更看重拍照、续航、性能还是性价比？预算大概多少？"
+    if subcategory == "真无线耳机":
+        return "请问你更看重降噪、音质、续航还是佩戴舒适？预算大概多少？"
+    if subcategory in {"篮球鞋", "跑步鞋"}:
+        return "请问你主要用于实战、跑步、通勤还是日常穿搭？预算大概多少？"
+    return f"你更看重{subcategory}的哪些方面？比如价格、品牌、功能或使用场景。"
 
 
 def _is_attribute_only(compact: str) -> bool:

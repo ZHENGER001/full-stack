@@ -12,6 +12,7 @@ class ProductCard(BaseModel):
     price: float
     rating: float
     image_path: str
+    recommendation_title: str | None = None
     reason: str | None = None
     marketing_description: str | None = None
     review_count: int = 0

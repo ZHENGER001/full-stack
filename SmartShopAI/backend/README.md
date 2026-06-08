@@ -19,7 +19,14 @@ OpenAPI docs are available at `http://127.0.0.1:8000/docs`.
 
 ## AI Agent Design
 
-后端现在采用轻量 Agentic RAG 编排。`app/agent.py` 负责 SSE、会话写入和订单/购物车执行入口；`app/agentic_rag.py` 负责可迁移到 LangGraph 的图式节点：`turn_memory -> intent_parser -> policy_router -> retrieval -> verifier -> grounded_writer`。
+后端现在采用 LangGraph Agentic RAG 编排。`app/agent.py` 负责 SSE、会话写入和订单/购物车执行入口；`app/agentic_rag.py` 负责构建 LangGraph `StateGraph`：`turn_memory -> intent_parser -> policy_router -> retrieval -> verifier -> grounded_writer`。
+
+`app/agentic_rag.py` 内部有两个图：
+
+- `AgenticPlanState`：`intent_parser -> policy_router`，负责把自然语言解析成意图、引用、约束和路由决策。
+- `AgenticRetrievalState`：`parse_filters -> search_products`，负责约束解析、多路召回、融合和校验。
+
+如果本地还没有安装 `langgraph`，后端会自动走同样节点顺序的 fallback 执行路径，避免开发环境直接启动失败。安装 `requirements.txt` 后，`retrieval_status.graph_backend` 和 `retrieval_status.turn.graph_backend` 会显示 `langgraph`。
 
 核心流程：
 
@@ -40,6 +47,34 @@ OpenAPI docs are available at `http://127.0.0.1:8000/docs`.
 推荐咨询走 RAG：用户通过文本或图片输入需求，后端先统一成 `final_user_query`，再进入 `dense(Milvus) / BM25 / keyword -> RRF -> SQLite hydrate -> verifier` 的检索链路，并构造 grounded context。生成链路会把 grounded context 交给 Poe/Qwen 生成自然语言导购回复，但商品、价格、库存、SKU、图片、FAQ 和评价等事实仍只来自 SQLite。
 
 交易执行走确定性工具：加购、删除购物车商品、修改数量、清空购物车、结算、支付、取消订单等操作不让大模型直接改数据库，而是先解析成结构化意图，再调用 bounded tools 或订单流程。这样可以保证库存扣减、订单状态、购物车详情和客户端展示是一致的。
+
+高级交易场景支持对话式 CRUD 和多步骤业务闭环：
+
+```text
+把第一款 42 码加入购物车，然后用默认地址下单
+-> cart_add
+-> SKU 已明确则写入购物车
+-> checkout
+-> 读取默认地址
+-> 校验库存
+-> 创建订单并模拟支付
+```
+
+为了减少用户必须说固定关键词的问题，后端增加了 ReAct 规划层 `app/react_planner.py`。它不会直接改数据库，只把自然语言交易意图规划为受控步骤，例如：
+
+```text
+这双 42 的直接买
+-> cart_add(current_product, sku_hint=42)
+-> checkout(use_default_address=true, confirm_payment=true)
+
+帮我拿刚才那双，按默认地址走
+-> cart_add(last_product)
+-> checkout(use_default_address=true, confirm_payment=true)
+```
+
+ReAct planner 优先使用 LLM 归一用户表达；没有配置大模型或解析失败时，回退到规则 planner。所有写操作仍通过 bounded tools 和 checkout guardrail 执行，不允许大模型直接写购物车、订单、库存或支付表。
+
+如果规格缺失，流程会先停在 `needs_sku` 并追问尺码/型号；用户下一句只回复 `42`、`黑色` 或具体型号时，后端会接回刚才的交易工作流继续结算。库存不足或规格失效时，结算分支会返回购物车详情，并给出“打开购物车 / 把数量改少一点 / 重新推荐替代商品”等后续动作。
 
 前端通过 SSE 接收回答、商品卡片和结构化 actions。用户点击 action chip 时不再把按钮文本重新发送给后端，而是根据 action 类型直接执行查看详情、加入购物车、打开购物车或继续搜索。
 
