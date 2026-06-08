@@ -6,6 +6,7 @@ import logging
 import re
 import shutil
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, AsyncIterator, Iterable
@@ -14,6 +15,7 @@ from fastapi import HTTPException, UploadFile
 
 from .agent_tools import SearchProductsInput, call_search_products_tool
 from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn
+from .catalog import get_cart
 from .config import get_settings
 from .llm_client import (
     LLMGenerationError,
@@ -132,6 +134,9 @@ def _stream_chat(
 
     chat_history = previous_chat_history
     conversation_state = load_conversation_state(conn, session_id, current_product_id, cart_context)
+    if is_checkout_intent(message):
+        yield from emit_checkout_turn(conn, session_id, message, image_id)
+        return
     parsed_turn = None
     try:
         parsed_turn = run_async_blocking(parse_turn_hybrid(message, chat_history, conversation_state))
@@ -153,11 +158,33 @@ def _stream_chat(
 
     cart_product_id = resolve_cart_product_id(conn, session_id, message, current_product_id, cart_context)
     if cart_product_id:
-        cart_product = add_product_to_cart(conn, cart_product_id)
+        skus = fetch_cart_skus(conn, cart_product_id)
+        selected_sku = resolve_sku_from_message(message, skus)
+        if len(skus) > 1 and selected_sku is None:
+            product = conn.execute("SELECT id, title FROM products WHERE id = ?", (cart_product_id,)).fetchone()
+            if product:
+                actions = build_sku_selection_actions(skus)
+                assistant_content = build_sku_selection_prompt(product["title"], skus)
+                yield sse_event("delta", {"text": assistant_content})
+                yield sse_event("actions", {"actions": actions})
+                store_assistant_message(conn, session_id, assistant_content, image_id)
+                update_session_state(
+                    conn,
+                    session_id,
+                    last_query=message,
+                    current_product_id=cart_product_id,
+                    last_actions=actions,
+                )
+                yield sse_event("done", {"session_id": session_id})
+                return
+        cart_product = add_product_to_cart(conn, cart_product_id, selected_sku["id"] if selected_sku else None)
         if cart_product:
             actions = normalize_actions(conn, [{"type": "open_cart", "label": "打开购物车", "product_id": None}])
-            assistant_content = f"已把 {cart_product['title']} 加入购物车。"
+            sku_text = f"（{cart_product['sku_name']}）" if cart_product.get("sku_name") else ""
+            cart_payload = get_cart(conn).model_dump(mode="json")
+            assistant_content = f"已把 {cart_product['title']}{sku_text} 加入购物车，数量 1。购物车详情如下。"
             yield sse_event("delta", {"text": assistant_content})
+            yield sse_event("cart", cart_payload)
             yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
             update_session_state(
@@ -186,6 +213,9 @@ def _stream_chat(
     final_user_query = build_final_user_query(conn, message, image_query, current_product_id, session_id)
     parsed_filters = parse_user_filters(final_user_query, load_known_brands(conn))
     logger.info("agent_final_user_query=%s parsed_filters=%s", final_user_query, parsed_filters)
+    for waiting_text in build_waiting_deltas(message, parsed_filters, image_id, bool(chat_history)):
+        yield sse_event("delta", {"text": f"{waiting_text}\n"})
+        time.sleep(0.25)
     yield sse_event(
         "retrieval_status",
         {
@@ -219,7 +249,11 @@ def _stream_chat(
     visible_products = grounded_products or grounded_alternatives
     faq_context = load_faq_context(conn, [product["id"] for product in grounded_products])
     chat_history = load_chat_history(conn, session_id)
-    actions = build_actions(conn, grounded_products)
+    actions = build_actions(conn, visible_products, final_user_query, parsed_filters)
+    if grounded_products:
+        yield sse_event("products", {"products": grounded_products})
+    elif grounded_alternatives:
+        yield sse_event("alternatives", {"products": grounded_alternatives, "match_type": "alternatives"})
     if not grounded_products and grounded_alternatives:
         answer = build_alternative_answer(message, grounded_alternatives)
         llm_status = {"mode": "fallback", "reason": "alternatives_available"}
@@ -235,10 +269,6 @@ def _stream_chat(
         if grounded_products:
             yield sse_event("llm_status", llm_status)
 
-    if grounded_products:
-        yield sse_event("products", {"products": grounded_products})
-    elif grounded_alternatives:
-        yield sse_event("alternatives", {"products": grounded_alternatives, "match_type": "alternatives"})
     if actions:
         yield sse_event("actions", {"actions": actions})
 
@@ -288,6 +318,63 @@ def emit_bounded_result(
         current_product_id=result.current_product_id,
         last_actions=actions or None,
     )
+    yield sse_event("done", {"session_id": session_id})
+
+
+def emit_checkout_turn(
+    conn,
+    session_id: str,
+    message: str,
+    image_id: str | None,
+) -> Iterable[str]:
+    if is_address_change_intent(message):
+        assistant_content = "可以先到地址管理新增或修改收货地址。地址确认后，回到这里回复“结算”或“确认下单”，我会重新汇总订单。"
+        yield sse_event("delta", {"text": assistant_content})
+        store_assistant_message(conn, session_id, assistant_content, image_id)
+        update_session_state(conn, session_id, last_query=message)
+        yield sse_event("done", {"session_id": session_id})
+        return
+
+    cart = get_cart(conn).model_dump(mode="json")
+    if not cart.get("items"):
+        assistant_content = "购物车现在是空的，先加入商品后我再帮你确认订单。"
+        yield sse_event("delta", {"text": assistant_content})
+        store_assistant_message(conn, session_id, assistant_content, image_id)
+        update_session_state(conn, session_id, last_query=message)
+        yield sse_event("done", {"session_id": session_id})
+        return
+
+    address = load_default_address(conn)
+    if is_checkout_confirm_intent(message):
+        if not address:
+            assistant_content = "下单前需要先补充收货地址。请到地址管理新增地址后，再回复“确认下单”。"
+            yield sse_event("delta", {"text": assistant_content})
+            store_assistant_message(conn, session_id, assistant_content, image_id)
+            update_session_state(conn, session_id, last_query=message)
+            yield sse_event("done", {"session_id": session_id})
+            return
+        order = create_paid_order_from_cart(conn, address)
+        assistant_content = build_order_success_text(order)
+        yield sse_event("delta", {"text": assistant_content})
+        yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
+        store_assistant_message(conn, session_id, assistant_content, image_id)
+        update_session_state(conn, session_id, last_query=message, last_actions=None)
+        yield sse_event("done", {"session_id": session_id})
+        return
+
+    assistant_content = build_checkout_confirmation_text(cart, address)
+    actions = normalize_actions(
+        conn,
+        [
+            {"type": "search_more", "label": "确认下单并支付", "product_id": None},
+            {"type": "search_more", "label": "修改收货地址", "product_id": None},
+        ],
+    )
+    yield sse_event("delta", {"text": assistant_content})
+    yield sse_event("cart", cart)
+    yield sse_event("actions", {"actions": actions})
+    store_assistant_message(conn, session_id, assistant_content, image_id)
+    update_session_state(conn, session_id, last_query=message, last_actions=actions)
     yield sse_event("done", {"session_id": session_id})
 
 
@@ -354,27 +441,109 @@ def normalize_actions(conn, actions: list[dict[str, Any]]) -> list[dict[str, Any
     return normalized
 
 
-def build_actions(conn, products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def build_actions(
+    conn,
+    products: list[dict[str, Any]],
+    query: str = "",
+    parsed_filters: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    parsed_filters = parsed_filters or {}
     if not products:
+        labels = build_empty_result_follow_up_questions(query, parsed_filters)
         return normalize_actions(
             conn,
-            [{"type": "search_more", "label": "换个关键词再搜", "product_id": None}],
+            [{"type": "search_more", "label": label, "product_id": None} for label in labels],
         )
-    actions: list[dict[str, Any]] = []
-    for index, product in enumerate(products[:2], start=1):
-        product_id = product["id"]
-        prefix = "第一款" if index == 1 else "第二款"
-        actions.extend(
-            [
-                {"type": "go_detail", "label": f"查看{prefix}详情", "product_id": product_id},
-                {"type": "add_to_cart", "label": f"加入{prefix}购物车", "product_id": product_id},
-            ]
-        )
-    actions.append({"type": "search_more", "label": "换一批", "product_id": None})
-    return normalize_actions(
-        conn,
-        actions,
-    )
+    actions = [
+        {"type": "search_more", "label": label, "product_id": None}
+        for label in build_follow_up_questions(products, query, parsed_filters)
+    ]
+    return normalize_actions(conn, actions)
+
+
+def build_empty_result_follow_up_questions(
+    query: str,
+    parsed_filters: dict[str, Any],
+) -> list[str]:
+    max_price = parsed_filters.get("max_price")
+    lower_query = query.lower()
+    if any(word in query for word in ("篮球鞋", "球鞋", "篮球")) or "basketball" in lower_query:
+        budget = int(max_price * 1.2) if isinstance(max_price, (int, float)) and max_price > 100 else 500
+        return [
+            f"放宽到{budget}以内再找篮球鞋",
+            "找几款非耐克篮球鞋",
+            "适合外场实战的有哪些",
+        ]
+    if any(word in query for word in ("跑鞋", "运动鞋", "鞋")) or "shoe" in lower_query:
+        budget = int(max_price * 1.2) if isinstance(max_price, (int, float)) and max_price > 100 else 300
+        return [
+            f"放宽到{budget}以内再找鞋",
+            "通勤和运动两用的有哪些",
+            "找几款性价比高的品牌",
+        ]
+    if any(word in query for word in ("耳机", "蓝牙", "降噪")) or "ear" in lower_query:
+        budget = int(max_price * 1.2) if isinstance(max_price, (int, float)) and max_price > 100 else 300
+        return [
+            f"放宽到{budget}以内再找耳机",
+            "优先降噪的耳机有哪些",
+            "适合通勤佩戴的有哪些",
+        ]
+    return [
+        "放宽预算范围再找找",
+        "换个品牌看看",
+        "描述一下使用场景",
+    ]
+
+
+def build_follow_up_questions(
+    products: list[dict[str, Any]],
+    query: str,
+    parsed_filters: dict[str, Any],
+) -> list[str]:
+    first = products[0]
+    category_text = str(first.get("subcategory") or first.get("category") or "商品")
+    brands = [str(product.get("brand") or "").strip() for product in products if product.get("brand")]
+    primary_brand = brands[0] if brands else ""
+    excluded_brands = parsed_filters.get("excluded_brands") or []
+    max_price = parsed_filters.get("max_price")
+    lower_query = query.lower()
+
+    if any(word in query for word in ("篮球鞋", "球鞋", "篮球")) or "basketball" in lower_query:
+        budget = int(max_price * 0.8) if isinstance(max_price, (int, float)) and max_price > 100 else 500
+        return [
+            f"有没有{budget}以内的篮球鞋推荐",
+            "球鞋搭配什么裤子好看",
+            "帮我找耐克平替款球鞋" if not excluded_brands else "再推荐几款非耐克球鞋",
+        ]
+
+    if any(word in query for word in ("跑鞋", "运动鞋", "鞋")) or "shoe" in lower_query:
+        budget = int(max_price * 0.8) if isinstance(max_price, (int, float)) and max_price > 100 else 300
+        return [
+            f"有没有{budget}以内的{category_text}推荐",
+            "适合通勤和运动两用的有哪些",
+            f"除了{primary_brand}还有什么品牌" if primary_brand else "帮我找性价比更高的款",
+        ]
+
+    if any(word in query for word in ("耳机", "蓝牙", "降噪")) or "ear" in lower_query:
+        budget = int(max_price * 0.8) if isinstance(max_price, (int, float)) and max_price > 100 else 300
+        return [
+            f"有没有{budget}以内的蓝牙耳机推荐",
+            "降噪和续航哪个更重要",
+            "帮我找适合通勤的耳机",
+        ]
+
+    if max_price:
+        return [
+            f"有没有更便宜的{category_text}",
+            f"{category_text}怎么选更划算",
+            f"除了{primary_brand}还有什么选择" if primary_brand else f"有没有更适合预算的{category_text}",
+        ]
+
+    return [
+        f"{category_text}怎么选更合适",
+        f"有没有性价比更高的{category_text}",
+        f"除了{primary_brand}还有什么选择" if primary_brand else f"还有哪些{category_text}值得看",
+    ]
 
 
 def build_grounded_products(conn, products: list[ProductCard]) -> list[dict[str, Any]]:
@@ -483,6 +652,162 @@ def load_conversation_state(
     }
 
 
+def build_waiting_deltas(
+    message: str,
+    parsed_filters: dict[str, Any],
+    image_id: str | None,
+    has_chat_history: bool,
+) -> list[str]:
+    texts: list[str] = []
+    lower_message = message.lower()
+    excluded_brands = parsed_filters.get("excluded_brands") or []
+    excluded_terms = parsed_filters.get("excluded_terms") or []
+    has_exclusions = bool(excluded_brands or excluded_terms) or any(
+        word in message for word in ("不要", "除了", "排除", "不含", "别要")
+    )
+    has_price = any(parsed_filters.get(key) is not None for key in ("min_price", "max_price"))
+    wants_compare = any(word in message for word in ("对比", "比较", "哪个好", "哪款好")) or "compare" in lower_message
+
+    if image_id:
+        texts.append("我先根据图片线索匹配相似商品。")
+    elif has_chat_history and any(word in message for word in ("再", "换", "继续", "还有", "便宜", "贵点")):
+        texts.append("明白，我基于刚才的条件继续筛。")
+    elif wants_compare:
+        texts.append("我先把关键差异整理出来。")
+    elif has_exclusions:
+        texts.append("好的，我会先排除你不想要的条件。")
+    elif has_price:
+        texts.append("收到，我会控制在预算范围内。")
+    else:
+        texts.append("好的，我先帮你筛一下符合条件的商品。")
+
+    if wants_compare:
+        texts.append("正在对比价格、评分、库存和适合场景。")
+    elif has_exclusions:
+        texts.append("正在匹配剩余品牌、价格和库存。")
+    else:
+        texts.append("正在匹配商品、价格、评分和库存。")
+
+    texts.append("我会优先展示最符合条件的几款。")
+    return texts
+
+
+def is_checkout_intent(message: str) -> bool:
+    text = message.strip()
+    return is_address_change_intent(text) or is_checkout_confirm_intent(text) or any(
+        word in text for word in ("结算", "下单", "提交订单", "确认订单", "去支付", "支付")
+    )
+
+
+def is_checkout_confirm_intent(message: str) -> bool:
+    text = message.strip()
+    return any(word in text for word in ("确认下单", "确认下单并支付", "提交订单", "确认支付", "去支付"))
+
+
+def is_address_change_intent(message: str) -> bool:
+    text = message.strip()
+    return "收货地址" in text and any(word in text for word in ("修改", "更换", "换", "新增", "添加"))
+
+
+def load_default_address(conn) -> dict[str, Any] | None:
+    row = conn.execute(
+        "SELECT * FROM addresses ORDER BY is_default DESC, created_at DESC LIMIT 1"
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def build_checkout_confirmation_text(cart: dict[str, Any], address: dict[str, Any] | None) -> str:
+    address_text = (
+        f"{address['receiver_name']} {address['phone']}，{address['province']}{address['city']}{address['district']}{address['detail']}"
+        if address
+        else "还没有默认收货地址"
+    )
+    lines = [
+        "我先帮你核对下单信息：",
+        f"收货地址：{address_text}",
+        "订单商品：",
+    ]
+    for index, item in enumerate((cart.get("items") or [])[:4], start=1):
+        lines.append(
+            f"{index}. {item['title']}｜{item.get('sku_name') or '默认规格'}｜x{item.get('quantity') or 1}｜¥{float(item.get('price') or 0):.2f}"
+        )
+    if len(cart.get("items") or []) > 4:
+        lines.append(f"还有 {len(cart['items']) - 4} 件商品未展开。")
+    lines.append(f"合计 ¥{float(cart.get('total_amount') or 0):.2f}")
+    if address:
+        lines.append("确认无误后点“确认下单并支付”，我会模拟完成支付。")
+    else:
+        lines.append("请先补充收货地址，再继续下单。")
+    return "\n".join(lines)
+
+
+def create_paid_order_from_cart(conn, address: dict[str, Any]) -> dict[str, Any]:
+    cart = get_cart(conn)
+    selected_items = [item for item in cart.items if item.selected]
+    order_id = f"ord_{uuid.uuid4().hex[:10]}"
+    total = round(sum(item.price * item.quantity for item in selected_items), 2)
+    conn.execute(
+        """
+        INSERT INTO orders(id, status, total_amount, address_id, address_snapshot)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            order_id,
+            "paid",
+            total,
+            address["id"],
+            json.dumps(address, ensure_ascii=False),
+        ),
+    )
+    for item in selected_items:
+        conn.execute(
+            """
+            INSERT INTO order_items(id, order_id, product_id, sku_id, title, brand, image_path, sku_name, price, quantity)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                f"oi_{uuid.uuid4().hex[:10]}",
+                order_id,
+                item.product_id,
+                item.sku_id,
+                item.title,
+                item.brand,
+                item.image_path,
+                item.sku_name,
+                item.price,
+                item.quantity,
+            ),
+        )
+    conn.executemany("DELETE FROM cart_items WHERE id = ?", [(item.id,) for item in selected_items])
+    payment_id = f"pay_{uuid.uuid4().hex[:10]}"
+    conn.execute(
+        "INSERT INTO payments(id, order_id, status, amount) VALUES (?, ?, ?, ?)",
+        (payment_id, order_id, "paid", total),
+    )
+    return {
+        "order_id": order_id,
+        "payment_id": payment_id,
+        "total_amount": total,
+        "items": selected_items,
+        "address": address,
+    }
+
+
+def build_order_success_text(order: dict[str, Any]) -> str:
+    address = order["address"]
+    lines = [
+        "下单完成，已模拟支付成功。",
+        f"订单号：{order['order_id']}",
+        f"支付流水：{order['payment_id']}",
+        f"收货地址：{address['receiver_name']} {address['phone']}，{address['province']}{address['city']}{address['district']}{address['detail']}",
+        "订单商品：",
+    ]
+    for index, item in enumerate(order["items"][:4], start=1):
+        lines.append(f"{index}. {item.title}｜{item.sku_name}｜x{item.quantity}｜¥{item.price:.2f}")
+    lines.append(f"实付 ¥{order['total_amount']:.2f}")
+    return "\n".join(lines)
+
+
 def generate_grounded_answer(
     message: str,
     grounded_products: list[dict[str, Any]],
@@ -520,6 +845,7 @@ def stream_grounded_answer_events(
     yield sse_event("llm_status", {"mode": "calling", "provider": "poe", "stream": True})
     chunks: list[str] = []
     try:
+        yield sse_event("delta", {"text": "\n"})
         for chunk in iter_async_blocking(
             stream_agent_reply_chunks_with_status(message, grounded_products, faq_context, chat_history)
         ):
@@ -667,13 +993,13 @@ def resolve_cart_product_id(
     explicit = parse_explicit_product_id(normalized)
     if explicit:
         return explicit if product_exists(conn, explicit) else None
-    if not is_cart_intent(normalized):
-        return None
 
     session_row = conn.execute(
         "SELECT last_recommended_product_ids, current_product_id FROM chat_sessions WHERE id = ?",
         (session_id,),
     ).fetchone()
+    if not is_cart_intent(normalized) and not is_sku_selection_message(normalized):
+        return None
     recent_ids = parse_product_id_list(session_row["last_recommended_product_ids"] if session_row else None)
     if current_product_id and product_exists(conn, current_product_id):
         recent_ids = [current_product_id, *[pid for pid in recent_ids if pid != current_product_id]]
@@ -708,6 +1034,12 @@ def parse_explicit_product_id(message: str) -> str | None:
 
 def is_cart_intent(message: str) -> bool:
     return any(word in message for word in ["加入购物车", "加购物车", "加购", "放购物车", "购物车"])
+
+
+def is_sku_selection_message(message: str) -> bool:
+    return bool(re.fullmatch(r"\s*\d{2}(?:\.\d)?\s*(?:码)?\s*", message)) or any(
+        word in message for word in ["尺码", "规格", "款式", "选择"]
+    )
 
 
 def parse_product_id_list(raw: str | None) -> list[str]:
@@ -749,16 +1081,165 @@ def resolve_from_assistant_marker(conn, session_id: str) -> str | None:
     return first_id if product_exists(conn, first_id) else None
 
 
-def add_product_to_cart(conn, product_id: str) -> dict[str, Any] | None:
+def fetch_cart_skus(conn, product_id: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        """
+        SELECT id, sku_name, properties_json, price, stock
+        FROM product_skus
+        WHERE product_id = ? AND stock > 0
+        ORDER BY price ASC, id ASC
+        """,
+        (product_id,),
+    ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "sku_name": row["sku_name"] or "默认规格",
+            "properties": parse_sku_properties(row["properties_json"]),
+            "price": float(row["price"] or 0),
+            "stock": int(row["stock"] or 0),
+        }
+        for row in rows
+    ]
+
+
+def resolve_sku_from_message(message: str, skus: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not skus:
+        return None
+    normalized = message.replace(" ", "")
+    distinct_keys = sku_distinct_property_keys(skus)
+    for sku in skus:
+        properties = sku.get("properties") or {}
+        sku_terms = [str(sku["sku_name"]), *[str(properties.get(key) or "") for key in distinct_keys]]
+        if any(term and term.replace(" ", "") in normalized for term in sku_terms):
+            return sku
+    size_match = re.search(r"(\d{2}(?:\.\d)?)\s*码?", message)
+    if size_match:
+        size = size_match.group(1)
+        for sku in skus:
+            sku_text = " ".join([str(sku["sku_name"]), *[str(value) for value in sku.get("properties", {}).values()]])
+            if size in sku_text:
+                return sku
+    return skus[0] if len(skus) == 1 else None
+
+
+def build_sku_selection_prompt(product_title: str, skus: list[dict[str, Any]]) -> str:
+    all_labels = unique_sku_option_labels(skus)
+    shown_labels = all_labels[:6]
+    sku_text = "、".join(shown_labels)
+    suffix = " 等" if len(all_labels) > len(shown_labels) else ""
+    dimension = sku_dimension_name(skus)
+    if len(all_labels) > SKU_ACTION_OPTION_LIMIT:
+        example = shown_labels[0] if shown_labels else "具体规格"
+        return f"这款 {product_title} 有多个{dimension}可选：{sku_text}{suffix}。选项较多，请直接输入要加入购物车的{dimension}，例如“{example}”。"
+    return f"这款 {product_title} 需要先确认{dimension}。可选{dimension}有：{sku_text}，你想加入哪一个？"
+
+
+def build_sku_selection_actions(skus: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    labels = unique_sku_option_labels(skus)
+    if len(labels) > SKU_ACTION_OPTION_LIMIT:
+        return []
+    return [
+        {"type": "search_more", "label": f"选择{label}", "product_id": None}
+        for label in labels
+    ]
+
+
+SKU_ACTION_OPTION_LIMIT = 4
+SKU_DIMENSION_PRIORITY = ("尺码", "型号", "容量", "内存", "存储", "颜色", "色号", "版本", "配置", "套餐", "规格", "款式", "款型")
+
+
+def unique_sku_option_labels(skus: list[dict[str, Any]], limit: int | None = None) -> list[str]:
+    labels: list[str] = []
+    for sku in skus:
+        label = compact_sku_label(sku, skus)
+        if label and label not in labels:
+            labels.append(label)
+        if limit is not None and len(labels) >= limit:
+            break
+    return labels
+
+
+def compact_sku_label(sku: dict[str, Any], all_skus: list[dict[str, Any]]) -> str:
+    properties = sku.get("properties") or {}
+    distinct_keys = sku_distinct_property_keys(all_skus)
+    values = [str(properties.get(key) or "").strip() for key in distinct_keys[:2]]
+    label = " / ".join(value for value in values if value)
+    if label:
+        return label
+    text = str(sku.get("sku_name") or "默认规格")
+    size_match = re.search(r"尺码\s*[:：]?\s*([^/；，,\s]+)", text)
+    if size_match:
+        return size_match.group(1)
+    return text.strip()[:18]
+
+
+def sku_dimension_name(skus: list[dict[str, Any]]) -> str:
+    keys = sku_distinct_property_keys(skus)
+    if not keys:
+        return "规格"
+    if "尺码" in keys:
+        return "尺码"
+    if any(key in keys for key in ("型号", "版本", "配置")):
+        return "型号"
+    if any(key in keys for key in ("容量", "内存", "存储")):
+        return "容量/配置"
+    if any(key in keys for key in ("颜色", "色号")):
+        return "颜色"
+    return "规格"
+
+
+def sku_distinct_property_keys(skus: list[dict[str, Any]]) -> list[str]:
+    keys: list[str] = []
+    all_keys = {
+        key
+        for sku in skus
+        for key in (sku.get("properties") or {}).keys()
+    }
+    for key in SKU_DIMENSION_PRIORITY:
+        if key not in all_keys:
+            continue
+        values = {
+            str((sku.get("properties") or {}).get(key) or "").strip()
+            for sku in skus
+            if str((sku.get("properties") or {}).get(key) or "").strip()
+        }
+        if len(values) > 1:
+            keys.append(key)
+    return keys
+
+
+def parse_sku_properties(raw: str | None) -> dict[str, Any]:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def add_product_to_cart(conn, product_id: str, sku_id: str | None = None) -> dict[str, Any] | None:
     product = conn.execute("SELECT id, title FROM products WHERE id = ?", (product_id,)).fetchone()
     if not product:
         return None
-    sku = conn.execute(
-        "SELECT id FROM product_skus WHERE product_id = ? ORDER BY price ASC LIMIT 1",
-        (product_id,),
-    ).fetchone()
+    if sku_id:
+        sku = conn.execute(
+            "SELECT id, sku_name FROM product_skus WHERE product_id = ? AND id = ?",
+            (product_id, sku_id),
+        ).fetchone()
+    else:
+        sku = conn.execute(
+            "SELECT id, sku_name FROM product_skus WHERE product_id = ? ORDER BY price ASC LIMIT 1",
+            (product_id,),
+        ).fetchone()
     conn.execute(
         "INSERT INTO cart_items(id, product_id, sku_id, quantity, selected) VALUES (?, ?, ?, 1, 1)",
         (f"cart_{uuid.uuid4().hex[:10]}", product_id, sku["id"] if sku else None),
     )
-    return product
+    return {
+        "id": product["id"],
+        "title": product["title"],
+        "sku_id": sku["id"] if sku else None,
+        "sku_name": sku["sku_name"] if sku else None,
+    }

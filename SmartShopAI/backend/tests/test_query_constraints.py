@@ -4,8 +4,9 @@ import unittest
 
 from app.query_parser import has_hard_filters, parse_user_filters
 from app.query_router import ParsedQuery
-from app.rag import build_alternative_products
-from app.retrieval import _build_document, _keyword_search
+from app.rag import apply_confidence_gate, build_alternative_products
+from app.retrieval import _build_document, _keyword_search, _tokenize
+from app.search_document import build_product_search_document
 from app.verifier import verify_products
 
 
@@ -29,7 +30,17 @@ class QueryConstraintTest(unittest.TestCase):
         self.assertFalse(filters["explicit_category"])
         self.assertEqual(filters["required_terms"], ["\u624b\u67c4"])
         self.assertEqual(filters["match_mode"], "exact_or_none")
+        self.assertFalse(filters["allow_popular_fallback"])
         self.assertTrue(has_hard_filters(filters))
+
+    def test_missing_office_accessory_terms_use_exact_or_none(self) -> None:
+        for query in ["\u952e\u76d8", "\u9f20\u6807"]:
+            filters = parse_user_filters(query, [])
+
+            self.assertFalse(filters["explicit_category"])
+            self.assertEqual(filters["required_terms"], [query])
+            self.assertEqual(filters["match_mode"], "exact_or_none")
+            self.assertFalse(filters["allow_popular_fallback"])
 
     def test_negated_brand_goes_to_exclude_not_include(self) -> None:
         filters = parse_user_filters("\u4e0d\u8981Nike\u7684\u978b", ["Nike", "\u8010\u514b"])
@@ -66,6 +77,39 @@ class QueryConstraintTest(unittest.TestCase):
         self.assertNotIn("\u652f\u6301\u540c\u6b65\u624b\u8868", catalog_document)
         self.assertIn("\u62ac\u624b\u770b\u624b\u8868", full_document)
         self.assertIn("\u652f\u6301\u540c\u6b65\u624b\u8868", full_document)
+        self.assertIn("\u5546\u54c1\u540d\u79f0", catalog_document)
+        self.assertIn("\u641c\u7d22\u5173\u952e\u8bcd", catalog_document)
+
+    def test_product_search_document_adds_retrieval_keywords(self) -> None:
+        row = {
+            "title": "\u6e05\u723d\u63a7\u6cb9\u6d17\u9762\u5976",
+            "brand": "\u6d4b\u8bd5",
+            "category": "\u7f8e\u5986\u62a4\u80a4",
+            "subcategory": "\u6d01\u9762",
+            "price": 89,
+            "rating": 4.7,
+            "stock": 10,
+            "marketing_description": "\u9002\u5408\u6cb9\u76ae\u590f\u5929\u4f7f\u7528\uff0c\u6d17\u540e\u4e0d\u7d27\u7ef7",
+            "sku_text": "\u6b63\u88c5",
+            "review_text": "\u9001\u8d27\u5feb \u5305\u88c5\u597d",
+            "faq_text": "\u654f\u611f\u808c\u5148\u6d4b\u8bd5",
+            "chunk_text": "\u6d01\u9762 \u63a7\u6cb9",
+        }
+
+        document = build_product_search_document(row)
+
+        self.assertIn("\u7c7b\u76ee\uff1a\u7f8e\u5986\u62a4\u80a4 > \u6d01\u9762", document)
+        self.assertIn("\u641c\u7d22\u5173\u952e\u8bcd", document)
+        self.assertIn("\u6d17\u9762\u5976", document)
+        self.assertIn("\u63a7\u6cb9", document)
+        self.assertIn("\u6e05\u723d", document)
+
+    def test_tokenizer_keeps_custom_commerce_terms(self) -> None:
+        tokens = _tokenize("\u6211\u8981\u84dd\u7259\u8033\u673a\u548c\u901a\u52e4\u5305")
+
+        self.assertIn("\u84dd\u7259", tokens)
+        self.assertIn("\u8033\u673a", tokens)
+        self.assertIn("\u901a\u52e4", tokens)
 
     def test_verifier_does_not_use_reviews_for_subcategory_match(self) -> None:
         filters = {
@@ -116,7 +160,7 @@ class QueryConstraintTest(unittest.TestCase):
         self.assertEqual(result.products, [])
         self.assertEqual(result.diagnostics["rejected"][0]["reason"], "subcategory_mismatch")
 
-    def test_verifier_allows_core_catalog_text_match(self) -> None:
+    def test_verifier_rejects_subcategory_mismatch_even_with_text_match(self) -> None:
         filters = {
             "target_categories": ["\u6570\u7801\u7535\u5b50"],
             "target_subcategories": ["\u667a\u80fd\u624b\u8868"],
@@ -135,7 +179,8 @@ class QueryConstraintTest(unittest.TestCase):
 
         result = verify_products([product], filters, limit=1)
 
-        self.assertEqual([item["id"] for item in result.products], ["p1"])
+        self.assertEqual(result.products, [])
+        self.assertEqual(result.diagnostics["rejected"][0]["reason"], "subcategory_mismatch")
 
     def test_exact_or_none_rejects_candidate_without_required_term(self) -> None:
         filters = {
@@ -171,6 +216,45 @@ class QueryConstraintTest(unittest.TestCase):
             "price": 199,
             "stock": 10,
             "sku_text": "\u9ed1\u8272\u624b\u67c4",
+        }
+
+        result = verify_products([product], filters, limit=1)
+
+        self.assertEqual([item["id"] for item in result.products], ["p1"])
+
+    def test_exact_or_none_rejects_modifier_only_title_match(self) -> None:
+        filters = {
+            "required_terms": ["\u8db3\u7403"],
+            "match_mode": "exact_or_none",
+        }
+        product = {
+            "id": "p1",
+            "title": "\u4e9a\u9a6c\u900a\u500d\u601d \u7070\u8272\u8db3\u7403\u7bee\u7403\u8fd0\u52a8\u80cc\u5305",
+            "brand": "\u4e9a\u9a6c\u900a\u500d\u601d",
+            "category": "\u65c5\u884c\u6237\u5916",
+            "subcategory": "\u80cc\u5305",
+            "price": 199,
+            "stock": 10,
+        }
+
+        result = verify_products([product], filters, limit=1)
+
+        self.assertEqual(result.products, [])
+        self.assertEqual(result.diagnostics["rejected"][0]["reason"], "exact_term_not_product_type")
+
+    def test_exact_or_none_allows_title_product_type_match(self) -> None:
+        filters = {
+            "required_terms": ["\u9a6c\u514b\u7b14"],
+            "match_mode": "exact_or_none",
+        }
+        product = {
+            "id": "p1",
+            "title": "\u4e9a\u9a6c\u900a\u500d\u601d 40\u8272\u7ec6\u5934\u53ef\u6c34\u6d17\u9a6c\u514b\u7b14",
+            "brand": "\u4e9a\u9a6c\u900a\u500d\u601d",
+            "category": "\u529e\u516c\u6587\u5177",
+            "subcategory": "\u4e66\u5199\u5de5\u5177",
+            "price": 39,
+            "stock": 10,
         }
 
         result = verify_products([product], filters, limit=1)
@@ -269,6 +353,38 @@ class QueryConstraintTest(unittest.TestCase):
 
         self.assertEqual([product.id for product in alternatives], ["p_snack"])
         self.assertEqual(alternatives[0].price, 59)
+
+    def test_confidence_gate_rejects_dense_only_without_hard_filters(self) -> None:
+        products = [
+            {
+                "id": "p1",
+                "title": "\u5f31\u5339\u914d\u5546\u54c1",
+                "_sources": ["dense"],
+                "_bm25_score": 0.0,
+                "_keyword_score": 0.0,
+            }
+        ]
+
+        gated, diagnostics = apply_confidence_gate(products, {"allow_popular_fallback": True})
+
+        self.assertEqual(gated, [])
+        self.assertEqual(diagnostics["status"], "rejected")
+
+    def test_confidence_gate_allows_lexical_support(self) -> None:
+        products = [
+            {
+                "id": "p1",
+                "title": "\u5f3a\u5339\u914d\u5546\u54c1",
+                "_sources": ["dense", "keyword"],
+                "_bm25_score": 0.0,
+                "_keyword_score": 8.0,
+            }
+        ]
+
+        gated, diagnostics = apply_confidence_gate(products, {"allow_popular_fallback": True})
+
+        self.assertEqual(gated, products)
+        self.assertEqual(diagnostics["status"], "pass")
 
 
 if __name__ == "__main__":

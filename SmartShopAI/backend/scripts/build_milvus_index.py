@@ -20,6 +20,7 @@ from app.milvus_client import (  # noqa: E402
     milvus_primary_field_name,
     milvus_vector_field_name,
 )
+from app.search_document import build_product_search_document  # noqa: E402
 
 
 def load_documents(db_path: Path) -> list[dict[str, str]]:
@@ -34,14 +35,20 @@ def load_documents(db_path: Path) -> list[dict[str, str]]:
                 p.brand,
                 p.category,
                 p.subcategory,
+                p.price,
+                p.rating,
                 COALESCE(p.marketing_description, '') AS marketing_description,
                 COALESCE(sk.sku_text, '') AS sku_text,
+                COALESCE(sk.stock, 0) AS stock,
                 COALESCE(fq.faq_text, '') AS faq_text,
                 COALESCE(rv.review_text, '') AS review_text,
                 COALESCE(rg.chunk_text, '') AS chunk_text
             FROM products p
             LEFT JOIN (
-                SELECT product_id, GROUP_CONCAT(sku_name || ' ' || properties_json, ' ') AS sku_text
+                SELECT
+                    product_id,
+                    GROUP_CONCAT(sku_name || ' ' || properties_json, ' ') AS sku_text,
+                    SUM(stock) AS stock
                 FROM product_skus
                 GROUP BY product_id
             ) sk ON sk.product_id = p.id
@@ -68,20 +75,7 @@ def load_documents(db_path: Path) -> list[dict[str, str]]:
 
     documents: list[dict[str, str]] = []
     for row in rows:
-        text = " ".join(
-            str(part or "")
-            for part in [
-                row["title"],
-                row["brand"],
-                row["category"],
-                row["subcategory"],
-                row["marketing_description"],
-                row["sku_text"],
-                row["faq_text"],
-                row["review_text"],
-                row["chunk_text"],
-            ]
-        )
+        text = build_product_search_document(row, include_evidence=True)
         documents.append({"product_id": str(row["id"]), "text": text})
     return documents
 

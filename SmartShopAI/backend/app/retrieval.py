@@ -7,7 +7,40 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .query_router import ParsedQuery
+from .search_document import build_product_search_document
 from .vector_retriever import milvus_semantic_search
+
+try:
+    import jieba
+except ImportError:  # pragma: no cover - optional dependency fallback
+    jieba = None
+
+
+CUSTOM_SEARCH_TERMS = [
+    "蓝牙耳机",
+    "无线耳机",
+    "降噪耳机",
+    "洗面奶",
+    "洁面乳",
+    "防晒霜",
+    "油皮",
+    "干皮",
+    "敏感肌",
+    "控油",
+    "清爽",
+    "通勤包",
+    "电脑包",
+    "登机箱",
+    "拉杆箱",
+    "猫爬架",
+    "宠物围栏",
+    "智能手表",
+    "智能手机",
+]
+
+if jieba is not None:
+    for term in CUSTOM_SEARCH_TERMS:
+        jieba.add_word(term)
 
 
 @dataclass(frozen=True)
@@ -342,26 +375,16 @@ def _row_to_candidate(row: Any, hit: RetrievalHit) -> dict[str, Any]:
 
 
 def _build_document(row: Any, include_evidence: bool = True) -> str:
-    fields = [
-        row["title"],
-        row["brand"],
-        row["category"],
-        row["subcategory"],
-        row["marketing_description"],
-        row["sku_text"],
-    ]
-    if include_evidence:
-        fields.extend([row["review_text"], row["faq_text"], row["chunk_text"]])
-    return " ".join(
-        str(part or "")
-        for part in fields
-    ).lower()
+    return build_product_search_document(row, include_evidence=include_evidence).lower()
 
 
 def _tokenize(text: str) -> list[str]:
     lower = (text or "").lower()
     tokens = re.findall(r"[a-z0-9]+", lower)
-    cjk_chars = [char for char in lower if "\u4e00" <= char <= "\u9fff"]
+    cjk_text = "".join(char if "\u4e00" <= char <= "\u9fff" else " " for char in lower)
+    if jieba is not None:
+        tokens.extend(token.strip() for token in jieba.cut(cjk_text) if token.strip())
+    cjk_chars = [char for char in cjk_text if "\u4e00" <= char <= "\u9fff"]
     tokens.extend("".join(cjk_chars[index : index + 2]) for index in range(max(len(cjk_chars) - 1, 0)))
     return [token for token in tokens if token.strip()]
 

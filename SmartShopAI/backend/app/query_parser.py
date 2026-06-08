@@ -48,7 +48,7 @@ CATEGORY_ALIASES = [
         "required_terms": ["包", "背包"],
     },
     {
-        "terms": ["键盘", "鼠标", "充电器", "办公用品", "文具"],
+        "terms": ["办公用品", "文具"],
         "categories": ["办公文具"],
         "subcategories": ["办公配件", "书写工具", "本册纸品", "桌面整理", "文件管理"],
         "required_terms": [],
@@ -164,6 +164,7 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         "brands_exclude": brands_exclude,
         "retrieval_scope": retrieval_scope,
         "match_mode": match_mode,
+        "allow_popular_fallback": False if match_mode == "exact_or_none" else True,
     }
 
 

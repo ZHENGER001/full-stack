@@ -84,6 +84,31 @@ def parse_turn_with_rules(
 
     if not raw:
         return ParsedTurn(raw_message=raw, intent_type="unknown", route_hint="no_tool", needs_clarification=True)
+    explicit_cart_product_id = _explicit_cart_product_id(raw)
+    if explicit_cart_product_id:
+        return ParsedTurn(
+            raw_message=raw,
+            intent_type="cart_add",
+            route_hint="bounded_react",
+            references=[
+                ProductReference(
+                    reference_type="product_id",
+                    product_id=explicit_cart_product_id,
+                    raw_text=explicit_cart_product_id,
+                )
+            ],
+            quantity=quantity or 1,
+            source="rule",
+        )
+    if _looks_like_sku_selection(raw) and (conversation_state or {}).get("current_product_id"):
+        return ParsedTurn(
+            raw_message=raw,
+            intent_type="cart_add",
+            route_hint="bounded_react",
+            references=[ProductReference(reference_type="current_product", raw_text="当前商品")],
+            quantity=quantity or 1,
+            source="rule",
+        )
     if compact.lower() in GREETINGS:
         return ParsedTurn(raw_message=raw, intent_type="greeting", route_hint="no_tool")
     if any(term in raw for term in ["你能做什么", "你会什么", "怎么用"]):
@@ -346,6 +371,19 @@ def _extract_quantity(raw: str) -> int | None:
         return max(int(match.group(1)), 1)
     if "两" in raw and any(term in raw for term in ["件", "个", "份"]):
         return 2
+    return None
+
+
+def _looks_like_sku_selection(raw: str) -> bool:
+    return bool(re.fullmatch(r"\s*\d{2}(?:\.\d)?\s*(?:码)?\s*", raw)) or (
+        "选择" in raw and any(term in raw for term in ["尺码", "规格", "码"])
+    )
+
+
+def _explicit_cart_product_id(raw: str) -> str | None:
+    for prefix in ("加入购物车:", "加入购物车：", "加购:", "加购："):
+        if raw.startswith(prefix):
+            return raw.split(prefix, 1)[1].strip() or None
     return None
 
 

@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from app.agent import stream_grounded_answer_events
+from app.agent import build_waiting_deltas, stream_grounded_answer_events
 from app.llm_client import LLMGenerationError
 
 
@@ -23,6 +23,17 @@ def event_payload(raw_event: str) -> tuple[str, dict]:
 
 
 class LlmStreamingTest(unittest.TestCase):
+    def test_waiting_deltas_reflect_exclusion_query(self) -> None:
+        deltas = build_waiting_deltas(
+            message="除了耐克还有什么球鞋",
+            parsed_filters={"excluded_brands": ["Nike"]},
+            image_id=None,
+            has_chat_history=False,
+        )
+
+        self.assertGreaterEqual(len(deltas), 2)
+        self.assertIn("排除", deltas[0])
+
     def test_streams_llm_chunks_as_delta_events(self) -> None:
         async def fake_stream(*_args, **_kwargs):
             yield "找到"

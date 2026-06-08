@@ -8,6 +8,7 @@ from typing import Any
 from .query_parser import has_hard_filters
 from .query_router import ParsedQuery, parse_query
 from .retrieval import hybrid_search_products
+from .search_document import build_search_keywords
 from .schemas import ProductCard
 from .verifier import verify_products
 
@@ -33,8 +34,12 @@ def build_product_chunks(product: dict[str, Any]) -> list[dict[str, Any]]:
             "product_id": product["id"],
             "chunk_type": "basic_info",
             "content": (
-                f"{product['title']} {product['brand']} {product['category']} "
-                f"{product['subcategory']} price {product['price']} rating {product['rating']}"
+                f"商品名称：{product['title']}\n"
+                f"品牌：{product['brand']}\n"
+                f"类目：{product['category']} > {product['subcategory']}\n"
+                f"价格：{product['price']}\n"
+                f"评分：{product['rating']}\n"
+                f"搜索关键词：{build_search_keywords(product)}"
             ),
             "metadata_json": json.dumps({**metadata, "chunk_type": "basic_info"}, ensure_ascii=False),
         },
@@ -70,12 +75,18 @@ def search_products_for_agent_with_diagnostics(
     parsed_query = apply_tool_constraints(parsed_query, constraints or {}, retrieval_policy or {})
     retrieval_result = hybrid_search_products(conn, parsed_query, limit=max(limit * 8, 20))
     verification = verify_products(retrieval_result.candidates, parsed_query.filters, limit)
-    selected_products = verification.products
+    selected_products, confidence_diagnostics = apply_confidence_gate(verification.products, parsed_query.filters)
     fallback_used = False
     alternative_cards: list[ProductCard] = []
+    confidence_rejected = confidence_diagnostics["status"] == "rejected"
 
     allow_popular_fallback = parsed_query.filters.get("allow_popular_fallback", True)
-    if not selected_products and allow_popular_fallback and not has_hard_filters(parsed_query.filters):
+    if (
+        not selected_products
+        and allow_popular_fallback
+        and not confidence_rejected
+        and not has_hard_filters(parsed_query.filters)
+    ):
         fallback_used = True
         cards = fallback_products(conn, QueryIntent(max_price=extract_max_price(query)), limit)
     else:
@@ -86,6 +97,7 @@ def search_products_for_agent_with_diagnostics(
     diagnostics = {
         **retrieval_result.diagnostics,
         "verifier": verification.diagnostics,
+        "confidence": confidence_diagnostics,
         "fallback": {"used": fallback_used},
         "alternatives": {
             "used": bool(alternative_cards),
@@ -95,6 +107,36 @@ def search_products_for_agent_with_diagnostics(
         "final_product_ids": [product.id for product in cards],
     }
     return cards, diagnostics
+
+
+def apply_confidence_gate(
+    products: list[dict[str, Any]],
+    filters: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if not products:
+        return products, {"status": "pass", "reason": None}
+    if has_hard_filters(filters):
+        return products, {"status": "pass", "reason": None}
+
+    weak_products = [
+        product
+        for product in products
+        if _is_dense_only_weak_match(product)
+    ]
+    if weak_products and len(weak_products) == len(products):
+        return [], {
+            "status": "rejected",
+            "reason": "dense_only_without_lexical_support",
+            "product_ids": [product.get("id") for product in weak_products],
+        }
+    return products, {"status": "pass", "reason": None}
+
+
+def _is_dense_only_weak_match(product: dict[str, Any]) -> bool:
+    sources = set(product.get("_sources") or [])
+    if sources != {"dense"}:
+        return False
+    return float(product.get("_bm25_score") or 0.0) <= 0 and float(product.get("_keyword_score") or 0.0) <= 0
 
 
 def apply_tool_constraints(

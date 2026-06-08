@@ -59,12 +59,13 @@ def call_search_products_tool(conn, request: SearchProductsInput) -> SearchProdu
         if isinstance(item, dict)
     ]
     product_ids = [product.id for product in products]
+    final_product_ids = list(diagnostics.get("final_product_ids") or product_ids)
 
     verification = SearchProductsVerification(
         status="empty" if not products else "degraded" if fallback.get("used") else "pass",
-        accepted_count=int(verifier.get("accepted_count") or len(products)),
+        accepted_count=len(products),
         rejected_count=int(verifier.get("rejected_count") or 0),
-        final_product_ids=list(verifier.get("final_product_ids") or product_ids),
+        final_product_ids=final_product_ids,
     )
     if not products:
         status: Literal["ok", "empty", "degraded"] = "empty"

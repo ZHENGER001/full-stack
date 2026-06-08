@@ -58,6 +58,9 @@ def _rejection_reason(product: dict[str, Any], filters: dict[str, Any]) -> str |
     if (filters.get("match_mode") == "exact_or_none" or filters.get("require_lexical_anchor")) and required_terms:
         if not any(term in catalog_text for term in required_terms):
             return "required_term_mismatch"
+        if filters.get("match_mode") == "exact_or_none" and not filters.get("explicit_category"):
+            if not any(_exact_term_matches_product_type(product, term) for term in required_terms):
+                return "exact_term_not_product_type"
 
     excluded_brands = {str(brand).lower() for brand in filters.get("brands_exclude") or []}
     if excluded_brands and str(product.get("brand") or "").lower() in excluded_brands:
@@ -71,12 +74,11 @@ def _rejection_reason(product: dict[str, Any], filters: dict[str, Any]) -> str |
     target_categories = set(filters.get("target_categories") or [])
     target_subcategories = set(filters.get("target_subcategories") or [])
     if filters.get("explicit_category") and (target_categories or target_subcategories):
-        required_text_match = any(term in _catalog_text(product) for term in required_terms)
         if target_subcategories:
             subcategory_match = product.get("subcategory") in target_subcategories
-            if not subcategory_match and not required_text_match:
+            if not subcategory_match:
                 return "subcategory_mismatch"
-        elif target_categories and product.get("category") not in target_categories and not required_text_match:
+        elif target_categories and product.get("category") not in target_categories:
             return "category_mismatch"
 
     brands = set(filters.get("brands") or [])
@@ -98,3 +100,30 @@ def _catalog_text(product: dict[str, Any]) -> str:
             product.get("sku_summary"),
         ]
     ).lower()
+
+
+def _exact_term_matches_product_type(product: dict[str, Any], term: str) -> bool:
+    term = str(term or "").lower().strip()
+    if not term:
+        return False
+
+    type_text = " ".join(
+        str(part or "")
+        for part in [
+            product.get("category"),
+            product.get("subcategory"),
+            product.get("sku_text"),
+            product.get("sku_summary"),
+        ]
+    ).lower()
+    if term in type_text:
+        return True
+
+    title = str(product.get("title") or "").lower().strip()
+    if not title or term not in title:
+        return False
+
+    # A short exact query should describe the product itself. If the term appears
+    # only as a modifier in the title, reject matches such as "足球篮球运动背包"
+    # for "足球" or "计划本配贴纸标签" for "贴纸".
+    return title.endswith(term)

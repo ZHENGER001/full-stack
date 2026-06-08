@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from app.config import get_settings
+from app.search_document import build_search_keywords
 
 
 def dict_factory(cursor: sqlite3.Cursor, row: tuple[object, ...]) -> dict[str, object]:
@@ -99,7 +100,14 @@ def _build_product_chunks(product: dict) -> list[dict]:
             "id": f"{product['id']}:basic_info",
             "product_id": product["id"],
             "chunk_type": "basic_info",
-            "content": f"{product['title']} {product['brand']} {product['category']} {product['subcategory']} 价格 {product['price']} 评分 {product['rating']}",
+            "content": (
+                f"商品名称：{product['title']}\n"
+                f"品牌：{product['brand']}\n"
+                f"类目：{product['category']} > {product['subcategory']}\n"
+                f"价格：{product['price']}\n"
+                f"评分：{product['rating']}\n"
+                f"搜索关键词：{build_search_keywords(product)}"
+            ),
             "metadata_json": json.dumps({**metadata, "chunk_type": "basic_info"}, ensure_ascii=False),
         },
         {

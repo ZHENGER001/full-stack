@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -158,17 +159,29 @@ def _handle_cart_add(conn, parsed_turn: ParsedTurn, conversation_state: dict[str
     product = _fetch_product_snapshots(conn, product_ids[:1])
     if not product:
         return _not_found(tool_name, diagnostics)
-    _add_product_to_cart(conn, product[0].id, quantity)
-    product_cards = _fetch_product_cards(conn, [product[0].id])
+    skus = _fetch_available_skus(conn, product[0].id)
+    selected_sku = _resolve_sku_from_message(parsed_turn.raw_message, skus)
+    if len(skus) > 1 and selected_sku is None:
+        return BoundedToolResult(
+            tool_name=tool_name,
+            status="needs_reference",
+            response_text=_sku_selection_prompt(product[0].title, skus),
+            product_ids=[product[0].id],
+            actions=_sku_selection_actions(skus),
+            current_product_id=product[0].id,
+            diagnostics={**diagnostics, "intent_type": parsed_turn.intent_type, "status": "needs_sku"},
+        )
+    _add_product_to_cart(conn, product[0].id, quantity, selected_sku["id"] if selected_sku else None)
+    cart = get_cart(conn)
+    sku_text = f"（{selected_sku['sku_name']}）" if selected_sku else ""
     return BoundedToolResult(
         tool_name=tool_name,
         status="ok",
-        response_text=f"已把 {product[0].title} 加入购物车，数量 {quantity}。",
+        response_text=f"已把 {product[0].title}{sku_text} 加入购物车，数量 {quantity}。购物车详情如下。",
         product_ids=[product[0].id],
-        products=product_cards,
         actions=[{"type": "open_cart", "label": "打开购物车", "product_id": None}],
         current_product_id=product[0].id,
-        cart=_cart_payload(conn),
+        cart=cart.model_dump(mode="json"),
         diagnostics={**diagnostics, "intent_type": parsed_turn.intent_type, "status": "ok"},
     )
 
@@ -442,8 +455,150 @@ def _fetch_product_cards(conn, product_ids: list[str]) -> list[dict[str, Any]]:
     return cards
 
 
-def _add_product_to_cart(conn, product_id: str, quantity: int) -> None:
-    sku = first_sku(conn, product_id)
+def _fetch_available_skus(conn, product_id: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        """
+        SELECT id, sku_name, properties_json, price, stock
+        FROM product_skus
+        WHERE product_id = ? AND stock > 0
+        ORDER BY price ASC, id ASC
+        """,
+        (product_id,),
+    ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "sku_name": row["sku_name"] or "默认规格",
+            "properties": _parse_sku_properties(row["properties_json"]),
+            "price": float(row["price"] or 0),
+            "stock": int(row["stock"] or 0),
+        }
+        for row in rows
+    ]
+
+
+def _resolve_sku_from_message(message: str, skus: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not skus:
+        return None
+    normalized = message.replace(" ", "")
+    distinct_keys = _sku_distinct_property_keys(skus)
+    for sku in skus:
+        properties = sku.get("properties") or {}
+        sku_terms = [str(sku["sku_name"]), *[str(properties.get(key) or "") for key in distinct_keys]]
+        if any(term and term.replace(" ", "") in normalized for term in sku_terms):
+            return sku
+    size_match = re.search(r"(\d{2}(?:\.\d)?)\s*码?", message)
+    if size_match:
+        size = size_match.group(1)
+        for sku in skus:
+            sku_text = " ".join([str(sku["sku_name"]), *[str(value) for value in sku.get("properties", {}).values()]])
+            if size in sku_text:
+                return sku
+    return skus[0] if len(skus) == 1 else None
+
+
+def _sku_selection_prompt(product_title: str, skus: list[dict[str, Any]]) -> str:
+    all_labels = _unique_sku_option_labels(skus)
+    shown_labels = all_labels[:6]
+    sku_text = "、".join(shown_labels)
+    suffix = " 等" if len(all_labels) > len(shown_labels) else ""
+    dimension = _sku_dimension_name(skus)
+    if len(all_labels) > SKU_ACTION_OPTION_LIMIT:
+        example = shown_labels[0] if shown_labels else "具体规格"
+        return f"这款 {product_title} 有多个{dimension}可选：{sku_text}{suffix}。选项较多，请直接输入要加入购物车的{dimension}，例如“{example}”。"
+    return f"这款 {product_title} 需要先确认{dimension}。可选{dimension}有：{sku_text}，你想加入哪一个？"
+
+
+def _sku_selection_actions(skus: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    labels = _unique_sku_option_labels(skus)
+    if len(labels) > SKU_ACTION_OPTION_LIMIT:
+        return []
+    return [
+        {"type": "search_more", "label": f"选择{label}", "product_id": None}
+        for label in labels
+    ]
+
+
+SKU_ACTION_OPTION_LIMIT = 4
+SKU_DIMENSION_PRIORITY = ("尺码", "型号", "容量", "内存", "存储", "颜色", "色号", "版本", "配置", "套餐", "规格", "款式", "款型")
+
+
+def _unique_sku_option_labels(skus: list[dict[str, Any]], limit: int | None = None) -> list[str]:
+    labels: list[str] = []
+    for sku in skus:
+        label = _compact_sku_label(sku, skus)
+        if label and label not in labels:
+            labels.append(label)
+        if limit is not None and len(labels) >= limit:
+            break
+    return labels
+
+
+def _compact_sku_label(sku: dict[str, Any], all_skus: list[dict[str, Any]]) -> str:
+    properties = sku.get("properties") or {}
+    distinct_keys = _sku_distinct_property_keys(all_skus)
+    values = [str(properties.get(key) or "").strip() for key in distinct_keys[:2]]
+    label = " / ".join(value for value in values if value)
+    if label:
+        return label
+    text = str(sku.get("sku_name") or "默认规格")
+    size_match = re.search(r"尺码\s*[:：]?\s*([^/；，,\s]+)", text)
+    if size_match:
+        return size_match.group(1)
+    return text.strip()[:18]
+
+
+def _sku_dimension_name(skus: list[dict[str, Any]]) -> str:
+    keys = _sku_distinct_property_keys(skus)
+    if not keys:
+        return "规格"
+    if "尺码" in keys:
+        return "尺码"
+    if any(key in keys for key in ("型号", "版本", "配置")):
+        return "型号"
+    if any(key in keys for key in ("容量", "内存", "存储")):
+        return "容量/配置"
+    if any(key in keys for key in ("颜色", "色号")):
+        return "颜色"
+    return "规格"
+
+
+def _sku_distinct_property_keys(skus: list[dict[str, Any]]) -> list[str]:
+    keys: list[str] = []
+    all_keys = {
+        key
+        for sku in skus
+        for key in (sku.get("properties") or {}).keys()
+    }
+    for key in SKU_DIMENSION_PRIORITY:
+        if key not in all_keys:
+            continue
+        values = {
+            str((sku.get("properties") or {}).get(key) or "").strip()
+            for sku in skus
+            if str((sku.get("properties") or {}).get(key) or "").strip()
+        }
+        if len(values) > 1:
+            keys.append(key)
+    return keys
+
+
+def _parse_sku_properties(raw: str | None) -> dict[str, Any]:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _add_product_to_cart(conn, product_id: str, quantity: int, sku_id: str | None = None) -> None:
+    sku = None
+    if sku_id:
+        sku = first_sku(conn, product_id, sku_id)
+    if sku is None:
+        sku = first_sku(conn, product_id)
     sku_id = sku["id"] if sku else None
     current = conn.execute(
         "SELECT id, quantity FROM cart_items WHERE product_id = ? AND COALESCE(sku_id, '') = COALESCE(?, '')",
@@ -480,3 +635,4 @@ def _cart_item_titles(conn, item_ids: list[str]) -> list[str]:
 
 def _cart_payload(conn) -> dict[str, Any]:
     return get_cart(conn).model_dump(mode="json")
+
