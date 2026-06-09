@@ -108,6 +108,23 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    suspend fun transcribeVoice(uri: Uri): VoiceTranscriptionResult =
+        runCatching { chatRepository.transcribeAudio(uri) }
+            .fold(
+                onSuccess = { text ->
+                    if (text.isNullOrBlank()) {
+                        VoiceTranscriptionResult(
+                            errorMessage = "后端 ASR 未配置或没有识别到语音，请检查 ASR_PROVIDER/ASR_BASE_URL/ASR_API_KEY"
+                        )
+                    } else {
+                        VoiceTranscriptionResult(text = text.trim())
+                    }
+                },
+                onFailure = {
+                    VoiceTranscriptionResult(errorMessage = "语音转写失败，请稍后再试")
+                }
+            )
+
     fun requestAddToCart(productId: String) {
         sendMessage(text = "加入购物车:$productId", displayText = "加入购物车")
     }
@@ -157,3 +174,8 @@ class ChatViewModel @Inject constructor(
         const val TYPING_CHUNK_DELAY_MS = 18L
     }
 }
+
+data class VoiceTranscriptionResult(
+    val text: String = "",
+    val errorMessage: String? = null
+)

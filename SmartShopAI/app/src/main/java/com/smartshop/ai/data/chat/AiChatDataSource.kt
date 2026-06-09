@@ -4,6 +4,10 @@ import android.content.Context
 import android.net.Uri
 import com.smartshop.ai.data.model.ChatAction
 import com.smartshop.ai.data.model.CartItem
+import com.smartshop.ai.data.model.ComparisonColumn
+import com.smartshop.ai.data.model.ComparisonContent
+import com.smartshop.ai.data.model.ComparisonRow
+import com.smartshop.ai.data.model.ComparisonSection
 import com.smartshop.ai.data.remote.CartItemDto
 import com.smartshop.ai.data.remote.ChatStreamRequestDto
 import com.smartshop.ai.data.remote.SmartShopApi
@@ -19,6 +23,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 import javax.inject.Inject
@@ -95,6 +100,20 @@ class AiChatDataSource @Inject constructor(
         api.uploadAgentImage(part).image_id
     }
 
+    suspend fun transcribeAudio(uri: Uri): String? = withContext(Dispatchers.IO) {
+        val contentType = context.contentResolver.getType(uri)?.toMediaTypeOrNull()
+            ?: uri.fallbackAudioMediaType()
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: error("无法读取录音")
+        val body = bytes.toRequestBody(contentType)
+        val part = MultipartBody.Part.createFormData("file", "voice_input.${uri.audioFileExtension()}", body)
+        api.transcribeAgentAudio(part)
+            .takeIf { it.available }
+            ?.text
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+    }
+
     private fun parseEvent(event: String, data: String): AiChatEvent? {
         val json = JSONObject(data)
         return when (event) {
@@ -149,6 +168,7 @@ class AiChatDataSource @Inject constructor(
                 }
                 AiChatEvent.Alternatives(products)
             }
+            "comparison" -> AiChatEvent.Comparison(json.toComparisonContent())
             "actions" -> {
                 val actionsJson = json.optJSONArray("actions") ?: return null
                 val actions = (0 until actionsJson.length()).mapNotNull { index ->
@@ -183,6 +203,72 @@ class AiChatDataSource @Inject constructor(
             )
             "done" -> AiChatEvent.Done
             else -> null
+        }
+    }
+
+    private fun JSONObject.optNullableString(key: String): String? {
+        if (!has(key) || isNull(key)) return null
+        val value = optString(key).trim()
+        return value.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+    }
+
+    private fun JSONObject.toComparisonContent(): ComparisonContent =
+        ComparisonContent(
+            title = optString("title"),
+            summary = optString("summary"),
+            columns = optJSONArray("columns").toComparisonColumns(),
+            rows = optJSONArray("rows").toComparisonRows(),
+            sections = optJSONArray("sections").toComparisonSections(),
+            recommendation = optString("recommendation"),
+            footnote = optNullableString("footnote")
+        )
+
+    private fun JSONArray?.toComparisonColumns(): List<ComparisonColumn> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                ComparisonColumn(
+                    label = item.optString("label"),
+                    productId = item.optNullableString("product_id") ?: item.optNullableString("productId")
+                )
+            }
+        }
+    }
+
+    private fun JSONArray?.toComparisonRows(): List<ComparisonRow> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                ComparisonRow(
+                    dimension = item.optString("dimension"),
+                    values = item.optJSONArray("values").toStringList(),
+                    highlightIndex = when {
+                        item.has("highlight_index") && !item.isNull("highlight_index") -> item.optInt("highlight_index")
+                        item.has("highlightIndex") && !item.isNull("highlightIndex") -> item.optInt("highlightIndex")
+                        else -> null
+                    }
+                )
+            }
+        }
+    }
+
+    private fun JSONArray?.toComparisonSections(): List<ComparisonSection> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                ComparisonSection(
+                    title = item.optString("title"),
+                    productId = item.optNullableString("product_id") ?: item.optNullableString("productId"),
+                    bullets = item.optJSONArray("bullets").toStringList()
+                )
+            }
+        }
+    }
+
+    private fun JSONArray?.toStringList(): List<String> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optString(index).trim().takeIf { it.isNotBlank() }
         }
     }
 
@@ -264,6 +350,23 @@ class AiChatDataSource @Inject constructor(
             put("quantity", quantity)
             put("selected", selected)
         }
+
+    private fun Uri.audioFileExtension(): String =
+        lastPathSegment
+            ?.substringAfterLast('.', missingDelimiterValue = "")
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+            ?: "aac"
+
+    private fun Uri.fallbackAudioMediaType() =
+        when (audioFileExtension()) {
+            "aac" -> "audio/aac"
+            "mp3" -> "audio/mpeg"
+            "wav" -> "audio/wav"
+            "amr" -> "audio/amr"
+            "3gp", "3gpp" -> "audio/3gpp"
+            else -> "audio/aac"
+        }.toMediaTypeOrNull()
 
     private companion object {
         const val KEY_SESSION_ID = "agent_session_id"

@@ -77,6 +77,7 @@ function Wait-Embedding {
     $body = '{"model":"Qwen/Qwen3-Embedding-0.6B","input":["health check"]}'
 
     Write-Host "Waiting for embedding service at http://127.0.0.1:8080/v1/embeddings ..."
+    Write-Host "The model is local; this step waits for TEI to load and warm it up on the GPU, not to download it."
     while ((Get-Date) -lt $deadline) {
         curl.exe --noproxy "*" -s -f `
             -X POST "http://127.0.0.1:8080/v1/embeddings" `
@@ -86,7 +87,7 @@ function Wait-Embedding {
             Write-Host "Embedding service is ready."
             return
         }
-        Write-Host "Embedding service is not ready yet."
+        Write-Host "Embedding service is still loading or warming up."
         Start-Sleep -Seconds 10
     }
     throw "Embedding service did not become ready within $EmbeddingWaitSeconds seconds."

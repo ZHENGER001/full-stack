@@ -15,4 +15,6 @@ class AiChatRepository @Inject constructor(
         imageUri: Uri?,
         cartContext: List<CartItem> = emptyList()
     ): Flow<AiChatEvent> = dataSource.streamAssistantReply(text, imageUri, cartContext)
+
+    suspend fun transcribeAudio(uri: Uri): String? = dataSource.transcribeAudio(uri)
 }

@@ -97,6 +97,9 @@ interface SmartShopApi {
     @POST("api/agent/image/upload")
     suspend fun uploadAgentImage(@Part file: MultipartBody.Part): ImageUploadDto
 
+    @POST("api/agent/image/analyze")
+    suspend fun analyzeAgentImage(@Body body: ImageAnalyzeRequestDto): ImageAnalyzeDto
+
     @Multipart
     @POST("api/agent/audio/transcribe")
     suspend fun transcribeAgentAudio(@Part file: MultipartBody.Part): AudioTranscribeDto
@@ -285,6 +288,31 @@ data class PaymentDto(
 )
 
 data class ImageUploadDto(val image_id: String, val image_url: String)
+
+data class ImageAnalyzeRequestDto(
+    val image_id: String,
+    val user_hint: String? = null
+)
+
+data class ImageDetectedDto(
+    val object_type: String,
+    val label: String,
+    val attributes: Map<String, String> = emptyMap(),
+    val category: String? = null,
+    val subcategory: String? = null,
+    val search_terms: List<String> = emptyList(),
+    val confidence: Float = 0f
+)
+
+data class ImageAnalyzeDto(
+    val image_id: String,
+    val detected: ImageDetectedDto,
+    val query: String,
+    val objects: List<ImageDetectedDto> = emptyList(),
+    val provider: String? = null,
+    val model: String? = null,
+    val fallback: Boolean = false
+)
 
 data class AudioTranscribeDto(
     val text: String,
