@@ -29,7 +29,8 @@ fun ProductCardDto.toProduct(): Product = Product(
     skuSummaries = sku_summary?.takeIf { it.isNotBlank() }?.let { listOf(it) }.orEmpty(),
     faqSummaries = faq_summary,
     reviewSummaries = review_summary,
-    aiComment = userFacingComment(reason, marketing_description)
+    aiComment = userFacingComment(reason, marketing_description),
+    recommendationTitle = recommendation_title.orEmpty()
 )
 
 fun ProductDetailDto.toProduct(): Product = Product(

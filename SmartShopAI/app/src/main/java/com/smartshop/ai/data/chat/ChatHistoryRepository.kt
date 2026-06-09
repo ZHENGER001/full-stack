@@ -157,6 +157,7 @@ class ChatHistoryRepository @Inject constructor(
         put("rating", rating.toDouble())
         put("reviewCount", reviewCount)
         put("aiComment", aiComment)
+        put("recommendationTitle", recommendationTitle)
         put("inStock", inStock)
         put("specs", JSONObject(specs))
     }
@@ -176,6 +177,7 @@ class ChatHistoryRepository @Inject constructor(
             reviewCount = optInt("reviewCount"),
             specs = optJSONObject("specs").toStringMap(),
             aiComment = optString("aiComment"),
+            recommendationTitle = optString("recommendationTitle"),
             inStock = optBoolean("inStock", true)
         )
 

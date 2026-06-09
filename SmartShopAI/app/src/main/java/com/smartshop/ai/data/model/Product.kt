@@ -21,6 +21,7 @@ data class Product(
     val reviewSummaries: List<String> = emptyList(),
     val skuSummaries: List<String> = emptyList(),
     val aiComment: String = "",
+    val recommendationTitle: String = "",
     val inStock: Boolean = true
 ) {
     val discount: Int?

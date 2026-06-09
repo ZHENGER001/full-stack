@@ -5,8 +5,10 @@ import re
 from typing import Any
 
 from .llm_client import LLMGenerationError
+from .catalog_grounder import default_catalog_summary as grounded_catalog_summary
+from .search_contract_compiler import candidate_from_parsed_turn, compile_executable_turn, compile_search_contract
 from .turn_parser_llm import parse_turn_with_llm
-from .turn_schema import ParsedTurn, ProductReference, RetrievalPolicyHint, TurnConstraints
+from .turn_schema import ParsedTurn, ParsedTurnCandidate, ProductReference, RetrievalPolicyHint, TurnConstraints
 
 
 logger = logging.getLogger(__name__)
@@ -59,15 +61,19 @@ async def parse_turn_hybrid(
     conversation_state: dict | None,
 ) -> ParsedTurn:
     rule_parse = parse_turn_with_rules(message, chat_history, conversation_state)
-    llm_parse: ParsedTurn | None = None
+    rule_candidate = candidate_from_parsed_turn(rule_parse)
+    llm_candidate: ParsedTurnCandidate | None = None
     try:
-        llm_parse = await parse_turn_with_llm(message, chat_history, conversation_state, catalog_summary=default_catalog_summary())
+        llm_candidate = _as_candidate(
+            await parse_turn_with_llm(message, chat_history, conversation_state, catalog_summary=default_catalog_summary())
+        )
     except LLMGenerationError as exc:
         logger.info("turn_parser_llm_failed=%s", exc)
     except Exception as exc:
         logger.info("turn_parser_llm_failed=%s", exc.__class__.__name__)
-    merged = merge_rule_and_llm_parse(rule_parse, llm_parse)
-    return post_validate_parsed_turn(merged, default_catalog_summary(), chat_history, conversation_state)
+    merged = merge_rule_and_llm_parse(rule_candidate, llm_candidate)
+    compiled = compile_executable_turn(merged)
+    return post_validate_parsed_turn(compiled, default_catalog_summary(), chat_history, conversation_state)
 
 
 def parse_turn_with_rules(
@@ -114,7 +120,7 @@ def parse_turn_with_rules(
     if any(term in raw for term in ["你能做什么", "你会什么", "怎么用"]):
         return ParsedTurn(raw_message=raw, intent_type="capability_question", route_hint="no_tool")
     if _is_bundle_request(raw):
-        return ParsedTurn(raw_message=raw, intent_type="bundle_recommendation", route_hint="plan_execute", source="rule")
+        return ParsedTurn(raw_message=raw, intent_type="bundle_recommendation", route_hint="direct_tool", source="rule")
     if _is_ambiguous_action_request(raw):
         return ParsedTurn(
             raw_message=raw,
@@ -186,38 +192,41 @@ def parse_turn_with_rules(
     return ParsedTurn(raw_message=raw, intent_type=intent, route_hint="direct_tool", constraints=constraints, source="rule")
 
 
-def merge_rule_and_llm_parse(rule_parse: ParsedTurn, llm_parse: ParsedTurn | None) -> ParsedTurn:
+def merge_rule_and_llm_parse(rule_parse: ParsedTurnCandidate, llm_parse: ParsedTurnCandidate | None) -> ParsedTurnCandidate:
     if llm_parse is None:
         return rule_parse.model_copy(update={"source": "rule"})
 
-    constraints = llm_parse.constraints.model_copy(deep=True)
-    rule_constraints = rule_parse.constraints
-    for field in [
-        "categories",
-        "subcategories",
-        "brands_include",
-        "brands_exclude",
-        "required_terms",
-        "attributes_include",
-        "attributes_exclude",
-        "scene_terms",
-        "negative_terms",
-    ]:
-        setattr(constraints, field, _merge_unique(list(getattr(rule_constraints, field)), list(getattr(constraints, field))))
-    if rule_constraints.price.min is not None:
-        constraints.price.min = rule_constraints.price.min
-    if rule_constraints.price.max is not None:
-        constraints.price.max = rule_constraints.price.max
+    if _locks_rule_intent(rule_parse):
+        return rule_parse.model_copy(update={"source": "rule"})
+
+    intent_type = llm_parse.intent_type if llm_parse.intent_type != "unknown" else rule_parse.intent_type
+    price = llm_parse.price.model_copy(deep=True)
+    if rule_parse.price.min is not None:
+        price.min = rule_parse.price.min
+    if rule_parse.price.max is not None:
+        price.max = rule_parse.price.max
 
     return llm_parse.model_copy(
         update={
             "raw_message": llm_parse.raw_message or rule_parse.raw_message,
-            "intent_type": llm_parse.intent_type if llm_parse.intent_type != "unknown" else rule_parse.intent_type,
-            "route_hint": llm_parse.route_hint or rule_parse.route_hint,
-            "constraints": constraints,
+            "intent_type": intent_type,
+            "core_product_query": llm_parse.core_product_query or llm_parse.semantic_query or rule_parse.core_product_query,
+            "semantic_query": llm_parse.semantic_query or llm_parse.core_product_query or rule_parse.semantic_query,
+            "product_mentions": _merge_unique(rule_parse.product_mentions, llm_parse.product_mentions),
+            "query_expansions": _merge_unique(rule_parse.query_expansions, llm_parse.query_expansions),
+            "category_mentions": _merge_unique(rule_parse.category_mentions, llm_parse.category_mentions),
+            "subcategory_mentions": _merge_unique(rule_parse.subcategory_mentions, llm_parse.subcategory_mentions),
+            "brands_include": _merge_unique(rule_parse.brands_include, llm_parse.brands_include),
+            "brands_exclude": _merge_unique(rule_parse.brands_exclude, llm_parse.brands_exclude),
+            "attributes_include": _merge_unique(rule_parse.attributes_include, llm_parse.attributes_include),
+            "attributes_exclude": _merge_unique(rule_parse.attributes_exclude, llm_parse.attributes_exclude),
+            "scene_terms": _merge_unique(rule_parse.scene_terms, llm_parse.scene_terms),
+            "negative_terms": _merge_unique(rule_parse.negative_terms, llm_parse.negative_terms),
+            "price": price,
             "references": llm_parse.references or rule_parse.references,
             "quantity": llm_parse.quantity or rule_parse.quantity,
             "compare_dimensions": llm_parse.compare_dimensions or rule_parse.compare_dimensions,
+            "bundle_slots": llm_parse.bundle_slots or rule_parse.bundle_slots,
             "source": "hybrid",
         }
     )
@@ -245,6 +254,17 @@ def post_validate_parsed_turn(
                 "retrieval_policy_hint": retrieval,
             }
         )
+
+    compiled = compile_search_contract(
+        parsed.model_copy(update={"constraints": constraints, "retrieval_policy_hint": retrieval})
+    )
+    if compiled.route_hint == "no_tool" and compiled.needs_clarification:
+        return compiled
+    constraints = compiled.constraints.model_copy(deep=True)
+    retrieval = compiled.retrieval_policy_hint.model_copy(deep=True)
+    parsed = compiled
+    if parsed.is_unknown_short_query:
+        return parsed
 
     if _needs_preference_clarification(parsed, constraints, has_context):
         return parsed.model_copy(
@@ -299,8 +319,6 @@ def post_validate_parsed_turn(
 
     if parsed.intent_type in {"cart_add", "cart_remove", "cart_update_quantity", "cart_list", "cart_clear", "product_compare", "product_detail_qa"}:
         route_hint = "bounded_react"
-    elif parsed.intent_type == "bundle_recommendation":
-        route_hint = "plan_execute"
     elif parsed.intent_type in {"greeting", "capability_question", "unknown"} and parsed.needs_clarification:
         route_hint = "no_tool"
     elif parsed.intent_type in {"greeting", "capability_question"}:
@@ -312,8 +330,11 @@ def post_validate_parsed_turn(
 
 
 def default_catalog_summary() -> dict[str, Any]:
+    summary = grounded_catalog_summary()
     return {
         "terms": [term for item in CATALOG_TERMS for term in item["terms"]],
+        "grounded_terms": summary.get("terms", []),
+        "grounded_labels": summary.get("labels", []),
         "attribute_only_terms": sorted(ATTRIBUTE_ONLY_TERMS),
     }
 
@@ -441,7 +462,9 @@ def _matches_catalog(raw: str) -> bool:
 def _is_bundle_request(raw: str) -> bool:
     has_bundle_word = any(term in raw for term in ("搭配", "一套", "方案", "组合", "清单", "从", "到"))
     has_scene_word = any(term in raw for term in ("度假", "三亚", "海边", "沙滩", "旅行", "通勤", "上班", "户外"))
-    return has_bundle_word and has_scene_word
+    has_ecosystem_word = any(term in raw for term in ("互联", "生态", "协同", "跨屏", "同品牌", "全家桶"))
+    has_digital_word = any(term in raw for term in ("手机", "电脑", "笔记本", "平板", "耳机", "手表"))
+    return has_bundle_word and (has_scene_word or (has_ecosystem_word and has_digital_word))
 
 
 def _is_ambiguous_action_request(raw: str) -> bool:
@@ -462,6 +485,11 @@ def _needs_preference_clarification(parsed: ParsedTurn, constraints: TurnConstra
     if constraints.price.min is not None or constraints.price.max is not None:
         return False
     if constraints.brands_include or constraints.attributes_include or constraints.scene_terms:
+        return False
+    raw = parsed.raw_message or ""
+    if any(term in raw for term in ["推荐", "想买", "我要买", "有没有", "有没"]) and not any(
+        term in raw for term in ["怎么选", "哪个", "哪款", "更适合", "对比", "比较"]
+    ):
         return False
     broad_subcategories = {"智能手机", "真无线耳机", "笔记本电脑", "篮球鞋", "跑步鞋"}
     return constraints.subcategories[0] in broad_subcategories
@@ -494,6 +522,27 @@ def _has_context(chat_history: list[dict] | None, conversation_state: dict | Non
     ):
         return True
     return bool(chat_history)
+
+
+def _as_candidate(parsed: ParsedTurnCandidate | ParsedTurn) -> ParsedTurnCandidate:
+    if isinstance(parsed, ParsedTurnCandidate):
+        return parsed
+    return candidate_from_parsed_turn(parsed)
+
+
+def _locks_rule_intent(rule_parse: ParsedTurnCandidate) -> bool:
+    return rule_parse.intent_type in {
+        "cart_add",
+        "cart_remove",
+        "cart_update_quantity",
+        "cart_list",
+        "cart_clear",
+        "product_compare",
+        "product_detail_qa",
+        "bundle_recommendation",
+        "greeting",
+        "capability_question",
+    }
 
 
 def _compact(text: str) -> str:

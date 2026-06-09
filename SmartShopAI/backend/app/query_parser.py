@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .catalog_grounder import ground_catalog_terms
+
 
 CATEGORY_ALIASES = [
     {
@@ -129,6 +131,14 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
             subcategories.update(alias["subcategories"])
             required_terms.update(alias["required_terms"])
 
+    grounding = ground_catalog_terms(text)
+    if grounding.matches:
+        explicit_category = True
+        for match in grounding.matches:
+            categories.update(match.categories)
+            subcategories.update(match.subcategories)
+            required_terms.update(match.required_terms)
+
     max_price = extract_max_price(text)
     price_sensitive = max_price is not None or any(term in text for term in PRICE_SENSITIVE_TERMS)
     scenes = [term for term in SCENE_TERMS if term in text]
@@ -148,8 +158,9 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         retrieval_scope=retrieval_scope,
     ):
         match_mode = "exact_or_none"
-        required_terms.add(_compact_query(text))
+        required_terms.add((grounding.unknown_terms or [grounding.core_query or _compact_query(text)])[0])
 
+    allow_popular_fallback = False if match_mode == "exact_or_none" or (explicit_category and required_terms) else True
     return {
         "raw_query": query,
         "target_categories": sorted(categories),
@@ -164,7 +175,7 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         "brands_exclude": brands_exclude,
         "retrieval_scope": retrieval_scope,
         "match_mode": match_mode,
-        "allow_popular_fallback": False if match_mode == "exact_or_none" else True,
+        "allow_popular_fallback": allow_popular_fallback,
     }
 
 

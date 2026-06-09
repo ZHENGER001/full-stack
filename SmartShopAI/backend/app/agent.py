@@ -138,6 +138,29 @@ def _stream_chat(
     current_product_id: str | None,
     cart_context: list[dict],
 ) -> Iterable[str]:
+    from .agent_orchestrator import stream_agent_turn
+    from .agent_state import AgentTurnRequest
+
+    yield from stream_agent_turn(
+        conn,
+        AgentTurnRequest(
+            session_id=session_id,
+            message=message,
+            image_id=image_id,
+            current_product_id=current_product_id,
+            cart_context=cart_context,
+        ),
+    )
+
+
+def _stream_chat_legacy(
+    conn,
+    session_id: str,
+    message: str,
+    image_id: str | None,
+    current_product_id: str | None,
+    cart_context: list[dict],
+) -> Iterable[str]:
     ensure_session(conn, session_id)
     if current_product_id and product_exists(conn, current_product_id):
         update_session_state(conn, session_id, current_product_id=current_product_id)
@@ -514,10 +537,12 @@ def emit_bundle_recommendation_turn(
     image_id: str | None,
     turn_plan,
 ) -> Iterable[str]:
-    yield sse_event("delta", {"text": "我先把这个场景拆成几个需要购买的部分。\n"})
-    time.sleep(0.2)
-    yield sse_event("delta", {"text": "再分别匹配防护、穿搭、鞋包和护理类商品。\n"})
-    result = retrieve_bundle_recommendations(conn, message, top_k_per_slot=1)
+    result = retrieve_bundle_recommendations(
+        conn,
+        message,
+        top_k_per_slot=1,
+        bundle_slots=turn_plan.parsed_turn.bundle_slots if turn_plan else None,
+    )
     yield sse_event(
         "retrieval_status",
         {
@@ -1054,7 +1079,7 @@ def enrich_product_presentations(user_message: str, products: list[dict[str, Any
     for index, product in enumerate(products):
         generated = presentations.get(str(product.get("id"))) if presentations else None
         fallback_title, fallback_reason = fallback_product_presentation(user_message, product, index)
-        product["recommendation_title"] = (generated or {}).get("recommendation_title") or fallback_title
+        product["recommendation_title"] = fallback_title
         product["reason"] = (generated or {}).get("reason") or user_facing_reason(product.get("reason")) or fallback_reason
 
 
@@ -1079,7 +1104,7 @@ def fallback_product_presentation(user_message: str, product: dict[str, Any], in
         return "实战支撑", "更适合运动和日常穿搭，重点看支撑、缓震和耐磨。"
     if price <= 300:
         return "高性价比", f"这款{category}价格更友好，适合作为预算有限时的实用选择。"
-    return ("综合匹配" if index == 0 else "对比备选", f"这款{category}匹配当前需求，可结合价格、品牌和库存一起对比。")
+    return ("综合匹配" if index == 0 else "对比备选", f"这款{category}匹配当前需求，可结合价格、品牌和评分一起对比。")
 
 
 def user_facing_reason(value: Any) -> str | None:

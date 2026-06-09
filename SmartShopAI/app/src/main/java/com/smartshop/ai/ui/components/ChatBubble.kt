@@ -911,25 +911,49 @@ private data class RecommendationGroup(
 private fun recommendationGroup(index: Int, product: Product): RecommendationGroup {
     val name = product.name
     val category = product.category.ifBlank { product.categoryId }.ifBlank { "商品" }
+    val title = product.recommendationTitle
+        .takeIf { it.isNotBlank() }
+        ?: fallbackRecommendationTitle(index)
     val reason = product.aiComment
         .takeIf { it.isUserFacingRecommendationReason() }
         ?.toCompleteReason(maxLength = 86)
-    return when (index) {
-        0 -> RecommendationGroup(
-            icon = "🔥",
-            title = "优先推荐款",
-            description = reason ?: "这款${category}匹配度较高，价格、评分和库存表现更稳，可以优先看看。"
-        )
-        1 -> RecommendationGroup(
-            icon = "🏃",
-            title = "功能实用款",
-            description = reason ?: "${name.compactName()}更适合日常使用或明确场景需求，综合表现比较均衡。"
-        )
-        else -> RecommendationGroup(
-            icon = "💰",
-            title = "平价备选款",
-            description = reason ?: "如果想多一个备选方向，这款${category}可以作为价格和实用性之间的折中选择。"
-        )
+    return RecommendationGroup(
+        icon = recommendationIcon(title),
+        title = title,
+        description = reason ?: fallbackRecommendationDescription(index, name, category)
+    )
+}
+
+private fun fallbackRecommendationTitle(index: Int): String =
+    when (index) {
+        0 -> "综合匹配"
+        1 -> "功能匹配"
+        else -> "备选款"
+    }
+
+private fun fallbackRecommendationDescription(index: Int, name: String, category: String): String =
+    when (index) {
+        0 -> "这款${category}匹配当前需求，可以优先看看。"
+        1 -> "${name.compactName()}和你的需求有明确关联，适合作为功能侧重点的选择。"
+        else -> "这款${category}可以作为另一个备选方向，适合和前面商品一起对比。"
+    }
+
+private fun recommendationIcon(title: String): String {
+    return when {
+        title.contains("防晒") || title.contains("防护") || title.contains("海边") -> "☀️"
+        title.contains("拍照") || title.contains("影像") || title.contains("摄影") -> "📷"
+        title.contains("续航") -> "🔋"
+        title.contains("性能") || title.contains("游戏") || title.contains("配置") -> "⚡"
+        title.contains("降噪") || title.contains("耳机") || title.contains("音质") || title.contains("通勤") -> "🎧"
+        title.contains("价格") || title.contains("预算") || title.contains("性价比") || title.contains("平价") -> "💰"
+        title.contains("评分") || title.contains("口碑") -> "⭐"
+        title.contains("鞋") || title.contains("运动") || title.contains("实战") -> "🏃"
+        title.contains("包") || title.contains("收纳") || title.contains("背包") -> "🎒"
+        title.contains("护理") || title.contains("修复") || title.contains("补水") -> "💧"
+        title.contains("搭配") || title.contains("套装") || title.contains("组合") -> "🧩"
+        title.contains("优先") || title.contains("综合") -> "🔥"
+        title.contains("功能") || title.contains("实用") -> "✅"
+        else -> "🔎"
     }
 }
 

@@ -33,6 +33,41 @@ class QueryConstraintTest(unittest.TestCase):
         self.assertFalse(filters["allow_popular_fallback"])
         self.assertTrue(has_hard_filters(filters))
 
+    def test_wrapped_catalog_query_is_grounded_before_exact_mode(self) -> None:
+        filters = parse_user_filters("\u6211\u60f3\u4e70\u5507\u91c9", [])
+
+        self.assertTrue(filters["explicit_category"])
+        self.assertEqual(filters["target_categories"], ["\u7f8e\u5986\u62a4\u80a4"])
+        self.assertEqual(filters["target_subcategories"], ["\u5507\u91c9"])
+        self.assertEqual(filters["required_terms"], ["\u5507\u91c9"])
+        self.assertIsNone(filters["match_mode"])
+
+    def test_printer_out_of_ink_is_grounded_to_printing_supplies(self) -> None:
+        filters = parse_user_filters("\u5bb6\u91cc\u6253\u5370\u673a\u6ca1\u58a8\u6c34\u4e86", [])
+
+        self.assertTrue(filters["explicit_category"])
+        self.assertEqual(filters["target_categories"], ["\u529e\u516c\u6587\u5177"])
+        self.assertEqual(filters["target_subcategories"], ["\u6253\u5370\u8017\u6750"])
+        self.assertEqual(filters["required_terms"], ["\u6253\u5370\u8017\u6750"])
+        self.assertFalse(filters["allow_popular_fallback"])
+
+    def test_printer_ink_filters_reject_food_candidates(self) -> None:
+        filters = parse_user_filters("\u5bb6\u91cc\u6253\u5370\u673a\u6ca1\u58a8\u6c34\u4e86", [])
+        product = {
+            "id": "p_food",
+            "title": "\u96c0\u5de2\u5496\u5561",
+            "brand": "\u96c0\u5de2",
+            "category": "\u98df\u54c1\u996e\u6599",
+            "subcategory": "\u5496\u5561",
+            "price": 60,
+            "stock": 10,
+        }
+
+        result = verify_products([product], filters, limit=1)
+
+        self.assertEqual(result.products, [])
+        self.assertEqual(result.diagnostics["rejected"][0]["reason"], "subcategory_mismatch")
+
     def test_missing_office_accessory_terms_use_exact_or_none(self) -> None:
         for query in ["\u952e\u76d8", "\u9f20\u6807"]:
             filters = parse_user_filters(query, [])
