@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from .query_parser import has_hard_filters
+from .query_parser import has_hard_filters, narrow_to_explicit_subcategories
 from .query_router import ParsedQuery, parse_query
 from .retrieval import hybrid_search_products
 from .search_document import build_search_keywords
@@ -197,13 +197,14 @@ def apply_tool_constraints(
     if filters.get("match_mode") == "exact_or_none":
         route_notes.append("exact_or_none")
 
+    filters = narrow_to_explicit_subcategories(filters, parsed_query.raw_query)
     expansion_terms = [
-        parsed_query.rewritten_query,
-        *categories,
-        *subcategories,
-        *required_terms,
-        *attributes_include,
-        *scene_terms,
+        parsed_query.raw_query,
+        *(filters.get("target_categories") or []),
+        *(filters.get("target_subcategories") or []),
+        *(filters.get("required_terms") or []),
+        *(filters.get("attributes_include") or []),
+        *(filters.get("scene_terms") or []),
     ]
     rewritten_query = " ".join(dict.fromkeys(str(term).strip() for term in expansion_terms if str(term).strip()))
     return ParsedQuery(
