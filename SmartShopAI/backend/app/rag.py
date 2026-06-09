@@ -191,6 +191,13 @@ def apply_tool_constraints(
     if price.get("min") is not None:
         filters["min_price"] = price["min"]
 
+    if retrieval_policy.get("image_wide_match"):
+        filters["explicit_category"] = False
+        filters["match_mode"] = None
+        filters["allow_popular_fallback"] = False
+        filters["require_lexical_anchor"] = False
+        route_notes.append("image_wide_match")
+
     for key in ["match_mode", "allow_popular_fallback", "allow_dense_only", "require_lexical_anchor"]:
         if key in retrieval_policy and retrieval_policy[key] is not None:
             filters[key] = retrieval_policy[key]

@@ -15,7 +15,12 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,6 +62,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -84,6 +90,8 @@ import java.io.File
 import java.util.Locale
 import kotlinx.coroutines.launch
 
+private const val TTS_UTTERANCE_PREFIX = "smartshop_tts_"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -97,8 +105,97 @@ fun ChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var isListening by remember { mutableStateOf(false) }
+    var textToSpeech by remember { mutableStateOf<TextToSpeech?>(null) }
+    var isTtsReady by remember { mutableStateOf(false) }
+    var speakingMessageId by remember { mutableStateOf<String?>(null) }
+    var shouldAutoSpeakVoiceReply by remember { mutableStateOf(false) }
+    var voiceRequestStartedAt by remember { mutableStateOf<Long?>(null) }
+
+    DisposableEffect(context) {
+        var ttsRef: TextToSpeech? = null
+        val tts = TextToSpeech(context.applicationContext) { status ->
+            mainHandler.post {
+                if (status == TextToSpeech.SUCCESS) {
+                    ttsRef?.setLanguage(Locale.getDefault())
+                    isTtsReady = true
+                } else {
+                    isTtsReady = false
+                }
+            }
+        }
+        ttsRef = tts
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = Unit
+
+            override fun onDone(utteranceId: String?) {
+                clearSpeakingState(utteranceId)
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                clearSpeakingState(utteranceId)
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                clearSpeakingState(utteranceId)
+            }
+
+            private fun clearSpeakingState(utteranceId: String?) {
+                val messageId = utteranceId?.removePrefix(TTS_UTTERANCE_PREFIX)
+                mainHandler.post {
+                    if (speakingMessageId == messageId) {
+                        speakingMessageId = null
+                    }
+                }
+            }
+        })
+        textToSpeech = tts
+
+        onDispose {
+            tts.stop()
+            tts.shutdown()
+            textToSpeech = null
+            isTtsReady = false
+            speakingMessageId = null
+        }
+    }
+
+    fun speakAssistantMessage(messageId: String, content: String) {
+        val text = content.trim()
+        if (text.isBlank()) return
+        val tts = textToSpeech
+        if (tts == null || !isTtsReady) {
+            coroutineScope.launch { snackbarHostState.showSnackbar("语音朗读初始化中，请稍后再试") }
+            return
+        }
+        if (speakingMessageId == messageId) {
+            tts.stop()
+            speakingMessageId = null
+            return
+        }
+
+        tts.stop()
+        speakingMessageId = messageId
+        val result = tts.speak(
+            text,
+            TextToSpeech.QUEUE_FLUSH,
+            Bundle.EMPTY,
+            "$TTS_UTTERANCE_PREFIX$messageId"
+        )
+        if (result == TextToSpeech.ERROR) {
+            speakingMessageId = null
+            coroutineScope.launch { snackbarHostState.showSnackbar("语音朗读失败，请稍后再试") }
+        }
+    }
+
+    fun stopAssistantSpeech() {
+        textToSpeech?.stop()
+        speakingMessageId = null
+    }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -123,7 +220,10 @@ fun ChatScreen(
             if (spokenText.isBlank()) {
                 coroutineScope.launch { snackbarHostState.showSnackbar("没有识别到语音，请再试一次") }
             } else {
-                viewModel.updateInput(spokenText)
+                stopAssistantSpeech()
+                voiceRequestStartedAt = System.currentTimeMillis()
+                shouldAutoSpeakVoiceReply = true
+                viewModel.sendMessage(spokenText)
             }
         } else {
             coroutineScope.launch { snackbarHostState.showSnackbar("语音识别失败，请重新输入") }
@@ -159,6 +259,22 @@ fun ChatScreen(
             // Scroll to index 0 because the list is reversed
             listState.animateScrollToItem(0)
         }
+    }
+
+    LaunchedEffect(messages, isTyping, isTtsReady, shouldAutoSpeakVoiceReply, voiceRequestStartedAt) {
+        if (!shouldAutoSpeakVoiceReply || isTyping || !isTtsReady) return@LaunchedEffect
+
+        val startedAt = voiceRequestStartedAt ?: return@LaunchedEffect
+        val assistantReply = messages.lastOrNull { message ->
+            !message.isUser &&
+                !message.isLoading &&
+                message.content.isNotBlank() &&
+                message.timestamp >= startedAt
+        } ?: return@LaunchedEffect
+
+        shouldAutoSpeakVoiceReply = false
+        voiceRequestStartedAt = null
+        speakAssistantMessage(assistantReply.id, assistantReply.content)
     }
 
     LaunchedEffect(Unit) {
@@ -317,6 +433,11 @@ fun ChatScreen(
                                 launchSingleTop = true
                             }
                         },
+                        onSpeak = { assistantMessage ->
+                            speakAssistantMessage(assistantMessage.id, assistantMessage.content)
+                        },
+                        onStopSpeaking = { stopAssistantSpeech() },
+                        isSpeaking = speakingMessageId == message.id,
                         onActionClick = { action ->
                             when (action.type) {
                                 "go_detail" -> action.productId?.let { productId ->

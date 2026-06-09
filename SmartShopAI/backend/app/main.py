@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .agent import analyze_image, save_upload, stream_chat
+from .agent import analyze_uploaded_image, save_upload, stream_chat
 from .asr_client import asr_model_name, asr_provider_name, transcribe_audio_bytes
 from .catalog import (
     first_sku,
@@ -719,8 +719,16 @@ def api_image_upload(file: UploadFile = File(...)):
 @app.post("/api/agent/image/analyze", response_model=ImageAnalyzeResponse)
 def api_image_analyze(payload: ImageAnalyzeRequest):
     with get_db() as conn:
-        detected, query = analyze_image(conn, payload.image_id, payload.user_hint)
-        return ImageAnalyzeResponse(image_id=payload.image_id, detected=detected, query=query)
+        analysis = analyze_uploaded_image(conn, payload.image_id, payload.user_hint)
+        return ImageAnalyzeResponse(
+            image_id=payload.image_id,
+            detected=analysis["detected"],
+            query=analysis["query"],
+            objects=analysis["objects"],
+            provider=analysis["provider"],
+            model=analysis["model"],
+            fallback=analysis["fallback"],
+        )
 
 
 @app.post("/api/agent/audio/transcribe", response_model=AudioTranscribeResponse)

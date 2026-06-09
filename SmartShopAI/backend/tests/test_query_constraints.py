@@ -4,7 +4,7 @@ import unittest
 
 from app.query_parser import has_hard_filters, parse_user_filters
 from app.query_router import ParsedQuery
-from app.rag import apply_confidence_gate, build_alternative_products
+from app.rag import apply_confidence_gate, apply_tool_constraints, build_alternative_products
 from app.retrieval import _build_document, _keyword_search, _tokenize
 from app.search_document import build_product_search_document
 from app.verifier import verify_products
@@ -385,6 +385,29 @@ class QueryConstraintTest(unittest.TestCase):
 
         self.assertEqual(gated, products)
         self.assertEqual(diagnostics["status"], "pass")
+
+    def test_image_wide_match_keeps_category_as_weight_not_hard_filter(self) -> None:
+        parsed = ParsedQuery(
+            raw_query="黑色 真无线耳机 通勤",
+            rewritten_query="黑色 真无线耳机 通勤",
+            filters={
+                "target_categories": ["数码电子"],
+                "target_subcategories": ["真无线耳机"],
+                "required_terms": ["耳机"],
+                "explicit_category": True,
+                "match_mode": "exact_or_none",
+                "allow_popular_fallback": True,
+            },
+            route_notes=["category", "subcategory"],
+        )
+
+        result = apply_tool_constraints(parsed, {}, {"image_wide_match": True})
+
+        self.assertFalse(result.filters["explicit_category"])
+        self.assertIsNone(result.filters["match_mode"])
+        self.assertFalse(result.filters["allow_popular_fallback"])
+        self.assertFalse(result.filters["require_lexical_anchor"])
+        self.assertIn("image_wide_match", result.route_notes)
 
 
 if __name__ == "__main__":

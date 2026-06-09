@@ -210,16 +210,24 @@ class ImageAnalyzeRequest(BaseModel):
 
 class ImageDetected(BaseModel):
     object_type: str
-    color: str
-    style: str
-    material: str
-    scene: str
+    color: str | None = None
+    style: str | None = None
+    material: str | None = None
+    scene: str | list[str] = Field(default_factory=list)
+    category: str | None = None
+    subcategory: str | None = None
+    search_terms: list[str] = Field(default_factory=list)
+    confidence: float = 0.0
 
 
 class ImageAnalyzeResponse(BaseModel):
     image_id: str
     detected: ImageDetected
     query: str
+    objects: list[ImageDetected] = Field(default_factory=list)
+    provider: str | None = None
+    model: str | None = None
+    fallback: bool = False
 
 
 class AudioTranscribeResponse(BaseModel):
