@@ -100,6 +100,20 @@ class AiChatDataSource @Inject constructor(
         api.uploadAgentImage(part).image_id
     }
 
+    suspend fun transcribeAudio(uri: Uri): String? = withContext(Dispatchers.IO) {
+        val contentType = context.contentResolver.getType(uri)?.toMediaTypeOrNull()
+            ?: uri.fallbackAudioMediaType()
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: error("无法读取录音")
+        val body = bytes.toRequestBody(contentType)
+        val part = MultipartBody.Part.createFormData("file", "voice_input.${uri.audioFileExtension()}", body)
+        api.transcribeAgentAudio(part)
+            .takeIf { it.available }
+            ?.text
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+    }
+
     private fun parseEvent(event: String, data: String): AiChatEvent? {
         val json = JSONObject(data)
         return when (event) {
@@ -217,7 +231,7 @@ class AiChatDataSource @Inject constructor(
             optJSONObject(index)?.let { item ->
                 ComparisonColumn(
                     label = item.optString("label"),
-                    productId = item.optNullableString("product_id")
+                    productId = item.optNullableString("product_id") ?: item.optNullableString("productId")
                 )
             }
         }
@@ -230,10 +244,10 @@ class AiChatDataSource @Inject constructor(
                 ComparisonRow(
                     dimension = item.optString("dimension"),
                     values = item.optJSONArray("values").toStringList(),
-                    highlightIndex = if (item.has("highlight_index") && !item.isNull("highlight_index")) {
-                        item.optInt("highlight_index")
-                    } else {
-                        null
+                    highlightIndex = when {
+                        item.has("highlight_index") && !item.isNull("highlight_index") -> item.optInt("highlight_index")
+                        item.has("highlightIndex") && !item.isNull("highlightIndex") -> item.optInt("highlightIndex")
+                        else -> null
                     }
                 )
             }
@@ -246,7 +260,7 @@ class AiChatDataSource @Inject constructor(
             optJSONObject(index)?.let { item ->
                 ComparisonSection(
                     title = item.optString("title"),
-                    productId = item.optNullableString("product_id"),
+                    productId = item.optNullableString("product_id") ?: item.optNullableString("productId"),
                     bullets = item.optJSONArray("bullets").toStringList()
                 )
             }
@@ -255,7 +269,9 @@ class AiChatDataSource @Inject constructor(
 
     private fun JSONArray?.toStringList(): List<String> {
         if (this == null) return emptyList()
-        return (0 until length()).mapNotNull { index -> optString(index).trim().takeIf { it.isNotBlank() } }
+        return (0 until length()).mapNotNull { index ->
+            optString(index).trim().takeIf { it.isNotBlank() }
+        }
     }
 
     private fun parseAction(raw: Any): ChatAction? {
@@ -336,6 +352,23 @@ class AiChatDataSource @Inject constructor(
             put("quantity", quantity)
             put("selected", selected)
         }
+
+    private fun Uri.audioFileExtension(): String =
+        lastPathSegment
+            ?.substringAfterLast('.', missingDelimiterValue = "")
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+            ?: "aac"
+
+    private fun Uri.fallbackAudioMediaType() =
+        when (audioFileExtension()) {
+            "aac" -> "audio/aac"
+            "mp3" -> "audio/mpeg"
+            "wav" -> "audio/wav"
+            "amr" -> "audio/amr"
+            "3gp", "3gpp" -> "audio/3gpp"
+            else -> "audio/aac"
+        }.toMediaTypeOrNull()
 
     private companion object {
         const val KEY_SESSION_ID = "agent_session_id"

@@ -11,12 +11,21 @@ import androidx.compose.animation.slideInVertically
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
 import android.Manifest
-import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.MediaRecorder
 import android.net.Uri
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +66,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -69,6 +79,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,6 +96,15 @@ import java.io.File
 import java.util.Locale
 import kotlinx.coroutines.launch
 
+private const val TTS_UTTERANCE_PREFIX = "smartshop_tts_"
+
+private enum class VoiceInputState {
+    Idle,
+    SystemListening,
+    BackendRecording,
+    Transcribing
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -97,8 +118,272 @@ fun ChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
-    var isListening by remember { mutableStateOf(false) }
+    var voiceInputState by remember { mutableStateOf(VoiceInputState.Idle) }
+    var speechRecognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
+    var backendRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var backendAudioFile by remember { mutableStateOf<File?>(null) }
+    var preferBackendVoice by remember { mutableStateOf(false) }
+    var textToSpeech by remember { mutableStateOf<TextToSpeech?>(null) }
+    var isTtsReady by remember { mutableStateOf(false) }
+    var speakingMessageId by remember { mutableStateOf<String?>(null) }
+    var shouldAutoSpeakVoiceReply by remember { mutableStateOf(false) }
+    var voiceRequestStartedAt by remember { mutableStateOf<Long?>(null) }
+
+    fun createChatCameraUri(): Uri {
+        val imageDir = File(context.cacheDir, "chat_images").apply { mkdirs() }
+        val imageFile = File(imageDir, "chat_${System.currentTimeMillis()}.jpg")
+        return FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            imageFile
+        )
+    }
+
+    fun launchChatCamera(cameraLauncher: androidx.activity.result.ActivityResultLauncher<Uri>) {
+        val uri = createChatCameraUri()
+        pendingCameraUri = uri
+        cameraLauncher.launch(uri)
+    }
+
+    DisposableEffect(context) {
+        var ttsRef: TextToSpeech? = null
+        val tts = TextToSpeech(context.applicationContext) { status ->
+            mainHandler.post {
+                if (status == TextToSpeech.SUCCESS) {
+                    ttsRef?.setLanguage(Locale.getDefault())
+                    isTtsReady = true
+                } else {
+                    isTtsReady = false
+                }
+            }
+        }
+        ttsRef = tts
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = Unit
+
+            override fun onDone(utteranceId: String?) {
+                clearSpeakingState(utteranceId)
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                clearSpeakingState(utteranceId)
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                clearSpeakingState(utteranceId)
+            }
+
+            private fun clearSpeakingState(utteranceId: String?) {
+                val messageId = utteranceId?.removePrefix(TTS_UTTERANCE_PREFIX)
+                mainHandler.post {
+                    if (speakingMessageId == messageId) {
+                        speakingMessageId = null
+                    }
+                }
+            }
+        })
+        textToSpeech = tts
+
+        onDispose {
+            tts.stop()
+            tts.shutdown()
+            textToSpeech = null
+            isTtsReady = false
+            speakingMessageId = null
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            speechRecognizer?.destroy()
+            speechRecognizer = null
+            runCatching { backendRecorder?.stop() }
+            backendRecorder?.release()
+            backendRecorder = null
+            backendAudioFile?.delete()
+            backendAudioFile = null
+        }
+    }
+
+    fun speakAssistantMessage(messageId: String, content: String) {
+        val text = content.trim()
+        if (text.isBlank()) return
+        val tts = textToSpeech
+        if (tts == null || !isTtsReady) {
+            coroutineScope.launch { snackbarHostState.showSnackbar("语音朗读初始化中，请稍后再试") }
+            return
+        }
+        if (speakingMessageId == messageId) {
+            tts.stop()
+            speakingMessageId = null
+            return
+        }
+
+        tts.stop()
+        speakingMessageId = messageId
+        val result = tts.speak(
+            text,
+            TextToSpeech.QUEUE_FLUSH,
+            Bundle.EMPTY,
+            "$TTS_UTTERANCE_PREFIX$messageId"
+        )
+        if (result == TextToSpeech.ERROR) {
+            speakingMessageId = null
+            coroutineScope.launch { snackbarHostState.showSnackbar("语音朗读失败，请稍后再试") }
+        }
+    }
+
+    fun stopAssistantSpeech() {
+        textToSpeech?.stop()
+        speakingMessageId = null
+    }
+
+    fun sendRecognizedVoice(text: String) {
+        val spokenText = text.trim()
+        if (spokenText.isBlank()) {
+            coroutineScope.launch { snackbarHostState.showSnackbar("没有识别到语音，请再试一次") }
+            return
+        }
+        stopAssistantSpeech()
+        voiceRequestStartedAt = System.currentTimeMillis()
+        shouldAutoSpeakVoiceReply = true
+        viewModel.sendMessage(spokenText)
+    }
+
+    fun releaseSystemRecognition(cancel: Boolean) {
+        if (cancel) {
+            speechRecognizer?.cancel()
+        }
+        speechRecognizer?.destroy()
+        speechRecognizer = null
+        voiceInputState = VoiceInputState.Idle
+    }
+
+    fun stopSystemRecognition() {
+        releaseSystemRecognition(cancel = true)
+    }
+
+    fun stopBackendRecordingAndTranscribe() {
+        val recorder = backendRecorder
+        val audioFile = backendAudioFile
+        backendRecorder = null
+        backendAudioFile = null
+
+        val stopSucceeded = runCatching { recorder?.stop() }.isSuccess
+        recorder?.release()
+
+        if (!stopSucceeded || audioFile == null || !audioFile.exists() || audioFile.length() < 1024L) {
+            audioFile?.delete()
+            voiceInputState = VoiceInputState.Idle
+            coroutineScope.launch { snackbarHostState.showSnackbar("录音太短或保存失败，请再试一次") }
+            return
+        }
+
+        voiceInputState = VoiceInputState.Transcribing
+        coroutineScope.launch { snackbarHostState.showSnackbar("正在转写语音...") }
+        coroutineScope.launch {
+            val result = viewModel.transcribeVoice(Uri.fromFile(audioFile))
+            audioFile.delete()
+            voiceInputState = VoiceInputState.Idle
+            if (result.text.isNotBlank()) {
+                sendRecognizedVoice(result.text)
+            } else {
+                snackbarHostState.showSnackbar(result.errorMessage ?: "语音转写失败，请重新输入")
+            }
+        }
+    }
+
+    fun startBackendRecording() {
+        val audioDir = File(context.cacheDir, "voice_inputs").apply { mkdirs() }
+        val audioFile = File(audioDir, "voice_${System.currentTimeMillis()}.aac")
+        val recorder = createVoiceRecorder(audioFile)
+        runCatching {
+            recorder.prepare()
+            recorder.start()
+        }.onSuccess {
+            backendRecorder = recorder
+            backendAudioFile = audioFile
+            voiceInputState = VoiceInputState.BackendRecording
+            coroutineScope.launch { snackbarHostState.showSnackbar("正在录音，再点一次麦克风结束") }
+        }.onFailure {
+            recorder.release()
+            audioFile.delete()
+            voiceInputState = VoiceInputState.Idle
+            coroutineScope.launch { snackbarHostState.showSnackbar("无法启动录音，请检查麦克风权限") }
+        }
+    }
+
+    fun startSystemRecognition(): Boolean {
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+            return false
+        }
+
+        val recognizer = SpeechRecognizer.createSpeechRecognizer(context.applicationContext)
+        speechRecognizer = recognizer
+        recognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) = Unit
+            override fun onBeginningOfSpeech() = Unit
+            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEndOfSpeech() = Unit
+            override fun onPartialResults(partialResults: Bundle?) = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+
+            override fun onResults(results: Bundle?) {
+                val spokenText = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()
+                    .orEmpty()
+                releaseSystemRecognition(cancel = false)
+                sendRecognizedVoice(spokenText)
+            }
+
+            override fun onError(error: Int) {
+                releaseSystemRecognition(cancel = false)
+                if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                    coroutineScope.launch { snackbarHostState.showSnackbar("没有识别到语音，请再试一次") }
+                } else {
+                    preferBackendVoice = true
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("系统语音识别不可用，再点麦克风将使用后端转写")
+                    }
+                }
+            }
+        })
+
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        }
+
+        return runCatching {
+            voiceInputState = VoiceInputState.SystemListening
+            recognizer.startListening(intent)
+            coroutineScope.launch { snackbarHostState.showSnackbar("正在识别语音...") }
+        }.onFailure {
+            releaseSystemRecognition(cancel = false)
+        }.isSuccess
+    }
+
+    fun startVoiceInput() {
+        when (voiceInputState) {
+            VoiceInputState.SystemListening -> stopSystemRecognition()
+            VoiceInputState.BackendRecording -> stopBackendRecordingAndTranscribe()
+            VoiceInputState.Transcribing -> Unit
+            VoiceInputState.Idle -> {
+                val systemStarted = !preferBackendVoice && startSystemRecognition()
+                if (!systemStarted) {
+                    preferBackendVoice = true
+                    startBackendRecording()
+                }
+            }
+        }
+    }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -109,45 +394,25 @@ fun ChatScreen(
     ) { success ->
         if (success) {
             pendingCameraUri?.let { viewModel.sendMessage(imageUri = it) }
-        }
-    }
-    val speechLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        isListening = false
-        if (result.resultCode == Activity.RESULT_OK) {
-            val spokenText = result.data
-                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                ?.firstOrNull()
-                .orEmpty()
-            if (spokenText.isBlank()) {
-                coroutineScope.launch { snackbarHostState.showSnackbar("没有识别到语音，请再试一次") }
-            } else {
-                viewModel.updateInput(spokenText)
-            }
         } else {
-            coroutineScope.launch { snackbarHostState.showSnackbar("语音识别失败，请重新输入") }
+            coroutineScope.launch { snackbarHostState.showSnackbar("未完成拍照") }
         }
+        pendingCameraUri = null
     }
-    fun startVoiceRecognition() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "请说出你的购物需求")
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            launchChatCamera(cameraLauncher)
+        } else {
+            coroutineScope.launch { snackbarHostState.showSnackbar("需要相机权限才能拍照") }
         }
-        isListening = true
-        coroutineScope.launch { snackbarHostState.showSnackbar("正在识别语音...") }
-        runCatching { speechLauncher.launch(intent) }
-            .onFailure {
-                isListening = false
-                coroutineScope.launch { snackbarHostState.showSnackbar("语音识别失败，请重新输入") }
-            }
     }
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            startVoiceRecognition()
+            startVoiceInput()
         } else {
             coroutineScope.launch { snackbarHostState.showSnackbar("需要麦克风权限才能使用语音输入") }
         }
@@ -221,24 +486,20 @@ fun ChatScreen(
                 onInputChange = { viewModel.updateInput(it) },
                 onPickImage = { imagePickerLauncher.launch("image/*") },
                 onTakePhoto = {
-                    val imageDir = File(context.cacheDir, "chat_images").apply { mkdirs() }
-                    val imageFile = File(imageDir, "chat_${System.currentTimeMillis()}.jpg")
-                    val uri = FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.fileprovider",
-                        imageFile
-                    )
-                    pendingCameraUri = uri
-                    cameraLauncher.launch(uri)
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                        launchChatCamera(cameraLauncher)
+                    } else {
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
                 },
                 onVoiceInput = {
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                        startVoiceRecognition()
+                        startVoiceInput()
                     } else {
                         audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 },
-                isListening = isListening,
+                voiceInputState = voiceInputState,
                 onSend = { viewModel.sendMessage(inputText) }
             )
         }
@@ -402,9 +663,19 @@ private fun ChatInputBar(
     onPickImage: () -> Unit,
     onTakePhoto: () -> Unit,
     onVoiceInput: () -> Unit,
-    isListening: Boolean,
+    voiceInputState: VoiceInputState,
     onSend: () -> Unit
 ) {
+    val voiceInteractionSource = remember { MutableInteractionSource() }
+    val isVoicePressed by voiceInteractionSource.collectIsPressedAsState()
+    val isVoiceActive = isVoicePressed || voiceInputState != VoiceInputState.Idle
+    val voiceContentDescription = when (voiceInputState) {
+        VoiceInputState.Idle -> "语音输入"
+        VoiceInputState.SystemListening -> "正在听"
+        VoiceInputState.BackendRecording -> "结束录音"
+        VoiceInputState.Transcribing -> "正在转写"
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -437,12 +708,15 @@ private fun ChatInputBar(
 
         IconButton(
             onClick = onVoiceInput,
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(if (isVoiceActive) Primary.copy(alpha = 0.12f) else Color.Transparent),
+            interactionSource = voiceInteractionSource
         ) {
-            Icon(
-                imageVector = Icons.Default.Mic,
-                contentDescription = if (isListening) "正在听" else "语音输入",
-                tint = if (isListening) Primary else MaterialTheme.colorScheme.primary
+            VoiceButtonContent(
+                isActive = isVoiceActive,
+                contentDescription = voiceContentDescription
             )
         }
 
@@ -489,3 +763,59 @@ private fun ChatInputBar(
         }
     }
 }
+
+@Composable
+private fun VoiceButtonContent(
+    isActive: Boolean,
+    contentDescription: String
+) {
+    if (!isActive) {
+        Icon(
+            imageVector = Icons.Default.Mic,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.primary
+        )
+        return
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "voice_wave")
+    val peakHeights = listOf(12f, 20f, 28f, 20f, 12f)
+
+    Row(
+        modifier = Modifier
+            .size(width = 26.dp, height = 28.dp)
+            .semantics { this.contentDescription = contentDescription },
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        peakHeights.forEachIndexed { index, peakHeight ->
+            val barHeight by infiniteTransition.animateFloat(
+                initialValue = 7f,
+                targetValue = peakHeight,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 420 + index * 45, delayMillis = index * 70),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "voice_wave_$index"
+            )
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(barHeight.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Primary)
+            )
+        }
+    }
+}
+
+@Suppress("DEPRECATION")
+private fun createVoiceRecorder(outputFile: File): MediaRecorder =
+    MediaRecorder().apply {
+        setAudioSource(MediaRecorder.AudioSource.MIC)
+        setOutputFormat(MediaRecorder.OutputFormat.AAC_ADTS)
+        setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+        setAudioEncodingBitRate(128_000)
+        setAudioSamplingRate(44_100)
+        setOutputFile(outputFile.absolutePath)
+    }

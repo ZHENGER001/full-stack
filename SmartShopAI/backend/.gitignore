@@ -1,4 +1,5 @@
 .env
+.env11
 data/*.db
 data/*.sqlite
 uploads/
