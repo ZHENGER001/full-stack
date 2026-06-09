@@ -28,12 +28,15 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -80,7 +83,10 @@ fun ChatBubble(
     onProductClick: (String) -> Unit = {},
     onAddToCart: (String) -> Unit = {},
     onActionClick: (ChatAction) -> Unit = {},
-    onOpenCart: () -> Unit = {}
+    onOpenCart: () -> Unit = {},
+    onSpeak: (ChatMessage) -> Unit = {},
+    onStopSpeaking: () -> Unit = {},
+    isSpeaking: Boolean = false
 ) {
     val isUser = message.isUser
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
@@ -212,12 +218,36 @@ fun ChatBubble(
 
                     // Timestamp
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = formatTimestamp(message.timestamp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+                    ) {
+                        Text(
+                            text = formatTimestamp(message.timestamp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                        if (!isUser && message.content.isNotBlank()) {
+                            IconButton(
+                                onClick = {
+                                    if (isSpeaking) onStopSpeaking() else onSpeak(message)
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isSpeaking) {
+                                        Icons.Default.Stop
+                                    } else {
+                                        Icons.AutoMirrored.Filled.VolumeUp
+                                    },
+                                    contentDescription = if (isSpeaking) "停止朗读" else "朗读回复",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
 
                     // Product recommendations
                     if (isUser && message.productRecommendations.isNotEmpty()) {

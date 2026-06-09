@@ -426,6 +426,22 @@ fun ChatScreen(
         }
     }
 
+    LaunchedEffect(messages, isTyping, isTtsReady, shouldAutoSpeakVoiceReply, voiceRequestStartedAt) {
+        if (!shouldAutoSpeakVoiceReply || isTyping || !isTtsReady) return@LaunchedEffect
+
+        val startedAt = voiceRequestStartedAt ?: return@LaunchedEffect
+        val assistantReply = messages.lastOrNull { message ->
+            !message.isUser &&
+                !message.isLoading &&
+                message.content.isNotBlank() &&
+                message.timestamp >= startedAt
+        } ?: return@LaunchedEffect
+
+        shouldAutoSpeakVoiceReply = false
+        voiceRequestStartedAt = null
+        speakAssistantMessage(assistantReply.id, assistantReply.content)
+    }
+
     LaunchedEffect(Unit) {
         viewModel.events.collect { message ->
             snackbarHostState.showSnackbar(message)
@@ -578,6 +594,11 @@ fun ChatScreen(
                                 launchSingleTop = true
                             }
                         },
+                        onSpeak = { assistantMessage ->
+                            speakAssistantMessage(assistantMessage.id, assistantMessage.content)
+                        },
+                        onStopSpeaking = { stopAssistantSpeech() },
+                        isSpeaking = speakingMessageId == message.id,
                         onActionClick = { action ->
                             when (action.type) {
                                 "go_detail" -> action.productId?.let { productId ->
