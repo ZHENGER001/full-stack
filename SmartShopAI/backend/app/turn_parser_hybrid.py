@@ -6,7 +6,11 @@ from typing import Any
 
 from .llm_client import LLMGenerationError
 from .catalog_grounder import default_catalog_summary as grounded_catalog_summary
+from .conversation_memory import apply_memory_to_parsed_turn
+from .scene_slot_generator import generate_scene_slots_with_llm
+from .scene_slots import is_scene_bundle_request
 from .search_contract_compiler import candidate_from_parsed_turn, compile_executable_turn, compile_search_contract
+from .safety_profile import build_safety_clarification_question
 from .turn_parser_llm import parse_turn_with_llm
 from .turn_schema import ParsedTurn, ParsedTurnCandidate, ProductReference, RetrievalPolicyHint, TurnConstraints
 
@@ -42,6 +46,12 @@ CATALOG_TERMS: list[dict[str, Any]] = [
     {"terms": ["零食", "坚果"], "categories": ["食品饮料"], "subcategories": ["坚果/零食"], "required_terms": ["零食"]},
     {"terms": ["咖啡"], "categories": ["食品饮料"], "subcategories": ["咖啡"], "required_terms": ["咖啡"]},
     {"terms": ["牛奶"], "categories": ["食品饮料"], "subcategories": ["牛奶"], "required_terms": ["牛奶"]},
+    {"terms": ["酱油", "生抽", "老抽", "调味品", "调味料"], "categories": ["食品饮料"], "subcategories": [], "required_terms": ["酱油"]},
+    {"terms": ["泳衣", "泳裤"], "categories": ["服饰运动"], "subcategories": [], "required_terms": ["泳"]},
+    {"terms": ["泳镜"], "categories": ["服饰运动"], "subcategories": [], "required_terms": ["泳镜"]},
+    {"terms": ["泳帽"], "categories": ["服饰运动"], "subcategories": [], "required_terms": ["泳帽"]},
+    {"terms": ["防水包"], "categories": ["旅行户外"], "subcategories": ["背包", "户外背包"], "required_terms": ["防水包"]},
+    {"terms": ["速干毛巾", "浴巾"], "categories": ["家居百货"], "subcategories": [], "required_terms": ["毛巾"]},
     {"terms": ["精华"], "categories": ["美妆护肤"], "subcategories": ["精华"], "required_terms": ["精华"]},
     {"terms": ["面霜"], "categories": ["美妆护肤"], "subcategories": ["面霜"], "required_terms": ["面霜"]},
     {"terms": ["防晒"], "categories": ["美妆护肤"], "subcategories": ["防晒"], "required_terms": ["防晒"]},
@@ -72,7 +82,16 @@ async def parse_turn_hybrid(
     except Exception as exc:
         logger.info("turn_parser_llm_failed=%s", exc.__class__.__name__)
     merged = merge_rule_and_llm_parse(rule_candidate, llm_candidate)
-    compiled = compile_executable_turn(merged)
+    if merged.intent_type == "bundle_recommendation" and not merged.bundle_slots:
+        try:
+            generated_slots = await generate_scene_slots_with_llm(message, catalog_summary=default_catalog_summary())
+            if generated_slots:
+                merged = merged.model_copy(update={"bundle_slots": generated_slots, "source": "hybrid"})
+        except LLMGenerationError as exc:
+            logger.info("scene_slot_generator_failed=%s", exc)
+        except Exception as exc:
+            logger.info("scene_slot_generator_failed=%s", exc.__class__.__name__)
+    compiled = apply_memory_to_parsed_turn(compile_executable_turn(merged), conversation_state)
     return post_validate_parsed_turn(compiled, default_catalog_summary(), chat_history, conversation_state)
 
 
@@ -119,6 +138,19 @@ def parse_turn_with_rules(
         return ParsedTurn(raw_message=raw, intent_type="greeting", route_hint="no_tool")
     if any(term in raw for term in ["你能做什么", "你会什么", "怎么用"]):
         return ParsedTurn(raw_message=raw, intent_type="capability_question", route_hint="no_tool")
+    if _is_preference_tradeoff_question(raw):
+        return ParsedTurn(
+            raw_message=raw,
+            intent_type="preference_question",
+            route_hint="no_tool",
+            clarification_question=_build_preference_tradeoff_answer(raw, conversation_state),
+            source="rule",
+        )
+    if _is_explicit_single_product_replenishment(raw):
+        _apply_catalog_terms(raw, constraints)
+        _apply_price(raw, constraints)
+        _apply_brand_filters(raw, constraints)
+        return ParsedTurn(raw_message=raw, intent_type="product_search", route_hint="direct_tool", constraints=constraints, source="rule")
     if _is_bundle_request(raw):
         return ParsedTurn(raw_message=raw, intent_type="bundle_recommendation", route_hint="direct_tool", source="rule")
     if _is_ambiguous_action_request(raw):
@@ -196,7 +228,19 @@ def merge_rule_and_llm_parse(rule_parse: ParsedTurnCandidate, llm_parse: ParsedT
     if llm_parse is None:
         return rule_parse.model_copy(update={"source": "rule"})
 
+    if rule_parse.intent_type == "bundle_recommendation":
+        if llm_parse.intent_type == "bundle_recommendation" and llm_parse.bundle_slots:
+            return llm_parse.model_copy(update={"source": "hybrid"})
+        return rule_parse.model_copy(update={"source": "rule"})
+
     if _locks_rule_intent(rule_parse):
+        return rule_parse.model_copy(update={"source": "rule"})
+
+    if (
+        rule_parse.intent_type == "product_search"
+        and _is_explicit_single_product_replenishment(rule_parse.raw_message)
+        and rule_parse.product_mentions
+    ):
         return rule_parse.model_copy(update={"source": "rule"})
 
     intent_type = llm_parse.intent_type if llm_parse.intent_type != "unknown" else rule_parse.intent_type
@@ -266,6 +310,17 @@ def post_validate_parsed_turn(
     if parsed.is_unknown_short_query:
         return parsed
 
+    safety_question = build_safety_clarification_question(parsed, constraints)
+    if safety_question:
+        return parsed.model_copy(
+            update={
+                "needs_clarification": True,
+                "route_hint": "no_tool",
+                "clarification_question": safety_question,
+                "retrieval_policy_hint": retrieval,
+            }
+        )
+
     if _needs_preference_clarification(parsed, constraints, has_context):
         return parsed.model_copy(
             update={
@@ -285,6 +340,7 @@ def post_validate_parsed_turn(
         "cart_clear",
         "product_compare",
         "product_detail_qa",
+        "preference_question",
         "greeting",
         "capability_question",
     }
@@ -319,9 +375,9 @@ def post_validate_parsed_turn(
 
     if parsed.intent_type in {"cart_add", "cart_remove", "cart_update_quantity", "cart_list", "cart_clear", "product_compare", "product_detail_qa"}:
         route_hint = "bounded_react"
-    elif parsed.intent_type in {"greeting", "capability_question", "unknown"} and parsed.needs_clarification:
+    elif parsed.intent_type in {"greeting", "capability_question", "preference_question", "unknown"} and parsed.needs_clarification:
         route_hint = "no_tool"
-    elif parsed.intent_type in {"greeting", "capability_question"}:
+    elif parsed.intent_type in {"greeting", "capability_question", "preference_question"}:
         route_hint = "no_tool"
     else:
         route_hint = "direct_tool"
@@ -347,6 +403,13 @@ def _apply_catalog_terms(raw: str, constraints: TurnConstraints) -> None:
             constraints.required_terms = _merge_unique(constraints.required_terms, item["required_terms"])
     if "蓝牙" in raw and "耳机" not in raw:
         constraints.attributes_include = _merge_unique(constraints.attributes_include, ["蓝牙"])
+    earphone_preferences = [
+        term
+        for term in ("降噪", "续航", "音质", "通话", "佩戴舒适", "佩戴")
+        if term in raw
+    ]
+    if earphone_preferences and any(term in raw for term in ("耳机", "蓝牙", "真无线")):
+        constraints.attributes_include = _merge_unique(constraints.attributes_include, earphone_preferences)
 
 
 def _apply_price(raw: str, constraints: TurnConstraints) -> None:
@@ -459,12 +522,21 @@ def _matches_catalog(raw: str) -> bool:
     return any(term in raw for item in CATALOG_TERMS for term in item["terms"])
 
 
+def _is_explicit_single_product_replenishment(raw: str) -> bool:
+    product_terms = ("酱油", "生抽", "老抽", "调味品", "调味料")
+    replenishment_terms = ("没了", "用完", "缺", "补", "买", "推荐", "来一瓶", "来点")
+    return any(term in raw for term in product_terms) and any(term in raw for term in replenishment_terms)
+
+
 def _is_bundle_request(raw: str) -> bool:
+    if is_scene_bundle_request(raw):
+        return True
     has_bundle_word = any(term in raw for term in ("搭配", "一套", "方案", "组合", "清单", "从", "到"))
-    has_scene_word = any(term in raw for term in ("度假", "三亚", "海边", "沙滩", "旅行", "通勤", "上班", "户外"))
+    has_scene_word = any(term in raw for term in ("度假", "三亚", "海边", "沙滩", "旅行", "通勤", "上班", "户外", "下水", "游泳", "泳池"))
     has_ecosystem_word = any(term in raw for term in ("互联", "生态", "协同", "跨屏", "同品牌", "全家桶"))
     has_digital_word = any(term in raw for term in ("手机", "电脑", "笔记本", "平板", "耳机", "手表"))
-    return has_bundle_word and (has_scene_word or (has_ecosystem_word and has_digital_word))
+    strong_bundle_word = any(term in raw for term in ("搭配", "一套", "方案", "组合", "清单"))
+    return has_bundle_word and (has_scene_word or (has_ecosystem_word and has_digital_word) or strong_bundle_word)
 
 
 def _is_ambiguous_action_request(raw: str) -> bool:
@@ -480,29 +552,52 @@ def _needs_preference_clarification(parsed: ParsedTurn, constraints: TurnConstra
         return False
     if parsed.intent_type not in {"product_search", "filter_refinement", "unknown"}:
         return False
-    if len(constraints.subcategories) != 1:
-        return False
-    if constraints.price.min is not None or constraints.price.max is not None:
+    if not constraints.subcategories:
         return False
     if constraints.brands_include or constraints.attributes_include or constraints.scene_terms:
         return False
-    raw = parsed.raw_message or ""
-    if any(term in raw for term in ["推荐", "想买", "我要买", "有没有", "有没"]) and not any(
-        term in raw for term in ["怎么选", "哪个", "哪款", "更适合", "对比", "比较"]
-    ):
+    if constraints.price.min is not None or constraints.price.max is not None:
+        return _priced_query_still_needs_preference(constraints)
+    broad_subcategories = {"智能手机", "手机", "真无线耳机", "耳机", "笔记本电脑", "篮球鞋", "跑步鞋"}
+    return any(subcategory in broad_subcategories for subcategory in constraints.subcategories)
+
+
+def _priced_query_still_needs_preference(constraints: TurnConstraints) -> bool:
+    subcategory = constraints.subcategories[0]
+    max_price = constraints.price.max
+    if subcategory == "真无线耳机" and max_price is not None and max_price >= 1000:
+        return True
+    if subcategory == "智能手机" and max_price is not None and max_price >= 3000:
+        return True
+    return False
+
+
+def _is_preference_tradeoff_question(raw: str) -> bool:
+    if not any(term in raw for term in ("哪个更重要", "哪一个更重要", "哪个优先", "怎么选", "怎么取舍")):
         return False
-    broad_subcategories = {"智能手机", "真无线耳机", "笔记本电脑", "篮球鞋", "跑步鞋"}
-    return constraints.subcategories[0] in broad_subcategories
+    preference_terms = ("降噪", "续航", "音质", "通话", "佩戴", "拍照", "性能", "屏幕", "性价比", "缓震", "耐磨")
+    return sum(1 for term in preference_terms if term in raw) >= 2
+
+
+def _build_preference_tradeoff_answer(raw: str, conversation_state: dict | None) -> str:
+    memory = (conversation_state or {}).get("structured_memory") or (conversation_state or {}).get("structured_state") or {}
+    subcategory = str(memory.get("subcategory") or "")
+    if any(term in raw for term in ("降噪", "续航")) or "耳机" in subcategory:
+        return "这两个不是绝对谁更重要：通勤、地铁、办公室嘈杂时优先看降噪；长途出行、一天不方便充电时优先看续航。你主要是通勤降噪，还是长时间外出使用？"
+    if any(term in raw for term in ("拍照", "续航", "性能")) or "手机" in subcategory:
+        return "如果经常拍人像、夜景和视频，拍照优先；如果重度外出或一天不想充电，续航优先；如果玩游戏和多任务，性能优先。你主要是哪种使用场景？"
+    return "这要看你的主要使用场景。你更常用于通勤、运动、办公、旅行，还是日常备用？我可以按场景帮你确定优先级。"
 
 
 def build_preference_clarification_question(constraints: TurnConstraints) -> str:
     subcategory = constraints.subcategories[0] if constraints.subcategories else "商品"
+    budget_suffix = "" if constraints.price.min is not None or constraints.price.max is not None else "预算大概多少？"
     if subcategory == "智能手机":
-        return "请问你更看重拍照、续航、性能还是性价比？预算大概多少？"
-    if subcategory == "真无线耳机":
-        return "请问你更看重降噪、音质、续航还是佩戴舒适？预算大概多少？"
+        return f"请问你更看重拍照、续航、性能还是性价比？{budget_suffix}".rstrip("？") + "？"
+    if subcategory in {"真无线耳机", "耳机"}:
+        return f"请问你更看重降噪、音质、续航还是佩戴舒适？{budget_suffix}".rstrip("？") + "？"
     if subcategory in {"篮球鞋", "跑步鞋"}:
-        return "请问你主要用于实战、跑步、通勤还是日常穿搭？预算大概多少？"
+        return f"请问你主要用于实战、跑步、通勤还是日常穿搭？{budget_suffix}".rstrip("？") + "？"
     return f"你更看重{subcategory}的哪些方面？比如价格、品牌、功能或使用场景。"
 
 

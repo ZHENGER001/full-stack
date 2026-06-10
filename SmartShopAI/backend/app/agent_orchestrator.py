@@ -24,8 +24,11 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
     image_id = request.image_id
     current_product_id = request.current_product_id
     cart_context = request.cart_context or []
+    early_delta_sent = False
 
     legacy.ensure_session(conn, session_id)
+    yield legacy.sse_event("delta", {"text": "收到，正在努力分析中。\n"})
+    early_delta_sent = True
     if current_product_id and legacy.product_exists(conn, current_product_id):
         legacy.update_session_state(conn, session_id, current_product_id=current_product_id)
     previous_chat_history = legacy.load_chat_history(conn, session_id)
@@ -98,15 +101,30 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
             return
         if not state.turn_plan.should_search_products:
             assistant_content = state.turn_plan.policy.response_text or "这个操作我正在支持中。"
+            llm_status = None
+            if state.parsed_turn.intent_type == "preference_question":
+                assistant_content, llm_status = legacy.build_preference_answer(
+                    message,
+                    assistant_content,
+                    state.conversation_state,
+                )
             actions = legacy.build_clarification_actions(
                 conn,
                 state.parsed_turn.clarification_question or assistant_content,
             )
+            if llm_status:
+                yield legacy.sse_event("llm_status", llm_status)
             yield legacy.sse_event("delta", {"text": assistant_content})
             if actions:
                 yield legacy.sse_event("actions", {"actions": actions})
             legacy.store_assistant_message(conn, session_id, assistant_content, image_id)
-            legacy.update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+            legacy.update_session_state(
+                conn,
+                session_id,
+                last_query=message,
+                last_actions=actions or None,
+                parsed_turn=state.parsed_turn,
+            )
             yield legacy.sse_event("done", {"session_id": session_id})
             return
     except Exception as exc:
@@ -159,10 +177,7 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
         yield legacy.sse_event(
             "delta",
             {
-                "text": (
-                    f"我识别到图片里像是{detected['color']}{detected['style']}风格的{detected['object_type']}，"
-                    f"材质特征偏{detected['material']}，场景更接近{detected['scene']}。"
-                )
+                "text": legacy.image_detection_intro(detected)
             },
         )
 
@@ -176,7 +191,13 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
     )
     parsed_filters = retrieval_result.parsed_filters
     logger.info("agent_final_user_query=%s parsed_filters=%s", final_user_query, parsed_filters)
-    for waiting_text in legacy.build_waiting_deltas(message, parsed_filters, image_id, bool(state.chat_history)):
+    for waiting_text in legacy.build_waiting_deltas(
+        message,
+        parsed_filters,
+        image_id,
+        bool(state.chat_history),
+        skip_generic_intro=early_delta_sent,
+    ):
         yield legacy.sse_event("delta", {"text": f"{waiting_text}\n"})
         time.sleep(0.25)
     yield legacy.sse_event(
@@ -241,5 +262,7 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
         last_recommended_product_ids=[product["id"] for product in visible_products],
         current_product_id=visible_products[0]["id"] if visible_products else current_product_id,
         last_actions=actions,
+        parsed_turn=state.parsed_turn,
+        visible_products=visible_products,
     )
     yield legacy.sse_event("done", {"session_id": session_id})

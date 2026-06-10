@@ -18,14 +18,22 @@ from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn, resolv
 from .bundle_recommendation import build_bundle_answer, retrieve_bundle_recommendations
 from .catalog import get_cart
 from .config import get_settings
+from .conversation_memory import (
+    STRUCTURED_MEMORY_KEY,
+    build_updated_structured_memory,
+    dump_structured_memory,
+    parse_structured_memory,
+)
 from .llm_client import (
     LLMGenerationError,
     LLMGenerationResult,
     generate_agent_reply_with_status,
+    generate_preference_answer_with_status,
     generate_product_presentations,
     llm_model_name,
     stream_agent_reply_chunks_with_status,
 )
+from .observability import AgentTurnMetrics
 from .react_planner import has_checkout_signal, message_with_sku_hint, plan_react_transaction, product_reference_from_step
 from .schemas import ProductCard
 from .turn_schema import ParsedTurn
@@ -74,6 +82,12 @@ def order_status_event(
 def mock_detect_from_hint(user_hint: str | None, filename: str | None = None) -> dict[str, str]:
     # TODO: replace mock image detection with real vision encoder.
     text = f"{user_hint or ''} {filename or ''}".lower()
+    if any(word in text for word in ["手机", "phone", "mobile", "redmi", "iphone", "huawei", "xiaomi", "oppo", "vivo"]):
+        return {"object_type": "手机", "color": "未知", "style": "数码", "material": "玻璃机身", "scene": "日常使用"}
+    if any(word in text for word in ["平板", "tablet", "ipad"]):
+        return {"object_type": "平板电脑", "color": "未知", "style": "数码", "material": "金属机身", "scene": "影音办公"}
+    if any(word in text for word in ["笔记本", "电脑", "laptop", "computer"]):
+        return {"object_type": "笔记本电脑", "color": "未知", "style": "数码", "material": "金属机身", "scene": "办公学习"}
     if any(word in text for word in ["鞋", "shoe", "sneaker", "跑步"]):
         return {"object_type": "鞋", "color": "黑色", "style": "运动", "material": "织物", "scene": "跑步通勤"}
     if any(word in text for word in ["耳机", "headphone", "earbud"]):
@@ -82,7 +96,29 @@ def mock_detect_from_hint(user_hint: str | None, filename: str | None = None) ->
         return {"object_type": "外套", "color": "黑色", "style": "休闲", "material": "皮革", "scene": "街拍"}
     if any(word in text for word in ["洗面奶", "洁面", "护肤", "beauty"]):
         return {"object_type": "洁面产品", "color": "白色", "style": "护肤", "material": "乳液", "scene": "日常洁面"}
-    return {"object_type": "商品", "color": "黑色", "style": "休闲", "material": "未知", "scene": "日常"}
+    return {"object_type": "相似商品", "color": "未知", "style": "通用", "material": "未知", "scene": "日常使用"}
+
+
+def image_detection_intro(detected: dict[str, str]) -> str:
+    object_type = detected.get("object_type") or "相似商品"
+    color = detected.get("color") or "未知"
+    style = detected.get("style") or "通用"
+    material = detected.get("material") or "未知"
+    scene = detected.get("scene") or "日常使用"
+    if object_type == "相似商品" and color == "未知" and material == "未知":
+        return "我会根据图片线索匹配相似商品。"
+    description_parts = []
+    if color != "未知":
+        description_parts.append(color)
+    if style not in {"未知", "通用"}:
+        description_parts.append(style)
+    description = "".join(description_parts) + object_type
+    details = [f"我识别到图片里像是{description}"]
+    if material != "未知":
+        details.append(f"材质特征偏{material}")
+    if scene:
+        details.append(f"场景更接近{scene}")
+    return "，".join(details) + "。"
 
 
 def detected_to_query(detected: dict[str, str], user_hint: str | None) -> str:
@@ -132,12 +168,21 @@ def stream_chat(
     current_product_id: str | None = None,
     cart_context: list[dict] | None = None,
 ) -> Iterable[str]:
+    metrics = AgentTurnMetrics()
     try:
-        yield from _stream_chat(conn, session_id, message, image_id, current_product_id, cart_context or [])
+        for chunk in _stream_chat(conn, session_id, message, image_id, current_product_id, cart_context or []):
+            metrics.observe_sse_chunk(chunk)
+            yield chunk
     except Exception:
-        yield sse_event("error", {"message": "AI 导购暂时遇到问题，请稍后再试。"})
-        yield sse_event("delta", {"text": "AI 导购暂时遇到问题，请稍后再试。"})
-        yield sse_event("done", {"session_id": session_id})
+        for chunk in (
+            sse_event("error", {"message": "AI 导购暂时遇到问题，请稍后再试。"}),
+            sse_event("delta", {"text": "AI 导购暂时遇到问题，请稍后再试。"}),
+            sse_event("done", {"session_id": session_id}),
+        ):
+            metrics.observe_sse_chunk(chunk)
+            yield chunk
+    finally:
+        metrics.finish()
 
 
 def _stream_chat(
@@ -225,12 +270,27 @@ def _stream_chat_legacy(
             return
         if not turn_plan.should_search_products:
             assistant_content = turn_plan.policy.response_text or "这个操作我正在支持中。"
+            llm_status = None
+            if parsed_turn.intent_type == "preference_question":
+                assistant_content, llm_status = build_preference_answer(
+                    message,
+                    assistant_content,
+                    conversation_state,
+                )
             actions = build_clarification_actions(conn, parsed_turn.clarification_question or assistant_content)
+            if llm_status:
+                yield sse_event("llm_status", llm_status)
             yield sse_event("delta", {"text": assistant_content})
             if actions:
                 yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
-            update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+            update_session_state(
+                conn,
+                session_id,
+                last_query=message,
+                last_actions=actions or None,
+                parsed_turn=parsed_turn,
+            )
             yield sse_event("done", {"session_id": session_id})
             return
     except Exception as exc:
@@ -283,10 +343,7 @@ def _stream_chat_legacy(
         yield sse_event(
             "delta",
             {
-                "text": (
-                    f"我识别到图片里像是{detected['color']}{detected['style']}风格的{detected['object_type']}，"
-                    f"材质特征偏{detected['material']}，场景更接近{detected['scene']}。"
-                )
+                "text": image_detection_intro(detected)
             },
         )
 
@@ -359,6 +416,8 @@ def _stream_chat_legacy(
         last_recommended_product_ids=[product["id"] for product in visible_products],
         current_product_id=visible_products[0]["id"] if visible_products else current_product_id,
         last_actions=actions,
+        parsed_turn=parsed_turn,
+        visible_products=visible_products,
     )
     yield sse_event("done", {"session_id": session_id})
 
@@ -371,6 +430,20 @@ def emit_bounded_result(
     result: BoundedToolResult,
 ) -> Iterable[str]:
     yield from emit_bounded_events(conn, session_id, message, image_id, result, store=True, done=True)
+
+
+def build_preference_answer(
+    message: str,
+    fallback_answer: str,
+    conversation_state: dict[str, Any] | None,
+) -> tuple[str, dict[str, str]]:
+    try:
+        result = run_async_blocking(generate_preference_answer_with_status(message, fallback_answer, conversation_state))
+        return result.content, {"mode": "preference_llm", "provider": result.provider, "model": result.model}
+    except LLMGenerationError as exc:
+        return fallback_answer, {"mode": "fallback", "reason": str(exc)}
+    except Exception as exc:
+        return fallback_answer, {"mode": "fallback", "reason": exc.__class__.__name__}
 
 
 def emit_bounded_events(
@@ -414,6 +487,8 @@ def emit_bounded_events(
         last_recommended_product_ids=result.product_ids or None,
         current_product_id=result.current_product_id,
         last_actions=actions or None,
+        visible_products=result.products or None,
+        cart=result.cart,
     )
     if done:
         yield sse_event("done", {"session_id": session_id})
@@ -766,6 +841,8 @@ def emit_bundle_recommendation_turn(
         last_recommended_product_ids=[product["id"] for product in visible_products],
         current_product_id=visible_products[0]["id"] if visible_products else None,
         last_actions=actions or None,
+        parsed_turn=turn_plan.parsed_turn if turn_plan else None,
+        visible_products=grounded_products,
     )
     yield sse_event("done", {"session_id": session_id})
 
@@ -1048,7 +1125,43 @@ def build_actions(
 
 
 def build_clarification_actions(conn, question: str) -> list[dict[str, Any]]:
-    if "哪类带" in question:
+    if "具体对什么过敏" in question:
+        labels = [
+            "坚果/花生过敏",
+            "乳制品/鸡蛋过敏",
+            "小麦/海鲜过敏",
+        ]
+    elif "过敏" in question or "忌口" in question:
+        labels = [
+            "没有过敏忌口",
+            "给小孩/老人吃",
+            "低糖低盐优先",
+        ]
+    elif "肤质" in question or "酒精" in question or "香精" in question:
+        labels = [
+            "敏感肌，避开酒精香精",
+            "干皮，保湿优先",
+            "油皮，清爽控油",
+        ]
+    elif "脚宽" in question or "膝盖" in question or "磨脚" in question:
+        labels = [
+            "跑步用，脚宽",
+            "通勤穿，不磨脚",
+            "篮球实战，膝盖易不适",
+        ]
+    elif "长时间佩戴" in question or "孩子使用" in question or "护眼" in question:
+        labels = [
+            "长时间佩戴要舒适",
+            "给孩子用，护眼优先",
+            "降噪续航优先",
+        ]
+    elif "宠物" in question or "肠胃敏感" in question:
+        labels = [
+            "猫咪，肠胃敏感",
+            "狗狗，日常使用",
+            "避开易过敏成分",
+        ]
+    elif "哪类带" in question:
         labels = build_attribute_category_labels(question)
     elif "换一批推荐" in question and "删除购物车" in question:
         labels = [
@@ -1342,18 +1455,25 @@ def load_conversation_state(
     cart_context: list[dict] | None,
 ) -> dict[str, Any]:
     row = conn.execute(
-        "SELECT last_query, last_recommended_product_ids, current_product_id FROM chat_sessions WHERE id = ?",
+        """
+        SELECT last_query, last_recommended_product_ids, current_product_id, structured_state_json
+        FROM chat_sessions
+        WHERE id = ?
+        """,
         (session_id,),
     ).fetchone()
     cart_items = cart_context or [
         item.model_dump(mode="json")
         for item in get_cart(conn).items
     ]
+    structured_memory = parse_structured_memory(row["structured_state_json"] if row else None)
     return {
         "last_query": row["last_query"] if row else None,
         "last_recommended_product_ids": parse_product_id_list(row["last_recommended_product_ids"] if row else None),
         "current_product_id": current_product_id or (row["current_product_id"] if row else None),
         "cart_context": cart_items,
+        STRUCTURED_MEMORY_KEY: structured_memory,
+        "structured_state": structured_memory,
     }
 
 
@@ -1362,6 +1482,7 @@ def build_waiting_deltas(
     parsed_filters: dict[str, Any],
     image_id: str | None,
     has_chat_history: bool,
+    skip_generic_intro: bool = False,
 ) -> list[str]:
     texts: list[str] = []
     lower_message = message.lower()
@@ -1373,7 +1494,18 @@ def build_waiting_deltas(
     has_price = any(parsed_filters.get(key) is not None for key in ("min_price", "max_price"))
     wants_compare = any(word in message for word in ("对比", "比较", "哪个好", "哪款好")) or "compare" in lower_message
 
-    if image_id:
+    if skip_generic_intro:
+        if image_id:
+            texts.append("我会结合图片线索一起匹配。")
+        elif has_chat_history and any(word in message for word in ("再", "换", "继续", "还有", "便宜", "贵点")):
+            texts.append("我会基于刚才的条件继续筛。")
+        elif wants_compare:
+            texts.append("我会重点整理关键差异。")
+        elif has_exclusions:
+            texts.append("我会先排除你不想要的条件。")
+        elif has_price:
+            texts.append("我会控制在预算范围内。")
+    elif image_id:
         texts.append("我先根据图片线索匹配相似商品。")
     elif has_chat_history and any(word in message for word in ("再", "换", "继续", "还有", "便宜", "贵点")):
         texts.append("明白，我基于刚才的条件继续筛。")
@@ -1386,11 +1518,11 @@ def build_waiting_deltas(
     else:
         texts.append("好的，我先帮你筛一下符合条件的商品。")
 
-    if wants_compare:
+    if not skip_generic_intro and wants_compare:
         texts.append("正在对比价格、评分、库存和适合场景。")
-    elif has_exclusions:
+    elif not skip_generic_intro and has_exclusions:
         texts.append("正在匹配剩余品牌、价格和库存。")
-    else:
+    elif not skip_generic_intro:
         texts.append("正在匹配商品、价格、评分和库存。")
 
     texts.append("我会优先展示最符合条件的几款。")
@@ -1958,7 +2090,34 @@ def update_session_state(
     last_recommended_product_ids: list[str] | None = None,
     current_product_id: str | None = None,
     last_actions: list[dict[str, Any]] | None = None,
+    parsed_turn: ParsedTurn | None = None,
+    visible_products: list[dict[str, Any]] | None = None,
+    cart: dict[str, Any] | None = None,
 ) -> None:
+    row = conn.execute(
+        "SELECT structured_state_json FROM chat_sessions WHERE id = ?",
+        (session_id,),
+    ).fetchone()
+    previous_memory = parse_structured_memory(row["structured_state_json"] if row else None)
+    should_update_memory = (
+        last_query is not None
+        or parsed_turn is not None
+        or visible_products is not None
+        or current_product_id is not None
+        or cart is not None
+    )
+    structured_state_json = None
+    if should_update_memory:
+        structured_state_json = dump_structured_memory(
+            build_updated_structured_memory(
+                previous_memory,
+                message=last_query or previous_memory.get("last_query") or "",
+                parsed_turn=parsed_turn,
+                visible_products=visible_products,
+                current_product_id=current_product_id,
+                cart=cart,
+            )
+        )
     conn.execute(
         """
         UPDATE chat_sessions
@@ -1966,7 +2125,8 @@ def update_session_state(
             last_query = COALESCE(?, last_query),
             last_recommended_product_ids = COALESCE(?, last_recommended_product_ids),
             current_product_id = COALESCE(?, current_product_id),
-            last_actions = COALESCE(?, last_actions)
+            last_actions = COALESCE(?, last_actions),
+            structured_state_json = COALESCE(?, structured_state_json)
         WHERE id = ?
         """,
         (
@@ -1974,6 +2134,7 @@ def update_session_state(
             json.dumps(last_recommended_product_ids, ensure_ascii=False) if last_recommended_product_ids is not None else None,
             current_product_id,
             json.dumps(last_actions, ensure_ascii=False) if last_actions is not None else None,
+            structured_state_json,
             session_id,
         ),
     )

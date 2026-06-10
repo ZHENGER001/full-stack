@@ -7,6 +7,7 @@ from typing import Any, Literal
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
+from .concurrency import llm_slot
 from .llm_client import LLMGenerationError, _env_value, _extract_content, _timeout_seconds, llm_model_name
 from .turn_schema import ProductReference
 
@@ -84,20 +85,21 @@ async def plan_react_transaction(
     }
     user_prompt = "把下面输入规划成工具步骤，只输出 JSON object。\n" + json.dumps(payload, ensure_ascii=False)
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=8.0)) as client:
-            response = await client.post(
-                f"{base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": llm_model_name(),
-                    "messages": [
-                        {"role": "system", "content": REACT_PLANNER_SYSTEM_PROMPT},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "temperature": 0,
-                    "max_tokens": 800,
-                },
-            )
+        async with llm_slot():
+            async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=8.0)) as client:
+                response = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": llm_model_name(),
+                        "messages": [
+                            {"role": "system", "content": REACT_PLANNER_SYSTEM_PROMPT},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": 0,
+                        "max_tokens": 800,
+                    },
+                )
             response.raise_for_status()
             data = json.loads(extract_json_object(_extract_content(response.json())))
             plan = ReactTransactionPlan.model_validate(data)

@@ -5,6 +5,7 @@ from typing import Any
 
 from .agent_tools import SearchProductsInput, call_search_products_tool
 from .search_contract_compiler import compile_executable_turn
+from .scene_slots import bundle_slot_candidates_for_message, scene_name_for_message
 from .schemas import ProductCard
 from .turn_schema import BundleSlotCandidate, ParsedTurnCandidate
 
@@ -33,25 +34,9 @@ def build_bundle_slots(message: str, bundle_slots: list[BundleSlotCandidate] | N
         slots = [_slot_from_candidate(slot) for slot in bundle_slots]
         return _infer_scene(text), slots
 
-    if any(term in text for term in ("三亚", "海边", "海岛", "沙滩", "度假")):
-        scene = "海边度假"
-        slots = [
-            BundleSlot("sunscreen", "防晒打底", "SPF50 防水 防晒霜 海边 户外", "海边紫外线强，先用高倍防晒做基础防护。"),
-            BundleSlot("sun_protection", "物理防晒", "轻薄 防晒衣 透气 户外", "防晒衣能减少长时间暴晒，也适合坐车和逛街。"),
-            BundleSlot("shoes", "鞋履", "沙滩 凉鞋 防滑 轻便", "沙滩和酒店来回走动，需要防滑、轻便、好清洁。"),
-            BundleSlot("bag", "随身收纳", "防水包 旅行 背包 轻便", "玩水和出门拍照时，手机证件需要更稳妥地收纳。"),
-            BundleSlot("repair", "晒后护理", "晒后修复 补水 舒缓 护肤", "晚上回酒店做晒后舒缓，减少干燥和泛红。"),
-        ]
-        return scene, [_compile_slot_contract(slot) for slot in slots]
-
-    if any(term in text for term in ("通勤", "上班", "上学")) and any(term in text for term in ("搭配", "一套", "方案")):
-        scene = "日常通勤"
-        slots = [
-            BundleSlot("top", "上装", "通勤 轻薄 外套 卫衣", "上装优先选耐穿、好打理、适合室内外温差的款式。"),
-            BundleSlot("shoes", "鞋履", "通勤 运动鞋 舒适", "通勤走路时间长，鞋子要兼顾缓震和耐磨。"),
-            BundleSlot("bag", "包袋", "通勤 背包 轻便 容量", "背包需要放电脑、水杯和随身物品。"),
-        ]
-        return scene, [_compile_slot_contract(slot) for slot in slots]
+    configured_slots = bundle_slot_candidates_for_message(text)
+    if configured_slots:
+        return scene_name_for_message(text), [_slot_from_candidate(slot) for slot in configured_slots]
 
     scene = "组合搭配"
     slots = [
@@ -165,10 +150,4 @@ def _compile_slot_contract(
 
 
 def _infer_scene(message: str) -> str:
-    if any(term in message for term in ("三亚", "海边", "海岛", "沙滩", "度假")):
-        return "海边度假"
-    if any(term in message for term in ("互联", "生态", "协同", "跨屏", "全家桶")):
-        return "数码生态组合"
-    if any(term in message for term in ("通勤", "上班", "上学")):
-        return "日常通勤"
-    return "组合搭配"
+    return scene_name_for_message(message)

@@ -5,6 +5,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
+from time import time
 
 from .config import BASE_DIR, get_settings
 from .parser_safety import compact_text, safe_candidate_terms, strip_intent_wrappers
@@ -23,6 +24,12 @@ TYPE_ALIASES = [
     "包",
     "背包",
     "帽",
+    "泳衣",
+    "泳裤",
+    "泳镜",
+    "泳帽",
+    "防水包",
+    "速干毛巾",
     "卫衣",
     "T恤",
     "零食",
@@ -30,6 +37,11 @@ TYPE_ALIASES = [
     "咖啡",
     "牛奶",
     "酸奶",
+    "酱油",
+    "生抽",
+    "老抽",
+    "调味品",
+    "调味料",
     "面膜",
     "面霜",
     "精华",
@@ -53,6 +65,11 @@ ALIAS_CATEGORY_HINTS = {
     "咖啡": {"食品饮料"},
     "牛奶": {"食品饮料"},
     "酸奶": {"食品饮料"},
+    "酱油": {"食品饮料"},
+    "生抽": {"食品饮料"},
+    "老抽": {"食品饮料"},
+    "调味品": {"食品饮料"},
+    "调味料": {"食品饮料"},
 }
 
 DOMAIN_SUBCATEGORY_ALIASES = {
@@ -91,6 +108,7 @@ class CatalogGroundingResult:
 class CatalogLexicon:
     matches: list[CatalogMatch]
     labels: list[tuple[str, str, str]]
+    built_at: float = field(default_factory=time)
 
 
 def ground_catalog_terms(raw: str, candidate_terms: list[str] | None = None) -> CatalogGroundingResult:
@@ -124,6 +142,23 @@ def default_catalog_summary() -> dict[str, list[str]]:
         "terms": sorted({match.term for match in lexicon.matches if match.term}),
         "labels": sorted({label for label, _, _ in lexicon.labels if label}),
     }
+
+
+def catalog_summary_cache_stats() -> dict[str, float | int | bool]:
+    info = _load_catalog_lexicon.cache_info()
+    lexicon = _load_catalog_lexicon()
+    return {
+        "hits": info.hits,
+        "misses": info.misses,
+        "currsize": info.currsize,
+        "matches": len(lexicon.matches),
+        "labels": len(lexicon.labels),
+        "built_at": lexicon.built_at,
+    }
+
+
+def clear_catalog_summary_cache() -> None:
+    _load_catalog_lexicon.cache_clear()
 
 
 @lru_cache(maxsize=1)
