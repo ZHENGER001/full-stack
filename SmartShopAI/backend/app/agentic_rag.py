@@ -6,6 +6,7 @@ from typing import Any, TypedDict
 from .agent_tools import SearchProductsInput, SearchProductsResult, call_search_products_tool
 from .policy_engine import PolicyDecision, decide_policy
 from .query_parser import parse_user_filters
+from .query_cache import default_query_cache, make_query_cache_key, query_cache_enabled
 from .turn_parser_hybrid import parse_turn_hybrid
 from .turn_schema import ParsedTurn
 
@@ -117,15 +118,27 @@ def _parse_filters_node(state: AgenticRetrievalState) -> dict[str, Any]:
 
 def _search_products_node(state: AgenticRetrievalState) -> dict[str, Any]:
     plan = state.get("plan")
+    query = state["query"]
+    top_k = state.get("top_k") or 3
+    constraints = plan.retrieval_constraints() if plan else {}
+    retrieval_policy = plan.retrieval_policy() if plan else {}
+    cache_key = make_query_cache_key(query, top_k, constraints, retrieval_policy)
+    if query_cache_enabled():
+        cached = default_query_cache().get(cache_key)
+        if cached is not None:
+            return {"search_result": cached}
     search_result = call_search_products_tool(
         state["conn"],
         SearchProductsInput(
-            query=state["query"],
-            top_k=state.get("top_k") or 3,
-            constraints=plan.retrieval_constraints() if plan else {},
-            retrieval_policy=plan.retrieval_policy() if plan else {},
+            query=query,
+            top_k=top_k,
+            constraints=constraints,
+            retrieval_policy=retrieval_policy,
         ),
     )
+    if query_cache_enabled():
+        search_result = _mark_cache_miss(search_result, cache_key)
+        default_query_cache().set(cache_key, search_result, query_text=query)
     return {"search_result": search_result}
 
 
@@ -216,17 +229,37 @@ def retrieve_products_for_turn(
         )
 
     parsed_filters = parse_user_filters(query, known_brands)
+    constraints = plan.retrieval_constraints() if plan else {}
+    retrieval_policy = plan.retrieval_policy() if plan else {}
+    cache_key = make_query_cache_key(query, top_k, constraints, retrieval_policy)
+    cached = default_query_cache().get(cache_key) if query_cache_enabled() else None
+    if cached is not None:
+        return AgenticRetrievalResult(
+            query=query,
+            parsed_filters=parsed_filters,
+            search_result=cached,
+        )
+
     search_result = call_search_products_tool(
         conn,
         SearchProductsInput(
             query=query,
             top_k=top_k,
-            constraints=plan.retrieval_constraints() if plan else {},
-            retrieval_policy=plan.retrieval_policy() if plan else {},
+            constraints=constraints,
+            retrieval_policy=retrieval_policy,
         ),
     )
+    if query_cache_enabled():
+        search_result = _mark_cache_miss(search_result, cache_key)
+        default_query_cache().set(cache_key, search_result, query_text=query)
     return AgenticRetrievalResult(
         query=query,
         parsed_filters=parsed_filters,
         search_result=search_result,
     )
+
+
+def _mark_cache_miss(result: SearchProductsResult, key: str) -> SearchProductsResult:
+    diagnostics = dict(result.diagnostics or {})
+    diagnostics["cache"] = {"hit": False, "key": key, "stored": True}
+    return result.model_copy(update={"diagnostics": diagnostics})

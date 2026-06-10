@@ -109,7 +109,13 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
             if actions:
                 yield legacy.sse_event("actions", {"actions": actions})
             legacy.store_assistant_message(conn, session_id, assistant_content, image_id)
-            legacy.update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+            legacy.update_session_state(
+                conn,
+                session_id,
+                last_query=message,
+                last_actions=actions or None,
+                parsed_turn=state.parsed_turn,
+            )
             yield legacy.sse_event("done", {"session_id": session_id})
             return
     except Exception as exc:
@@ -250,5 +256,7 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
         last_recommended_product_ids=[product["id"] for product in visible_products],
         current_product_id=visible_products[0]["id"] if visible_products else current_product_id,
         last_actions=actions,
+        parsed_turn=state.parsed_turn,
+        visible_products=visible_products,
     )
     yield legacy.sse_event("done", {"session_id": session_id})

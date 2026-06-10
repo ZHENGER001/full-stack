@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from .config import BASE_DIR, _load_env_file
+from .timeouts import embedding_connect_timeout_seconds, embedding_timeout_seconds
 
 
 class EmbeddingError(RuntimeError):
@@ -38,11 +39,7 @@ def embedding_dimensions() -> int | None:
 
 
 def _timeout_seconds() -> float:
-    raw_value = _env_value("EMBEDDING_TIMEOUT_SECONDS", "30")
-    try:
-        return max(float(raw_value or "30"), 5.0)
-    except ValueError:
-        return 30.0
+    return embedding_timeout_seconds()
 
 
 def _embedding_base_url() -> str:
@@ -110,7 +107,10 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        with httpx.Client(timeout=httpx.Timeout(_timeout_seconds(), connect=8.0), trust_env=False) as client:
+        with httpx.Client(
+            timeout=httpx.Timeout(_timeout_seconds(), connect=embedding_connect_timeout_seconds()),
+            trust_env=False,
+        ) as client:
             response = client.post(
                 f"{base_url}/embeddings",
                 headers=headers,

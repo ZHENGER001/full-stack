@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from .config import BASE_DIR, _load_env_file
+from .timeouts import milvus_connect_timeout_seconds, milvus_timeout_seconds
 
 
 class MilvusError(RuntimeError):
@@ -56,10 +57,10 @@ class MilvusSearchHit:
 
 
 class MilvusRestClient:
-    def __init__(self, base_url: str | None = None, token: str | None = None, timeout_seconds: float = 10.0):
+    def __init__(self, base_url: str | None = None, token: str | None = None, timeout_seconds: float | None = None):
         self.base_url = (base_url or milvus_base_url()).rstrip("/")
         self.token = token if token is not None else _milvus_token()
-        self.timeout_seconds = timeout_seconds
+        self.timeout_seconds = timeout_seconds if timeout_seconds is not None else milvus_timeout_seconds()
 
     def create_collection(self, dimension: int, recreate: bool = False) -> None:
         if recreate:
@@ -136,7 +137,10 @@ class MilvusRestClient:
         ignore_missing: bool = False,
     ) -> dict[str, Any]:
         try:
-            with httpx.Client(timeout=httpx.Timeout(self.timeout_seconds, connect=5.0), trust_env=False) as client:
+            with httpx.Client(
+                timeout=httpx.Timeout(self.timeout_seconds, connect=milvus_connect_timeout_seconds()),
+                trust_env=False,
+            ) as client:
                 response = client.post(
                     f"{self.base_url}{path}",
                     headers=self._headers(),

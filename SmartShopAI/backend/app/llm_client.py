@@ -8,6 +8,7 @@ from typing import Any, AsyncIterator
 import httpx
 
 from .config import BASE_DIR, _load_env_file
+from .timeouts import llm_connect_timeout_seconds, llm_timeout_seconds
 
 
 class LLMGenerationError(RuntimeError):
@@ -27,11 +28,7 @@ def _env_value(name: str, default: str | None = None) -> str | None:
 
 
 def _timeout_seconds() -> float:
-    raw_value = _env_value("LLM_TIMEOUT_SECONDS", "25")
-    try:
-        return max(float(raw_value or "25"), 25.0)
-    except ValueError:
-        return 25.0
+    return llm_timeout_seconds()
 
 
 def llm_model_name() -> str:
@@ -184,7 +181,7 @@ async def generate_agent_reply_with_status(
             chat_history,
         )
         timeout_seconds = _timeout_seconds()
-        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=8.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=llm_connect_timeout_seconds())) as client:
             response = await client.post(
                 url,
                 headers=headers,
@@ -223,7 +220,7 @@ async def stream_agent_reply_chunks_with_status(
             stream=True,
         )
         timeout_seconds = _timeout_seconds()
-        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=8.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=llm_connect_timeout_seconds())) as client:
             async with client.stream("POST", url, headers=headers, json=payload) as response:
                 response.raise_for_status()
                 async for raw_line in response.aiter_lines():
@@ -312,7 +309,7 @@ async def generate_product_presentations(
         ensure_ascii=False,
     )
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=8.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=llm_connect_timeout_seconds())) as client:
             response = await client.post(
                 f"{base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},

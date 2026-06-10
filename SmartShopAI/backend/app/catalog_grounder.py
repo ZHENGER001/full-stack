@@ -5,6 +5,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
+from time import time
 
 from .config import BASE_DIR, get_settings
 from .parser_safety import compact_text, safe_candidate_terms, strip_intent_wrappers
@@ -107,6 +108,7 @@ class CatalogGroundingResult:
 class CatalogLexicon:
     matches: list[CatalogMatch]
     labels: list[tuple[str, str, str]]
+    built_at: float = field(default_factory=time)
 
 
 def ground_catalog_terms(raw: str, candidate_terms: list[str] | None = None) -> CatalogGroundingResult:
@@ -140,6 +142,23 @@ def default_catalog_summary() -> dict[str, list[str]]:
         "terms": sorted({match.term for match in lexicon.matches if match.term}),
         "labels": sorted({label for label, _, _ in lexicon.labels if label}),
     }
+
+
+def catalog_summary_cache_stats() -> dict[str, float | int | bool]:
+    info = _load_catalog_lexicon.cache_info()
+    lexicon = _load_catalog_lexicon()
+    return {
+        "hits": info.hits,
+        "misses": info.misses,
+        "currsize": info.currsize,
+        "matches": len(lexicon.matches),
+        "labels": len(lexicon.labels),
+        "built_at": lexicon.built_at,
+    }
+
+
+def clear_catalog_summary_cache() -> None:
+    _load_catalog_lexicon.cache_clear()
 
 
 @lru_cache(maxsize=1)

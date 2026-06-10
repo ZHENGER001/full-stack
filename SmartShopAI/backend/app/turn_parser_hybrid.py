@@ -6,6 +6,7 @@ from typing import Any
 
 from .llm_client import LLMGenerationError
 from .catalog_grounder import default_catalog_summary as grounded_catalog_summary
+from .conversation_memory import apply_memory_to_parsed_turn
 from .scene_slot_generator import generate_scene_slots_with_llm
 from .scene_slots import is_scene_bundle_request
 from .search_contract_compiler import candidate_from_parsed_turn, compile_executable_turn, compile_search_contract
@@ -90,7 +91,7 @@ async def parse_turn_hybrid(
             logger.info("scene_slot_generator_failed=%s", exc)
         except Exception as exc:
             logger.info("scene_slot_generator_failed=%s", exc.__class__.__name__)
-    compiled = compile_executable_turn(merged)
+    compiled = apply_memory_to_parsed_turn(compile_executable_turn(merged), conversation_state)
     return post_validate_parsed_turn(compiled, default_catalog_summary(), chat_history, conversation_state)
 
 

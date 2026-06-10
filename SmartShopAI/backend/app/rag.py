@@ -94,11 +94,17 @@ def search_products_for_agent_with_diagnostics(
         if not cards:
             alternative_cards = build_alternative_products(retrieval_result.candidates, parsed_query.filters, limit)
 
+    retrieval_degradation = retrieval_result.diagnostics.get("degradation", {})
     diagnostics = {
         **retrieval_result.diagnostics,
         "verifier": verification.diagnostics,
         "confidence": confidence_diagnostics,
-        "fallback": {"used": fallback_used},
+        "fallback": {
+            "used": bool(fallback_used or retrieval_degradation.get("used")),
+            "popular_fallback_used": fallback_used,
+            "retrieval_degraded": bool(retrieval_degradation.get("used")),
+            "reason": "popular_products" if fallback_used else retrieval_degradation.get("reason"),
+        },
         "alternatives": {
             "used": bool(alternative_cards),
             "reason": "price_relaxed" if alternative_cards else None,

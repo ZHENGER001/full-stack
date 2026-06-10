@@ -18,6 +18,12 @@ from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn, resolv
 from .bundle_recommendation import build_bundle_answer, retrieve_bundle_recommendations
 from .catalog import get_cart
 from .config import get_settings
+from .conversation_memory import (
+    STRUCTURED_MEMORY_KEY,
+    build_updated_structured_memory,
+    dump_structured_memory,
+    parse_structured_memory,
+)
 from .llm_client import (
     LLMGenerationError,
     LLMGenerationResult,
@@ -230,7 +236,13 @@ def _stream_chat_legacy(
             if actions:
                 yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
-            update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+            update_session_state(
+                conn,
+                session_id,
+                last_query=message,
+                last_actions=actions or None,
+                parsed_turn=parsed_turn,
+            )
             yield sse_event("done", {"session_id": session_id})
             return
     except Exception as exc:
@@ -359,6 +371,8 @@ def _stream_chat_legacy(
         last_recommended_product_ids=[product["id"] for product in visible_products],
         current_product_id=visible_products[0]["id"] if visible_products else current_product_id,
         last_actions=actions,
+        parsed_turn=parsed_turn,
+        visible_products=visible_products,
     )
     yield sse_event("done", {"session_id": session_id})
 
@@ -414,6 +428,8 @@ def emit_bounded_events(
         last_recommended_product_ids=result.product_ids or None,
         current_product_id=result.current_product_id,
         last_actions=actions or None,
+        visible_products=result.products or None,
+        cart=result.cart,
     )
     if done:
         yield sse_event("done", {"session_id": session_id})
@@ -766,6 +782,8 @@ def emit_bundle_recommendation_turn(
         last_recommended_product_ids=[product["id"] for product in visible_products],
         current_product_id=visible_products[0]["id"] if visible_products else None,
         last_actions=actions or None,
+        parsed_turn=turn_plan.parsed_turn if turn_plan else None,
+        visible_products=grounded_products,
     )
     yield sse_event("done", {"session_id": session_id})
 
@@ -1378,18 +1396,25 @@ def load_conversation_state(
     cart_context: list[dict] | None,
 ) -> dict[str, Any]:
     row = conn.execute(
-        "SELECT last_query, last_recommended_product_ids, current_product_id FROM chat_sessions WHERE id = ?",
+        """
+        SELECT last_query, last_recommended_product_ids, current_product_id, structured_state_json
+        FROM chat_sessions
+        WHERE id = ?
+        """,
         (session_id,),
     ).fetchone()
     cart_items = cart_context or [
         item.model_dump(mode="json")
         for item in get_cart(conn).items
     ]
+    structured_memory = parse_structured_memory(row["structured_state_json"] if row else None)
     return {
         "last_query": row["last_query"] if row else None,
         "last_recommended_product_ids": parse_product_id_list(row["last_recommended_product_ids"] if row else None),
         "current_product_id": current_product_id or (row["current_product_id"] if row else None),
         "cart_context": cart_items,
+        STRUCTURED_MEMORY_KEY: structured_memory,
+        "structured_state": structured_memory,
     }
 
 
@@ -2006,7 +2031,34 @@ def update_session_state(
     last_recommended_product_ids: list[str] | None = None,
     current_product_id: str | None = None,
     last_actions: list[dict[str, Any]] | None = None,
+    parsed_turn: ParsedTurn | None = None,
+    visible_products: list[dict[str, Any]] | None = None,
+    cart: dict[str, Any] | None = None,
 ) -> None:
+    row = conn.execute(
+        "SELECT structured_state_json FROM chat_sessions WHERE id = ?",
+        (session_id,),
+    ).fetchone()
+    previous_memory = parse_structured_memory(row["structured_state_json"] if row else None)
+    should_update_memory = (
+        last_query is not None
+        or parsed_turn is not None
+        or visible_products is not None
+        or current_product_id is not None
+        or cart is not None
+    )
+    structured_state_json = None
+    if should_update_memory:
+        structured_state_json = dump_structured_memory(
+            build_updated_structured_memory(
+                previous_memory,
+                message=last_query or previous_memory.get("last_query") or "",
+                parsed_turn=parsed_turn,
+                visible_products=visible_products,
+                current_product_id=current_product_id,
+                cart=cart,
+            )
+        )
     conn.execute(
         """
         UPDATE chat_sessions
@@ -2014,7 +2066,8 @@ def update_session_state(
             last_query = COALESCE(?, last_query),
             last_recommended_product_ids = COALESCE(?, last_recommended_product_ids),
             current_product_id = COALESCE(?, current_product_id),
-            last_actions = COALESCE(?, last_actions)
+            last_actions = COALESCE(?, last_actions),
+            structured_state_json = COALESCE(?, structured_state_json)
         WHERE id = ?
         """,
         (
@@ -2022,6 +2075,7 @@ def update_session_state(
             json.dumps(last_recommended_product_ids, ensure_ascii=False) if last_recommended_product_ids is not None else None,
             current_product_id,
             json.dumps(last_actions, ensure_ascii=False) if last_actions is not None else None,
+            structured_state_json,
             session_id,
         ),
     )
