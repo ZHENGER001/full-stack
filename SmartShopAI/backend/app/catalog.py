@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from .catalog_grounder import ground_catalog_terms
 from .schemas import (
     AddressResponse,
     CartItem,
@@ -51,6 +52,7 @@ def list_products(
     limit: int = 500,
 ) -> tuple[list[ProductCard], int]:
     keyword, min_price, max_price = apply_keyword_price_constraints(keyword, min_price, max_price)
+    inferred_subcategories = infer_explicit_subcategories(keyword) if keyword and not subcategory else []
     where = []
     params: list[Any] = []
     if keyword:
@@ -68,6 +70,10 @@ def list_products(
     if subcategory:
         where.append("subcategory = ?")
         params.append(subcategory)
+    elif inferred_subcategories:
+        placeholders = ", ".join("?" for _ in inferred_subcategories)
+        where.append(f"subcategory IN ({placeholders})")
+        params.extend(inferred_subcategories)
     if min_price is not None:
         where.append("price >= ?")
         params.append(min_price)
@@ -147,6 +153,20 @@ def list_products(
         rows = sorted(rows, key=lambda row: relevance_score(row, search_terms), reverse=True)
         rows = rows[:limit]
     return [row_to_product_card(row) for row in rows], int(total)
+
+
+def infer_explicit_subcategories(keyword: str | None) -> list[str]:
+    if not keyword:
+        return []
+    matches = [match for match in ground_catalog_terms(keyword).matches if match.subcategories]
+    if not matches:
+        return []
+    max_term_length = max(len(match.term) for match in matches)
+    subcategories: list[str] = []
+    for match in matches:
+        if len(match.term) == max_term_length:
+            subcategories.extend(match.subcategories)
+    return list(dict.fromkeys(subcategories))
 
 
 def expand_search_terms(keyword: str) -> list[str]:

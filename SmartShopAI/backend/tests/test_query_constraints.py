@@ -3,8 +3,8 @@ from __future__ import annotations
 import unittest
 
 from app.query_parser import has_hard_filters, parse_user_filters
-from app.query_router import ParsedQuery
-from app.rag import apply_confidence_gate, build_alternative_products
+from app.query_router import ParsedQuery, parse_query
+from app.rag import apply_confidence_gate, apply_tool_constraints, build_alternative_products
 from app.retrieval import _build_document, _keyword_search, _tokenize
 from app.search_document import build_product_search_document
 from app.verifier import verify_products
@@ -41,6 +41,37 @@ class QueryConstraintTest(unittest.TestCase):
         self.assertEqual(filters["target_subcategories"], ["\u5507\u91c9"])
         self.assertEqual(filters["required_terms"], ["\u5507\u91c9"])
         self.assertIsNone(filters["match_mode"])
+
+    def test_exact_subcategory_mention_narrows_broad_alias_matches(self) -> None:
+        filters = parse_user_filters("\u63a8\u8350\u7b14\u8bb0\u672c\u7535\u8111", [])
+
+        self.assertTrue(filters["explicit_category"])
+        self.assertEqual(filters["target_subcategories"], ["\u7b14\u8bb0\u672c\u7535\u8111"])
+
+    def test_exact_subcategory_narrowing_runs_after_tool_constraints(self) -> None:
+        parsed = parse_query("\u63a8\u8350\u7b14\u8bb0\u672c\u7535\u8111", [])
+
+        narrowed = apply_tool_constraints(
+            parsed,
+            {
+                "categories": ["\u6570\u7801\u7535\u5b50"],
+                "subcategories": ["\u5e73\u677f\u7535\u8111", "\u7b14\u8bb0\u672c\u7535\u8111"],
+                "required_terms": ["\u5e73\u677f", "\u5e73\u677f\u7535\u8111", "\u7b14\u8bb0\u672c"],
+            },
+            {},
+        )
+
+        self.assertEqual(narrowed.filters["target_subcategories"], ["\u7b14\u8bb0\u672c\u7535\u8111"])
+        self.assertNotIn("\u5e73\u677f", narrowed.filters["required_terms"])
+        self.assertNotIn("\u5e73\u677f\u7535\u8111", narrowed.rewritten_query)
+
+    def test_multiple_exact_subcategory_mentions_are_preserved(self) -> None:
+        filters = parse_user_filters(
+            "\u63a8\u8350\u7b14\u8bb0\u672c\u7535\u8111\u548c\u5e73\u677f\u7535\u8111\u5bf9\u6bd4",
+            [],
+        )
+
+        self.assertEqual(set(filters["target_subcategories"]), {"\u7b14\u8bb0\u672c\u7535\u8111", "\u5e73\u677f\u7535\u8111"})
 
     def test_printer_out_of_ink_is_grounded_to_printing_supplies(self) -> None:
         filters = parse_user_filters("\u5bb6\u91cc\u6253\u5370\u673a\u6ca1\u58a8\u6c34\u4e86", [])

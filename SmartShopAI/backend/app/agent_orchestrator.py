@@ -32,10 +32,14 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
     if current_product_id and legacy.product_exists(conn, current_product_id):
         legacy.update_session_state(conn, session_id, current_product_id=current_product_id)
     previous_chat_history = legacy.load_chat_history(conn, session_id)
+    stored_user_message = legacy.batch_cart_confirm_display_text(message) or message
     conn.execute(
         "INSERT INTO chat_messages(id, session_id, role, content, image_id) VALUES (?, ?, ?, ?, ?)",
-        (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", message, image_id),
+        (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", stored_user_message, image_id),
     )
+    if legacy.is_batch_cart_confirm_message(message):
+        yield from legacy.emit_batch_cart_confirm_turn(conn, session_id, message, image_id)
+        return
 
     state = AgentTurnState(
         request=request,
@@ -207,29 +211,31 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
     alternatives = search_result.alternatives
     yield legacy.sse_event("retrieval_diagnostics", search_result.diagnostics)
     grounded_products = legacy.build_grounded_products(conn, products)
+    visible_products_from_search = legacy.visible_chat_products(grounded_products)
     grounded_alternatives = [] if grounded_products else legacy.build_grounded_products(conn, alternatives)
-    visible_products = grounded_products or grounded_alternatives
+    visible_alternatives = legacy.visible_chat_products(grounded_alternatives)
+    visible_products = visible_products_from_search or visible_alternatives
     legacy.enrich_product_presentations(message, visible_products)
-    faq_context = legacy.load_faq_context(conn, [product["id"] for product in grounded_products])
+    faq_context = legacy.load_faq_context(conn, [product["id"] for product in visible_products_from_search])
     chat_history = legacy.load_chat_history(conn, session_id)
     actions = legacy.build_actions(conn, visible_products, final_user_query, parsed_filters)
-    if grounded_products:
-        yield legacy.sse_event("products", {"products": grounded_products})
-    elif grounded_alternatives:
-        yield legacy.sse_event("alternatives", {"products": grounded_alternatives, "match_type": "alternatives"})
-    if not grounded_products and grounded_alternatives:
-        answer = legacy.build_alternative_answer(message, grounded_alternatives)
+    if visible_products_from_search:
+        yield legacy.sse_event("products", {"products": visible_products_from_search})
+    elif visible_alternatives:
+        yield legacy.sse_event("alternatives", {"products": visible_alternatives, "match_type": "alternatives"})
+    if not visible_products_from_search and visible_alternatives:
+        answer = legacy.build_alternative_answer(message, visible_alternatives)
         llm_status = {"mode": "fallback", "reason": "alternatives_available"}
         yield legacy.sse_event("llm_status", llm_status)
         yield legacy.sse_event("delta", {"text": answer})
     else:
         answer, llm_status = yield from legacy.stream_grounded_answer_events(
             message,
-            grounded_products,
+            visible_products_from_search,
             faq_context,
             chat_history,
         )
-        if grounded_products:
+        if visible_products_from_search:
             yield legacy.sse_event("llm_status", llm_status)
 
     if actions:

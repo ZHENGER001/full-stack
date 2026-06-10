@@ -3,18 +3,22 @@ package com.smartshop.ai.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,6 +48,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,8 +56,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,10 +68,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.smartshop.ai.data.model.BatchCartContent
+import com.smartshop.ai.data.model.BatchCartItem
+import com.smartshop.ai.data.model.BatchCartSku
 import com.smartshop.ai.data.model.CartItem
 import com.smartshop.ai.data.model.ChatAction
 import com.smartshop.ai.data.model.ChatMessage
+import com.smartshop.ai.data.model.CheckoutConfirmationContent
+import com.smartshop.ai.data.model.CheckoutLineItem
 import com.smartshop.ai.data.model.ComparisonContent
+import com.smartshop.ai.data.model.OrderSuccessContent
+import com.smartshop.ai.data.model.OrderSuccessItem
 import com.smartshop.ai.data.model.Product
 import com.smartshop.ai.ui.theme.AiBubble
 import com.smartshop.ai.ui.theme.AiBubbleText
@@ -70,11 +86,15 @@ import com.smartshop.ai.ui.theme.PriceColor
 import com.smartshop.ai.ui.theme.Primary
 import com.smartshop.ai.ui.theme.PrimaryLight
 import com.smartshop.ai.ui.theme.SmartShopTheme
+import com.smartshop.ai.ui.theme.Success
 import com.smartshop.ai.ui.theme.UserBubble
 import com.smartshop.ai.ui.theme.UserBubbleText
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private val playedOrderSuccessHeaderIds = mutableSetOf<String>()
+private const val ORDER_SUCCESS_LEAD_TEXT = "下单完成，已模拟支付成功。"
 
 @Composable
 fun ChatBubble(
@@ -82,17 +102,24 @@ fun ChatBubble(
     modifier: Modifier = Modifier,
     onProductClick: (String) -> Unit = {},
     onAddToCart: (String) -> Unit = {},
+    onBatchCartConfirm: (BatchCartContent, Map<String, String>) -> Unit = { _, _ -> },
     onActionClick: (ChatAction) -> Unit = {},
     onOpenCart: () -> Unit = {},
+    onOpenOrders: () -> Unit = {},
+    onContinueShopping: () -> Unit = {},
     onSpeak: (ChatMessage) -> Unit = {},
     onStopSpeaking: () -> Unit = {},
     isSpeaking: Boolean = false
 ) {
     val isUser = message.isUser
     val alignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
-    val followUpActions = message.actions.filter {
+    val hasCheckoutConfirmation = !isUser && message.checkoutConfirmation != null
+    val followUpActions = if (hasCheckoutConfirmation) emptyList() else message.actions.filter {
         it.type == "search_more" && it.label.isContextualFollowUp()
     }
+    val orderSuccess = if (!isUser) message.orderSuccess else null
+    val isLegacyOrderSuccess = !isUser && orderSuccess == null && message.isOrderSuccessMessage()
+    val displayContent = if (isLegacyOrderSuccess) message.content.withoutOrderSuccessLead() else message.content
     var entered by remember(message.id) { mutableStateOf(false) }
 
     LaunchedEffect(message.id) {
@@ -182,18 +209,52 @@ fun ChatBubble(
                                     products = message.productRecommendations.take(3),
                                     onProductClick = onProductClick
                                 )
+                            } else if (orderSuccess != null) {
+                                OrderSuccessMessageCard(
+                                    success = orderSuccess,
+                                    messageId = message.id,
+                                    onOpenOrders = onOpenOrders,
+                                    onContinueShopping = onContinueShopping
+                                )
+                            } else if (isLegacyOrderSuccess) {
+                                OrderSuccessHeader(messageId = message.id)
+                                if (displayContent.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = displayContent,
+                                        color = AiBubbleText,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        lineHeight = 22.sp
+                                    )
+                                }
                             } else {
                                 Text(
-                                    text = message.content,
+                                    text = displayContent,
                                     color = if (isUser) UserBubbleText else AiBubbleText,
                                     style = MaterialTheme.typography.bodyMedium,
                                     lineHeight = 22.sp
                                 )
                             }
 
-                            if (!isUser && !message.orderStatusText.isNullOrBlank()) {
+                            if (!isUser && !message.orderStatusText.isNullOrBlank() && orderSuccess == null && !isLegacyOrderSuccess) {
                                 Spacer(modifier = Modifier.height(10.dp))
                                 OrderStatusPill(text = message.orderStatusText)
+                            }
+
+                            if (!isUser && message.checkoutConfirmation != null) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                CheckoutConfirmationCard(
+                                    confirmation = message.checkoutConfirmation,
+                                    onActionClick = onActionClick
+                                )
+                            }
+
+                            if (!isUser && message.batchCart != null) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                BatchCartSelectionCard(
+                                    batchCart = message.batchCart,
+                                    onConfirm = onBatchCartConfirm
+                                )
                             }
 
                             if (!isUser && message.productRecommendations.isNotEmpty() && comparison == null) {
@@ -204,7 +265,7 @@ fun ChatBubble(
                                 )
                             }
 
-                            if (!isUser && message.cartItems.isNotEmpty()) {
+                            if (!isUser && message.cartItems.isNotEmpty() && message.checkoutConfirmation == null && orderSuccess == null) {
                                 Spacer(modifier = Modifier.height(14.dp))
                                 CartSummaryCard(
                                     items = message.cartItems,
@@ -301,6 +362,981 @@ private fun OrderStatusPill(text: String) {
             style = MaterialTheme.typography.labelMedium,
             color = Primary,
             fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun OrderSuccessMessageCard(
+    success: OrderSuccessContent,
+    messageId: String,
+    onOpenOrders: () -> Unit,
+    onContinueShopping: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        OrderSuccessHeader(messageId = messageId)
+        OrderInfoCard(success = success)
+        Text(
+            text = "商品明细",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = AiBubbleText
+        )
+        OrderProductList(items = success.items)
+        OrderSuccessActionFooter(
+            onOpenOrders = onOpenOrders,
+            onContinueShopping = onContinueShopping
+        )
+    }
+}
+
+@Composable
+private fun OrderSuccessHeader(messageId: String) {
+    val hasPlayed = remember(messageId) { playedOrderSuccessHeaderIds.contains(messageId) }
+    var started by remember(messageId) { mutableStateOf(hasPlayed) }
+    val textOffsetPx = with(LocalDensity.current) { 8.dp.toPx() }
+
+    LaunchedEffect(messageId) {
+        if (!hasPlayed) {
+            started = true
+            playedOrderSuccessHeaderIds += messageId
+        }
+    }
+
+    val textProgress by animateFloatAsState(
+        targetValue = if (started) 1f else 0f,
+        animationSpec = if (hasPlayed) {
+            tween(durationMillis = 0)
+        } else {
+            tween(durationMillis = 620, delayMillis = 80)
+        },
+        label = "order_success_text_progress"
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        AnimatedSuccessCheckIcon(
+            started = started,
+            hasPlayed = hasPlayed,
+            modifier = Modifier.size(56.dp)
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .graphicsLayer {
+                    alpha = textProgress
+                    translationY = (1f - textProgress) * textOffsetPx
+                },
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = "下单成功，已模拟支付成功",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = AiBubbleText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "订单已生成，可在“我的订单”中查看详情。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun OrderInfoCard(success: OrderSuccessContent) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.32f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        OrderInfoRow(label = "订单号", value = success.orderId, maxLines = 1)
+        OrderInfoDivider()
+        OrderInfoRow(label = "支付流水", value = success.paymentId, maxLines = 1)
+        OrderInfoDivider()
+        OrderInfoRow(
+            label = "收货人",
+            value = listOf(success.receiverName, success.receiverPhone)
+                .filter { it.isNotBlank() }
+                .joinToString(" "),
+            maxLines = 1
+        )
+        OrderInfoDivider()
+        OrderInfoRow(label = "收货地址", value = success.receiverAddress, maxLines = 3)
+        OrderInfoDivider()
+        OrderAmountRow(amount = success.paidAmount)
+    }
+}
+
+@Composable
+private fun OrderInfoRow(
+    label: String,
+    value: String,
+    maxLines: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.width(72.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = value.ifBlank { "-" },
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = AiBubbleText,
+            fontWeight = FontWeight.Medium,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            lineHeight = 18.sp
+        )
+    }
+}
+
+@Composable
+private fun OrderAmountRow(amount: Double) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "实付金额",
+            modifier = Modifier.width(72.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = formatCurrency(amount),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleMedium,
+            color = PriceColor,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun OrderInfoDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
+    )
+}
+
+@Composable
+private fun OrderProductList(items: List<OrderSuccessItem>) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        if (items.isEmpty()) {
+            Text(
+                text = "暂无商品明细",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            items.forEach { item ->
+                OrderProductItem(item = item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OrderProductItem(item: OrderSuccessItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OrderProductImage(
+            imageUrl = item.imageUrl,
+            contentDescription = item.name
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.bodyMedium,
+                color = AiBubbleText,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 18.sp
+            )
+            Text(
+                text = "规格：${item.specText.ifBlank { "默认规格" }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "数量 ×${item.quantity}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = formatCurrency(item.displayTotal()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = PriceColor,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OrderProductImage(
+    imageUrl: String,
+    contentDescription: String
+) {
+    if (imageUrl.isBlank()) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.ShoppingCart,
+                contentDescription = contentDescription,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(26.dp)
+            )
+        }
+        return
+    }
+
+    AsyncImage(
+        model = imageUrl,
+        contentDescription = contentDescription,
+        modifier = Modifier
+            .size(64.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentScale = ContentScale.Crop
+    )
+}
+
+@Composable
+private fun OrderSuccessActionFooter(
+    onOpenOrders: () -> Unit,
+    onContinueShopping: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        OrderFooterButton(
+            text = "查看订单",
+            primary = true,
+            onClick = onOpenOrders,
+            modifier = Modifier.weight(1f)
+        )
+        OrderFooterButton(
+            text = "继续逛逛",
+            primary = false,
+            onClick = onContinueShopping,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun OrderFooterButton(
+    text: String,
+    primary: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val background = if (primary) Primary else MaterialTheme.colorScheme.surface
+    val contentColor = if (primary) Color.White else Primary
+    Box(
+        modifier = modifier
+            .background(
+                color = background,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = if (primary) Primary else Primary.copy(alpha = 0.38f),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 11.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun AnimatedSuccessCheckIcon(
+    started: Boolean,
+    hasPlayed: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val iconScale by animateFloatAsState(
+        targetValue = if (started) 1f else 0.82f,
+        animationSpec = if (hasPlayed) {
+            tween(durationMillis = 0)
+        } else {
+            keyframes {
+                durationMillis = 700
+                0.82f at 0
+                1.08f at 430
+                1f at 700
+            }
+        },
+        label = "order_success_icon_scale"
+    )
+    val iconAlpha by animateFloatAsState(
+        targetValue = if (started) 1f else 0f,
+        animationSpec = if (hasPlayed) tween(durationMillis = 0) else tween(durationMillis = 240),
+        label = "order_success_icon_alpha"
+    )
+    val checkProgress by animateFloatAsState(
+        targetValue = if (started) 1f else 0f,
+        animationSpec = if (hasPlayed) {
+            tween(durationMillis = 0)
+        } else {
+            tween(durationMillis = 540, delayMillis = 140)
+        },
+        label = "order_success_check_progress"
+    )
+
+    Canvas(
+        modifier = modifier.graphicsLayer {
+            alpha = iconAlpha
+            scaleX = iconScale
+            scaleY = iconScale
+        }
+    ) {
+        val diameter = size.minDimension
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val radius = diameter / 2f
+        drawCircle(color = Success, radius = radius, center = center)
+
+        val start = Offset(size.width * 0.30f, size.height * 0.52f)
+        val mid = Offset(size.width * 0.44f, size.height * 0.66f)
+        val end = Offset(size.width * 0.72f, size.height * 0.36f)
+        val strokeWidth = diameter * 0.085f
+        val firstSegmentProgress = (checkProgress / 0.45f).coerceIn(0f, 1f)
+        val secondSegmentProgress = ((checkProgress - 0.45f) / 0.55f).coerceIn(0f, 1f)
+
+        if (firstSegmentProgress > 0f) {
+            drawLine(
+                color = Color.White,
+                start = start,
+                end = lerpOffset(start, mid, firstSegmentProgress),
+                strokeWidth = strokeWidth,
+                cap = StrokeCap.Round
+            )
+        }
+        if (secondSegmentProgress > 0f) {
+            drawLine(
+                color = Color.White,
+                start = mid,
+                end = lerpOffset(mid, end, secondSegmentProgress),
+                strokeWidth = strokeWidth,
+                cap = StrokeCap.Round
+            )
+        }
+    }
+}
+
+@Composable
+private fun CheckoutConfirmationCard(
+    confirmation: CheckoutConfirmationContent,
+    onActionClick: (ChatAction) -> Unit
+) {
+    var expanded by remember(confirmation.title, confirmation.items.size) { mutableStateOf(false) }
+    val previewLimit = confirmation.shownLimit.coerceAtLeast(1)
+    val visibleItems = if (expanded) confirmation.items else confirmation.items.take(previewLimit)
+    val modifyProductAction = confirmation.actions.firstOrNull { it.label == "修改商品" }
+        ?: ChatAction(type = "open_cart", label = "修改商品")
+    val modifyAddressAction = confirmation.actions.firstOrNull {
+        it.label == "修改地址" || it.label == "修改收货地址"
+    } ?: ChatAction(type = "search_more", label = "修改地址")
+    val payAction = confirmation.actions.firstOrNull { it.label == "确认下单并支付" }
+    val previewNotice = confirmation.previewNotice
+        ?: "当前仅展示前 $previewLimit 件，共 ${confirmation.items.size} 件商品"
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(180))
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text(
+            text = confirmation.title.ifBlank { "确认订单" },
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = AiBubbleText
+        )
+
+        CheckoutSection(title = "收货信息") {
+            CheckoutFieldRow(
+                label = "收货人",
+                value = listOf(confirmation.receiverName, confirmation.receiverPhone)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ")
+                    .ifBlank { "待补充" }
+            )
+            CheckoutFieldRow(label = "收货地址", value = confirmation.address.ifBlank { "还没有默认收货地址" })
+        }
+
+        CheckoutSection(title = "订单摘要") {
+            CheckoutFieldRow(label = "商品数量", value = "${confirmation.itemCount} 件")
+            CheckoutFieldRow(
+                label = "应付金额",
+                value = formatCurrency(confirmation.payableAmount),
+                highlight = true
+            )
+        }
+
+        CheckoutSection(title = "商品明细") {
+            if (!expanded && confirmation.items.size > previewLimit) {
+                Text(
+                    text = previewNotice,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = PriceColor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = PriceColor.copy(alpha = 0.08f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                )
+            }
+            if (visibleItems.isEmpty()) {
+                Text(
+                    text = "暂无商品明细",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AiBubbleText.copy(alpha = 0.66f)
+                )
+            } else {
+                visibleItems.forEach { item ->
+                    CheckoutLineItemRow(item = item)
+                }
+            }
+            if (confirmation.items.size > previewLimit) {
+                TextButton(
+                    onClick = { expanded = !expanded },
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = if (expanded) {
+                            "收起"
+                        } else {
+                            "共 ${confirmation.items.size} 件，查看全部"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Primary
+                    )
+                }
+            }
+        }
+
+        CheckoutSection(title = "操作按钮") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CheckoutActionBox(
+                    action = modifyProductAction,
+                    onActionClick = onActionClick,
+                    modifier = Modifier.weight(1f)
+                )
+                CheckoutActionBox(
+                    action = modifyAddressAction,
+                    onActionClick = onActionClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            if (confirmation.requiresSecondConfirm && !confirmation.riskMessage.isNullOrBlank()) {
+                Text(
+                    text = confirmation.riskMessage,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = PriceColor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = PriceColor.copy(alpha = 0.08f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                )
+            }
+
+            payAction?.let { action ->
+                CheckoutActionBox(
+                    action = action,
+                    onActionClick = onActionClick,
+                    primary = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CheckoutSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = AiBubbleText
+        )
+        content()
+    }
+}
+
+@Composable
+private fun CheckoutFieldRow(
+    label: String,
+    value: String,
+    highlight: Boolean = false
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.width(72.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = AiBubbleText.copy(alpha = 0.62f)
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (highlight) PriceColor else AiBubbleText,
+            fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal,
+            lineHeight = 18.sp
+        )
+    }
+}
+
+@Composable
+private fun CheckoutLineItemRow(item: CheckoutLineItem) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = item.imageUrl,
+            contentDescription = item.title,
+            modifier = Modifier
+                .size(46.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = AiBubbleText,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = listOf(item.brand, item.skuName).filter { it.isNotBlank() }.joinToString(" · "),
+                style = MaterialTheme.typography.labelSmall,
+                color = AiBubbleText.copy(alpha = 0.62f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${formatCurrency(item.price)} x ${item.quantity}",
+                style = MaterialTheme.typography.labelSmall,
+                color = AiBubbleText.copy(alpha = 0.72f)
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = formatCurrency(item.lineTotal),
+            style = MaterialTheme.typography.bodySmall,
+            color = PriceColor,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun CheckoutActionBox(
+    action: ChatAction,
+    onActionClick: (ChatAction) -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean = false
+) {
+    val background = if (primary) Primary else MaterialTheme.colorScheme.surface
+    val textColor = if (primary) Color.White else Primary
+    val borderColor = if (primary) Primary else Primary.copy(alpha = 0.35f)
+
+    Box(
+        modifier = modifier
+            .background(
+                color = background,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = borderColor,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .clickable { onActionClick(action) }
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = action.label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = textColor,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun BatchCartSelectionCard(
+    batchCart: BatchCartContent,
+    onConfirm: (BatchCartContent, Map<String, String>) -> Unit
+) {
+    val selectedSkuIds = remember(batchCart.batchId) {
+        mutableStateMapOf<String, String>().apply {
+            batchCart.items.forEach { item ->
+                val selected = item.selectedSkuId ?: item.skus.singleOrNull()?.skuId
+                if (!selected.isNullOrBlank()) put(item.productId, selected)
+            }
+        }
+    }
+    var submitted by remember(batchCart.batchId) { mutableStateOf(false) }
+    val selectedCount = batchCart.items.count { selectedSkuIds[it.productId] != null }
+    val ready = selectedCount == batchCart.items.size && batchCart.items.isNotEmpty()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(180))
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.AddShoppingCart,
+                contentDescription = null,
+                tint = Primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = batchCart.title.ifBlank { "批量加入购物车" },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AiBubbleText
+                )
+                Text(
+                    text = "已选择 $selectedCount / ${batchCart.items.size} 个商品规格",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            BatchCartProgressPill(ready = ready)
+        }
+
+        batchCart.items.forEach { item ->
+            BatchCartItemRow(
+                item = item,
+                selectedSkuId = selectedSkuIds[item.productId],
+                onSelectSku = { skuId ->
+                    selectedSkuIds[item.productId] = skuId
+                    submitted = false
+                }
+            )
+        }
+
+        val buttonColor = if (ready && !submitted) Primary else MaterialTheme.colorScheme.surfaceVariant
+        val textColor = if (ready && !submitted) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(buttonColor)
+                .clickable(enabled = ready && !submitted) {
+                    submitted = true
+                    onConfirm(batchCart, selectedSkuIds.toMap())
+                }
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.AddShoppingCart,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = when {
+                        submitted -> "已提交"
+                        ready -> "确认加入购物车"
+                        else -> "请先选完规格"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatchCartProgressPill(ready: Boolean) {
+    val text = if (ready) "可确认" else "待选择"
+    val color = if (ready) Primary else MaterialTheme.colorScheme.tertiary
+    Box(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(999.dp))
+            .border(1.dp, color.copy(alpha = 0.26f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 9.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun BatchCartItemRow(
+    item: BatchCartItem,
+    selectedSkuId: String?,
+    onSelectSku: (String) -> Unit
+) {
+    val selectedSku = item.skus.firstOrNull { it.skuId == selectedSkuId }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f), RoundedCornerShape(10.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(
+                model = item.imageUrl,
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AiBubbleText,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "${item.brand} · ¥${"%.2f".format(item.price)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            BatchCartSkuStatus(label = selectedSku?.label)
+        }
+
+        if (item.skus.isEmpty()) {
+            Text(
+                text = "暂无可购买规格",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        } else {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item.skus.forEach { sku ->
+                    BatchCartSkuChip(
+                        sku = sku,
+                        selected = sku.skuId == selectedSkuId,
+                        onClick = { onSelectSku(sku.skuId) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatchCartSkuStatus(label: String?) {
+    val selected = !label.isNullOrBlank()
+    val color = if (selected) Primary else MaterialTheme.colorScheme.error
+    Box(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.10f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = if (selected) "已选 $label" else "待选",
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun BatchCartSkuChip(
+    sku: BatchCartSku,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val bg = if (selected) Primary else MaterialTheme.colorScheme.surface
+    val fg = if (selected) Color.White else AiBubbleText
+    val border = if (selected) Primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+    Column(
+        modifier = Modifier
+            .widthIn(min = 86.dp, max = 150.dp)
+            .clip(RoundedCornerShape(9.dp))
+            .background(bg)
+            .border(1.dp, border, RoundedCornerShape(9.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = sku.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = fg,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = "¥${"%.0f".format(sku.price)} · 库存${sku.stock}",
+            style = MaterialTheme.typography.labelSmall,
+            color = fg.copy(alpha = 0.78f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -1017,6 +2053,28 @@ private fun String.isContextualFollowUp(): Boolean {
     val genericLabels = setOf("换一批", "查看更多", "换个关键词再搜")
     return text !in genericLabels
 }
+
+private fun ChatMessage.isOrderSuccessMessage(): Boolean =
+    orderStatusText == "支付成功" || content.trimStart().startsWith(ORDER_SUCCESS_LEAD_TEXT)
+
+private fun OrderSuccessItem.displayTotal(): Double =
+    lineTotal.takeIf { it > 0.0 } ?: (price * quantity)
+
+private fun String.withoutOrderSuccessLead(): String {
+    val trimmed = trimStart()
+    if (!trimmed.startsWith(ORDER_SUCCESS_LEAD_TEXT)) return this
+    return trimmed
+        .removePrefix(ORDER_SUCCESS_LEAD_TEXT)
+        .trimStart('\r', '\n', ' ')
+}
+
+private fun lerpOffset(start: Offset, end: Offset, fraction: Float): Offset =
+    Offset(
+        x = start.x + (end.x - start.x) * fraction,
+        y = start.y + (end.y - start.y) * fraction
+    )
+
+private fun formatCurrency(amount: Double): String = "¥${"%.2f".format(amount)}"
 
 private fun formatTimestamp(timestamp: Long): String {
     val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
