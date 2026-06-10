@@ -863,7 +863,43 @@ def build_actions(
 
 
 def build_clarification_actions(conn, question: str) -> list[dict[str, Any]]:
-    if "哪类带" in question:
+    if "具体对什么过敏" in question:
+        labels = [
+            "坚果/花生过敏",
+            "乳制品/鸡蛋过敏",
+            "小麦/海鲜过敏",
+        ]
+    elif "过敏" in question or "忌口" in question:
+        labels = [
+            "没有过敏忌口",
+            "给小孩/老人吃",
+            "低糖低盐优先",
+        ]
+    elif "肤质" in question or "酒精" in question or "香精" in question:
+        labels = [
+            "敏感肌，避开酒精香精",
+            "干皮，保湿优先",
+            "油皮，清爽控油",
+        ]
+    elif "脚宽" in question or "膝盖" in question or "磨脚" in question:
+        labels = [
+            "跑步用，脚宽",
+            "通勤穿，不磨脚",
+            "篮球实战，膝盖易不适",
+        ]
+    elif "长时间佩戴" in question or "孩子使用" in question or "护眼" in question:
+        labels = [
+            "长时间佩戴要舒适",
+            "给孩子用，护眼优先",
+            "降噪续航优先",
+        ]
+    elif "宠物" in question or "肠胃敏感" in question:
+        labels = [
+            "猫咪，肠胃敏感",
+            "狗狗，日常使用",
+            "避开易过敏成分",
+        ]
+    elif "哪类带" in question:
         labels = build_attribute_category_labels(question)
     elif "换一批推荐" in question and "删除购物车" in question:
         labels = [
@@ -1177,6 +1213,7 @@ def build_waiting_deltas(
     parsed_filters: dict[str, Any],
     image_id: str | None,
     has_chat_history: bool,
+    skip_generic_intro: bool = False,
 ) -> list[str]:
     texts: list[str] = []
     lower_message = message.lower()
@@ -1188,7 +1225,18 @@ def build_waiting_deltas(
     has_price = any(parsed_filters.get(key) is not None for key in ("min_price", "max_price"))
     wants_compare = any(word in message for word in ("对比", "比较", "哪个好", "哪款好")) or "compare" in lower_message
 
-    if image_id:
+    if skip_generic_intro:
+        if image_id:
+            texts.append("我会结合图片线索一起匹配。")
+        elif has_chat_history and any(word in message for word in ("再", "换", "继续", "还有", "便宜", "贵点")):
+            texts.append("我会基于刚才的条件继续筛。")
+        elif wants_compare:
+            texts.append("我会重点整理关键差异。")
+        elif has_exclusions:
+            texts.append("我会先排除你不想要的条件。")
+        elif has_price:
+            texts.append("我会控制在预算范围内。")
+    elif image_id:
         texts.append("我先根据图片线索匹配相似商品。")
     elif has_chat_history and any(word in message for word in ("再", "换", "继续", "还有", "便宜", "贵点")):
         texts.append("明白，我基于刚才的条件继续筛。")
@@ -1201,11 +1249,11 @@ def build_waiting_deltas(
     else:
         texts.append("好的，我先帮你筛一下符合条件的商品。")
 
-    if wants_compare:
+    if not skip_generic_intro and wants_compare:
         texts.append("正在对比价格、评分、库存和适合场景。")
-    elif has_exclusions:
+    elif not skip_generic_intro and has_exclusions:
         texts.append("正在匹配剩余品牌、价格和库存。")
-    else:
+    elif not skip_generic_intro:
         texts.append("正在匹配商品、价格、评分和库存。")
 
     texts.append("我会优先展示最符合条件的几款。")

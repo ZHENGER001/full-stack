@@ -1,0 +1,159 @@
+[
+  {
+    "scene": "下水游泳",
+    "triggers": ["下水", "游泳", "泳池", "泳衣", "泳裤", "泳镜", "泳帽"],
+    "requires_bundle_word": true,
+    "slots": [
+      {
+        "key": "swimwear",
+        "title": "泳衣泳裤",
+        "query": "泳衣 泳裤 游泳 下水",
+        "reason": "下水活动先确认贴身泳装，要求能进水、贴合且方便活动。",
+        "product_mentions": ["泳衣", "泳裤"],
+        "scene_terms": ["游泳", "下水"]
+      },
+      {
+        "key": "goggles",
+        "title": "泳镜",
+        "query": "泳镜 防雾 游泳",
+        "reason": "泳镜用于保护眼睛并提升水下视野，优先看防雾和贴合度。",
+        "product_mentions": ["泳镜"],
+        "scene_terms": ["游泳", "下水"]
+      },
+      {
+        "key": "swim_cap",
+        "title": "泳帽",
+        "query": "泳帽 硅胶 游泳",
+        "reason": "泳帽能减少头发阻力，也更符合泳池基础装备要求。",
+        "product_mentions": ["泳帽"],
+        "scene_terms": ["游泳", "下水"]
+      },
+      {
+        "key": "waterproof_storage",
+        "title": "防水收纳",
+        "query": "防水包 游泳 收纳",
+        "reason": "手机、钥匙和换洗用品需要防水收纳，避免湿物混放。",
+        "product_mentions": ["防水包"],
+        "scene_terms": ["游泳", "下水"]
+      },
+      {
+        "key": "towel",
+        "title": "速干毛巾",
+        "query": "速干毛巾 浴巾 游泳",
+        "reason": "下水后需要擦干和更衣，速干毛巾更适合随身携带。",
+        "product_mentions": ["毛巾"],
+        "scene_terms": ["游泳", "下水"]
+      }
+    ]
+  },
+  {
+    "scene": "海边度假",
+    "triggers": ["三亚", "海边", "海岛", "沙滩", "度假"],
+    "requires_bundle_word": true,
+    "slots": [
+      {
+        "key": "sunscreen",
+        "title": "防晒打底",
+        "query": "SPF50 防水 防晒霜 海边 户外",
+        "reason": "海边紫外线强，先用高倍防晒做基础防护。",
+        "product_mentions": ["防晒"],
+        "scene_terms": ["海边", "户外"]
+      },
+      {
+        "key": "sun_protection",
+        "title": "物理防晒",
+        "query": "轻薄 防晒衣 透气 户外",
+        "reason": "防晒衣能减少长时间暴晒，也适合坐车和逛街。",
+        "product_mentions": ["防晒衣"],
+        "scene_terms": ["海边", "户外"]
+      },
+      {
+        "key": "shoes",
+        "title": "鞋履",
+        "query": "沙滩 凉鞋 防滑 轻便",
+        "reason": "沙滩和酒店来回走动，需要防滑、轻便、好清洁。",
+        "product_mentions": ["鞋"],
+        "scene_terms": ["沙滩", "海边"]
+      },
+      {
+        "key": "bag",
+        "title": "随身收纳",
+        "query": "防水包 旅行 背包 轻便",
+        "reason": "玩水和出门拍照时，手机证件需要更稳妥地收纳。",
+        "product_mentions": ["背包"],
+        "scene_terms": ["旅行", "海边"]
+      },
+      {
+        "key": "repair",
+        "title": "晒后护理",
+        "query": "晒后修复 补水 舒缓 护肤",
+        "reason": "晚上回酒店做晒后舒缓，减少干燥和泛红。",
+        "product_mentions": ["晒后修复"],
+        "scene_terms": ["海边", "护肤"]
+      }
+    ]
+  },
+  {
+    "scene": "日常通勤",
+    "triggers": ["通勤", "上班", "上学"],
+    "requires_bundle_word": true,
+    "slots": [
+      {
+        "key": "top",
+        "title": "上装",
+        "query": "通勤 轻薄 外套 卫衣",
+        "reason": "上装优先选耐穿、好打理、适合室内外温差的款式。",
+        "product_mentions": ["卫衣"],
+        "scene_terms": ["通勤"]
+      },
+      {
+        "key": "shoes",
+        "title": "鞋履",
+        "query": "通勤 运动鞋 舒适",
+        "reason": "通勤走路时间长，鞋子要兼顾缓震和耐磨。",
+        "product_mentions": ["鞋"],
+        "scene_terms": ["通勤"]
+      },
+      {
+        "key": "bag",
+        "title": "包袋",
+        "query": "通勤 背包 轻便 容量",
+        "reason": "背包需要放电脑、水杯和随身物品。",
+        "product_mentions": ["背包"],
+        "scene_terms": ["通勤"]
+      }
+    ]
+  },
+  {
+    "scene": "数码生态组合",
+    "triggers": ["互联", "生态", "协同", "跨屏", "同品牌", "全家桶"],
+    "required_any_groups": [["手机", "电脑", "笔记本", "平板", "耳机", "手表"]],
+    "requires_bundle_word": false,
+    "slots": [
+      {
+        "key": "phone",
+        "title": "手机",
+        "query": "智能手机 互联 生态 协同",
+        "reason": "作为互联生态的核心设备。",
+        "product_mentions": ["手机"],
+        "scene_terms": ["互联生态"]
+      },
+      {
+        "key": "computer",
+        "title": "电脑或平板",
+        "query": "笔记本电脑 平板 互联 协同",
+        "reason": "和手机形成跨设备办公与内容同步。",
+        "product_mentions": ["笔记本", "平板"],
+        "scene_terms": ["互联生态"]
+      },
+      {
+        "key": "audio_wearable",
+        "title": "耳机或手表",
+        "query": "耳机 手表 互联 生态 配套",
+        "reason": "补齐通话、音频或随身通知体验。",
+        "product_mentions": ["耳机", "手表"],
+        "scene_terms": ["互联生态"]
+      }
+    ]
+  }
+]

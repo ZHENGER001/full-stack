@@ -6,7 +6,10 @@ from typing import Any
 
 from .llm_client import LLMGenerationError
 from .catalog_grounder import default_catalog_summary as grounded_catalog_summary
+from .scene_slot_generator import generate_scene_slots_with_llm
+from .scene_slots import is_scene_bundle_request
 from .search_contract_compiler import candidate_from_parsed_turn, compile_executable_turn, compile_search_contract
+from .safety_profile import build_safety_clarification_question
 from .turn_parser_llm import parse_turn_with_llm
 from .turn_schema import ParsedTurn, ParsedTurnCandidate, ProductReference, RetrievalPolicyHint, TurnConstraints
 
@@ -42,6 +45,12 @@ CATALOG_TERMS: list[dict[str, Any]] = [
     {"terms": ["零食", "坚果"], "categories": ["食品饮料"], "subcategories": ["坚果/零食"], "required_terms": ["零食"]},
     {"terms": ["咖啡"], "categories": ["食品饮料"], "subcategories": ["咖啡"], "required_terms": ["咖啡"]},
     {"terms": ["牛奶"], "categories": ["食品饮料"], "subcategories": ["牛奶"], "required_terms": ["牛奶"]},
+    {"terms": ["酱油", "生抽", "老抽", "调味品", "调味料"], "categories": ["食品饮料"], "subcategories": [], "required_terms": ["酱油"]},
+    {"terms": ["泳衣", "泳裤"], "categories": ["服饰运动"], "subcategories": [], "required_terms": ["泳"]},
+    {"terms": ["泳镜"], "categories": ["服饰运动"], "subcategories": [], "required_terms": ["泳镜"]},
+    {"terms": ["泳帽"], "categories": ["服饰运动"], "subcategories": [], "required_terms": ["泳帽"]},
+    {"terms": ["防水包"], "categories": ["旅行户外"], "subcategories": ["背包", "户外背包"], "required_terms": ["防水包"]},
+    {"terms": ["速干毛巾", "浴巾"], "categories": ["家居百货"], "subcategories": [], "required_terms": ["毛巾"]},
     {"terms": ["精华"], "categories": ["美妆护肤"], "subcategories": ["精华"], "required_terms": ["精华"]},
     {"terms": ["面霜"], "categories": ["美妆护肤"], "subcategories": ["面霜"], "required_terms": ["面霜"]},
     {"terms": ["防晒"], "categories": ["美妆护肤"], "subcategories": ["防晒"], "required_terms": ["防晒"]},
@@ -72,6 +81,15 @@ async def parse_turn_hybrid(
     except Exception as exc:
         logger.info("turn_parser_llm_failed=%s", exc.__class__.__name__)
     merged = merge_rule_and_llm_parse(rule_candidate, llm_candidate)
+    if merged.intent_type == "bundle_recommendation" and not merged.bundle_slots:
+        try:
+            generated_slots = await generate_scene_slots_with_llm(message, catalog_summary=default_catalog_summary())
+            if generated_slots:
+                merged = merged.model_copy(update={"bundle_slots": generated_slots, "source": "hybrid"})
+        except LLMGenerationError as exc:
+            logger.info("scene_slot_generator_failed=%s", exc)
+        except Exception as exc:
+            logger.info("scene_slot_generator_failed=%s", exc.__class__.__name__)
     compiled = compile_executable_turn(merged)
     return post_validate_parsed_turn(compiled, default_catalog_summary(), chat_history, conversation_state)
 
@@ -119,6 +137,11 @@ def parse_turn_with_rules(
         return ParsedTurn(raw_message=raw, intent_type="greeting", route_hint="no_tool")
     if any(term in raw for term in ["你能做什么", "你会什么", "怎么用"]):
         return ParsedTurn(raw_message=raw, intent_type="capability_question", route_hint="no_tool")
+    if _is_explicit_single_product_replenishment(raw):
+        _apply_catalog_terms(raw, constraints)
+        _apply_price(raw, constraints)
+        _apply_brand_filters(raw, constraints)
+        return ParsedTurn(raw_message=raw, intent_type="product_search", route_hint="direct_tool", constraints=constraints, source="rule")
     if _is_bundle_request(raw):
         return ParsedTurn(raw_message=raw, intent_type="bundle_recommendation", route_hint="direct_tool", source="rule")
     if _is_ambiguous_action_request(raw):
@@ -196,7 +219,19 @@ def merge_rule_and_llm_parse(rule_parse: ParsedTurnCandidate, llm_parse: ParsedT
     if llm_parse is None:
         return rule_parse.model_copy(update={"source": "rule"})
 
+    if rule_parse.intent_type == "bundle_recommendation":
+        if llm_parse.intent_type == "bundle_recommendation" and llm_parse.bundle_slots:
+            return llm_parse.model_copy(update={"source": "hybrid"})
+        return rule_parse.model_copy(update={"source": "rule"})
+
     if _locks_rule_intent(rule_parse):
+        return rule_parse.model_copy(update={"source": "rule"})
+
+    if (
+        rule_parse.intent_type == "product_search"
+        and _is_explicit_single_product_replenishment(rule_parse.raw_message)
+        and rule_parse.product_mentions
+    ):
         return rule_parse.model_copy(update={"source": "rule"})
 
     intent_type = llm_parse.intent_type if llm_parse.intent_type != "unknown" else rule_parse.intent_type
@@ -265,6 +300,17 @@ def post_validate_parsed_turn(
     parsed = compiled
     if parsed.is_unknown_short_query:
         return parsed
+
+    safety_question = build_safety_clarification_question(parsed, constraints)
+    if safety_question:
+        return parsed.model_copy(
+            update={
+                "needs_clarification": True,
+                "route_hint": "no_tool",
+                "clarification_question": safety_question,
+                "retrieval_policy_hint": retrieval,
+            }
+        )
 
     if _needs_preference_clarification(parsed, constraints, has_context):
         return parsed.model_copy(
@@ -459,12 +505,21 @@ def _matches_catalog(raw: str) -> bool:
     return any(term in raw for item in CATALOG_TERMS for term in item["terms"])
 
 
+def _is_explicit_single_product_replenishment(raw: str) -> bool:
+    product_terms = ("酱油", "生抽", "老抽", "调味品", "调味料")
+    replenishment_terms = ("没了", "用完", "缺", "补", "买", "推荐", "来一瓶", "来点")
+    return any(term in raw for term in product_terms) and any(term in raw for term in replenishment_terms)
+
+
 def _is_bundle_request(raw: str) -> bool:
+    if is_scene_bundle_request(raw):
+        return True
     has_bundle_word = any(term in raw for term in ("搭配", "一套", "方案", "组合", "清单", "从", "到"))
-    has_scene_word = any(term in raw for term in ("度假", "三亚", "海边", "沙滩", "旅行", "通勤", "上班", "户外"))
+    has_scene_word = any(term in raw for term in ("度假", "三亚", "海边", "沙滩", "旅行", "通勤", "上班", "户外", "下水", "游泳", "泳池"))
     has_ecosystem_word = any(term in raw for term in ("互联", "生态", "协同", "跨屏", "同品牌", "全家桶"))
     has_digital_word = any(term in raw for term in ("手机", "电脑", "笔记本", "平板", "耳机", "手表"))
-    return has_bundle_word and (has_scene_word or (has_ecosystem_word and has_digital_word))
+    strong_bundle_word = any(term in raw for term in ("搭配", "一套", "方案", "组合", "清单"))
+    return has_bundle_word and (has_scene_word or (has_ecosystem_word and has_digital_word) or strong_bundle_word)
 
 
 def _is_ambiguous_action_request(raw: str) -> bool:

@@ -67,6 +67,41 @@ async def semantic_bundle_llm(message, *args, **kwargs):
     )
 
 
+async def wrong_bundle_for_single_product_llm(message, *args, **kwargs):
+    return ParsedTurnCandidate(
+        raw_message=message,
+        intent_type="bundle_recommendation",
+        proposed_tool="bundle_recommendation",
+        core_product_query="\u7ec4\u5408\u642d\u914d",
+        bundle_slots=[
+            BundleSlotCandidate(key="core", title="\u6838\u5fc3\u5546\u54c1", query=message),
+            BundleSlotCandidate(key="accessory", title="\u914d\u5957\u5546\u54c1", query=f"{message} \u914d\u5957"),
+        ],
+        source="llm",
+    )
+
+
+async def generated_dorm_scene_slots(message, *args, **kwargs):
+    return [
+        BundleSlotCandidate(
+            key="bedding",
+            title="\u5e8a\u54c1",
+            query="\u5bbf\u820d \u5e8a\u54c1 \u88ab\u5b50",
+            reason="\u5bbf\u820d\u4f4f\u5bbf\u9700\u8981\u57fa\u7840\u5e8a\u54c1\u3002",
+            product_mentions=["\u88ab\u5b50"],
+            scene_terms=["\u5bbf\u820d", "\u5f00\u5b66"],
+        ),
+        BundleSlotCandidate(
+            key="storage",
+            title="\u6536\u7eb3",
+            query="\u5bbf\u820d \u6536\u7eb3\u7bb1",
+            reason="\u5bbf\u820d\u7a7a\u95f4\u6709\u9650\uff0c\u9700\u8981\u6536\u7eb3\u3002",
+            product_mentions=["\u6536\u7eb3\u7bb1"],
+            scene_terms=["\u5bbf\u820d", "\u5f00\u5b66"],
+        ),
+    ]
+
+
 async def semantic_printer_ink_llm(message, *args, **kwargs):
     return ParsedTurnCandidate(
         raw_message=message,
@@ -277,6 +312,94 @@ class TurnParserHybridTest(unittest.TestCase):
         self.assertEqual(parsed.route_hint, "direct_tool")
         self.assertEqual(parsed.constraints.required_terms, [])
         self.assertEqual([slot.key for slot in parsed.bundle_slots], ["phone", "computer"])
+
+    def test_single_product_replenishment_not_overridden_by_bundle_llm(self) -> None:
+        with patch("app.turn_parser_hybrid.parse_turn_with_llm", new=wrong_bundle_for_single_product_llm):
+            parsed = asyncio.run(
+                parse_turn_hybrid(
+                    "\u5bb6\u91cc\u9171\u6cb9\u6ca1\u4e86",
+                    chat_history=None,
+                    conversation_state={"last_query": "\u7ed9\u6211\u63a8\u8350\u4e00\u5957\u4e0b\u6c34\u6e38\u6cf3\u88c5\u5907"},
+                )
+            )
+
+        self.assertEqual(parsed.intent_type, "product_search")
+        self.assertEqual(parsed.route_hint, "direct_tool")
+        self.assertEqual(parsed.bundle_slots, [])
+        self.assertIn("\u98df\u54c1\u996e\u6599", parsed.constraints.categories)
+        self.assertEqual(parsed.constraints.required_terms, ["\u9171\u6cb9"])
+        self.assertFalse(parsed.retrieval_policy_hint.allow_popular_fallback)
+
+    def test_swimming_bundle_uses_strict_swim_slots(self) -> None:
+        parsed = parse("\u7ed9\u6211\u63a8\u8350\u4e00\u5957\u4e0b\u6c34\u6e38\u6cf3\u88c5\u5907")
+
+        self.assertEqual(parsed.intent_type, "bundle_recommendation")
+        self.assertEqual(parsed.route_hint, "direct_tool")
+        self.assertGreaterEqual(len(parsed.bundle_slots), 3)
+        self.assertIn("swimwear", [slot.key for slot in parsed.bundle_slots])
+        self.assertIn("goggles", [slot.key for slot in parsed.bundle_slots])
+        self.assertIn("swim_cap", [slot.key for slot in parsed.bundle_slots])
+        self.assertTrue(any("\u6cf3\u955c" in slot.product_mentions for slot in parsed.bundle_slots))
+
+    def test_unknown_scene_bundle_can_be_filled_by_dynamic_generator(self) -> None:
+        with patch("app.turn_parser_hybrid.parse_turn_with_llm", new=fail_llm), patch(
+            "app.turn_parser_hybrid.generate_scene_slots_with_llm",
+            new=generated_dorm_scene_slots,
+        ):
+            parsed = asyncio.run(
+                parse_turn_hybrid(
+                    "\u5bbf\u820d\u5f00\u5b66\u6e05\u5355",
+                    chat_history=None,
+                    conversation_state={},
+                )
+            )
+
+        self.assertEqual(parsed.intent_type, "bundle_recommendation")
+        self.assertEqual([slot.key for slot in parsed.bundle_slots], ["bedding", "storage"])
+        self.assertIn("\u88ab\u5b50", parsed.bundle_slots[0].product_mentions)
+
+    def test_food_search_asks_safety_clarification(self) -> None:
+        parsed = parse("\u63a8\u8350\u96f6\u98df")
+
+        self.assertTrue(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "no_tool")
+        self.assertIn("\u8fc7\u654f", parsed.clarification_question or "")
+        self.assertIn("\u5fcc\u53e3", parsed.clarification_question or "")
+
+    def test_vague_food_allergy_asks_specific_allergen(self) -> None:
+        parsed = parse("\u5e2e\u6211\u63a8\u8350\u51e0\u6b3e\u96f6\u98df\uff0c\u4f46\u5bf9\u67d0\u4e9b\u4e1c\u897f\u8fc7\u654f")
+
+        self.assertTrue(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "no_tool")
+        self.assertIn("\u5177\u4f53\u5bf9\u4ec0\u4e48\u8fc7\u654f", parsed.clarification_question or "")
+
+    def test_specific_food_allergy_does_not_block_search(self) -> None:
+        parsed = parse("\u63a8\u8350\u96f6\u98df\uff0c\u6211\u575a\u679c\u8fc7\u654f")
+
+        self.assertFalse(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "direct_tool")
+
+    def test_skincare_search_asks_safety_clarification(self) -> None:
+        parsed = parse("\u63a8\u8350\u9762\u971c")
+
+        self.assertTrue(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "no_tool")
+        self.assertIn("\u80a4\u8d28", parsed.clarification_question or "")
+
+    def test_sport_shoe_search_asks_health_fit_clarification(self) -> None:
+        parsed = parse("\u63a8\u8350\u8dd1\u6b65\u978b")
+
+        self.assertTrue(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "no_tool")
+        self.assertIn("\u811a\u5bbd", parsed.clarification_question or "")
+
+    def test_specific_replenishment_does_not_force_safety_clarification(self) -> None:
+        parsed = parse("\u5bb6\u91cc\u9171\u6cb9\u6ca1\u4e86")
+
+        self.assertEqual(parsed.intent_type, "product_search")
+        self.assertEqual(parsed.route_hint, "direct_tool")
+        self.assertFalse(parsed.needs_clarification)
+        self.assertEqual(parsed.constraints.required_terms, ["\u9171\u6cb9"])
 
 
 if __name__ == "__main__":

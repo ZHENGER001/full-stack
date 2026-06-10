@@ -24,8 +24,11 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
     image_id = request.image_id
     current_product_id = request.current_product_id
     cart_context = request.cart_context or []
+    early_delta_sent = False
 
     legacy.ensure_session(conn, session_id)
+    yield legacy.sse_event("delta", {"text": "收到，正在努力分析中。\n"})
+    early_delta_sent = True
     if current_product_id and legacy.product_exists(conn, current_product_id):
         legacy.update_session_state(conn, session_id, current_product_id=current_product_id)
     previous_chat_history = legacy.load_chat_history(conn, session_id)
@@ -172,7 +175,13 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
     )
     parsed_filters = retrieval_result.parsed_filters
     logger.info("agent_final_user_query=%s parsed_filters=%s", final_user_query, parsed_filters)
-    for waiting_text in legacy.build_waiting_deltas(message, parsed_filters, image_id, bool(state.chat_history)):
+    for waiting_text in legacy.build_waiting_deltas(
+        message,
+        parsed_filters,
+        image_id,
+        bool(state.chat_history),
+        skip_generic_intro=early_delta_sent,
+    ):
         yield legacy.sse_event("delta", {"text": f"{waiting_text}\n"})
         time.sleep(0.25)
     yield legacy.sse_event(

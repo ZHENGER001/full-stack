@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .catalog_grounder import CatalogGroundingResult, ground_catalog_terms
 from .parser_safety import compact_text, safe_candidate_terms
+from .scene_slots import bundle_slot_candidates_for_message
 from .turn_schema import BundleSlotCandidate, ParsedTurn, ParsedTurnCandidate, RetrievalPolicyHint, TurnConstraints
 
 
@@ -23,6 +24,8 @@ PROTECTED_INTENTS = {
 def compile_executable_turn(candidate: ParsedTurnCandidate) -> ParsedTurn:
     raw = candidate.raw_message or ""
     constraints = TurnConstraints(
+        categories=list(candidate.category_mentions),
+        subcategories=list(candidate.subcategory_mentions),
         brands_include=list(candidate.brands_include),
         brands_exclude=list(candidate.brands_exclude),
         attributes_include=list(candidate.attributes_include),
@@ -32,6 +35,9 @@ def compile_executable_turn(candidate: ParsedTurnCandidate) -> ParsedTurn:
         negative_terms=list(candidate.negative_terms),
     )
     normalized_query = _core_query(candidate)
+
+    if candidate.intent_type == "bundle_recommendation" and _looks_like_single_product_replenishment(raw):
+        candidate = candidate.model_copy(update={"intent_type": "product_search", "bundle_slots": []})
 
     if candidate.intent_type == "bundle_recommendation":
         return ParsedTurn(
@@ -128,6 +134,26 @@ def compile_executable_turn(candidate: ParsedTurnCandidate) -> ParsedTurn:
                 "is_unknown_short_query": True,
             }
         )
+
+    if candidate.product_mentions:
+        constraints.required_terms = safe_candidate_terms(grounding.core_query or raw, list(candidate.product_mentions))
+        if constraints.required_terms:
+            retrieval = RetrievalPolicyHint(
+                match_mode="exact_or_none",
+                allow_popular_fallback=False,
+                allow_dense_only=False,
+                require_lexical_anchor=True,
+            )
+            return parsed.model_copy(
+                update={
+                    "intent_type": "product_search" if parsed.intent_type == "unknown" else parsed.intent_type,
+                    "route_hint": "direct_tool",
+                    "normalized_query": grounding.core_query or parsed.normalized_query,
+                    "constraints": constraints,
+                    "retrieval_policy_hint": retrieval,
+                    "is_unknown_short_query": False,
+                }
+            )
 
     constraints.required_terms = safe_candidate_terms(grounding.core_query or raw, constraints.required_terms)
     return parsed.model_copy(
@@ -229,13 +255,14 @@ def _compile_bundle_slots(candidate: ParsedTurnCandidate) -> list[BundleSlotCand
         slot_query = compact_text(slot.query or " ".join(slot.product_mentions) or slot.title)
         grounding = ground_catalog_terms(slot_query, [*slot.product_mentions, slot_query])
         grounded_terms = _grounded_required_terms(grounding)
+        explicit_terms = safe_candidate_terms(slot_query, slot.product_mentions)
         compiled.append(
             BundleSlotCandidate(
                 key=slot.key or f"slot_{index}",
                 title=slot.title or f"搭配项{index}",
                 query=grounding.core_query or slot_query,
                 reason=slot.reason,
-                product_mentions=grounded_terms or safe_candidate_terms(slot_query, slot.product_mentions),
+                product_mentions=explicit_terms or grounded_terms,
                 attributes_include=list(slot.attributes_include),
                 scene_terms=_merge_unique(list(candidate.scene_terms), list(slot.scene_terms)),
             )
@@ -254,26 +281,9 @@ def _grounded_required_terms(grounding: CatalogGroundingResult) -> list[str]:
 
 def _fallback_bundle_slots(raw: str, candidate: ParsedTurnCandidate) -> list[BundleSlotCandidate]:
     text = raw or candidate.core_product_query or ""
-    if any(term in text for term in ("三亚", "海边", "海岛", "沙滩", "度假")):
-        return [
-            BundleSlotCandidate(key="sunscreen", title="防晒打底", query="SPF50 防水 防晒霜 海边 户外", reason="海边紫外线强，先用高倍防晒做基础防护。", product_mentions=["防晒"]),
-            BundleSlotCandidate(key="sun_protection", title="物理防晒", query="轻薄 防晒衣 透气 户外", reason="减少长时间暴晒。"),
-            BundleSlotCandidate(key="shoes", title="鞋履", query="沙滩 凉鞋 防滑 轻便", reason="沙滩和酒店来回走动需要防滑轻便。", product_mentions=["鞋"]),
-            BundleSlotCandidate(key="bag", title="随身收纳", query="防水包 旅行 背包 轻便", reason="收纳手机证件和随身物品。", product_mentions=["背包"]),
-            BundleSlotCandidate(key="repair", title="晒后护理", query="晒后修复 补水 舒缓 护肤", reason="晚上做晒后舒缓。"),
-        ]
-    if _looks_like_digital_ecosystem(text):
-        return [
-            BundleSlotCandidate(key="phone", title="手机", query="智能手机 互联 生态 协同", reason="作为互联生态的核心设备。", product_mentions=["手机"]),
-            BundleSlotCandidate(key="computer", title="电脑或平板", query="笔记本电脑 平板 互联 协同", reason="和手机形成跨设备办公与内容同步。", product_mentions=["笔记本", "平板"]),
-            BundleSlotCandidate(key="audio_wearable", title="耳机或手表", query="耳机 手表 互联 生态 配套", reason="补齐通话、音频或随身通知体验。", product_mentions=["耳机", "手表"]),
-        ]
-    if any(term in text for term in ("通勤", "上班", "上学")):
-        return [
-            BundleSlotCandidate(key="top", title="上装", query="通勤 轻薄 外套 卫衣", reason="兼顾室内外温差。"),
-            BundleSlotCandidate(key="shoes", title="鞋履", query="通勤 运动鞋 舒适", reason="适合长时间走路。", product_mentions=["鞋"]),
-            BundleSlotCandidate(key="bag", title="包袋", query="通勤 背包 轻便 容量", reason="收纳电脑和随身物品。", product_mentions=["背包"]),
-        ]
+    configured_slots = bundle_slot_candidates_for_message(text)
+    if configured_slots:
+        return configured_slots
     core = candidate.core_product_query or text
     return [
         BundleSlotCandidate(key="core", title="核心商品", query=core, reason="先匹配描述里最核心的商品需求。", product_mentions=list(candidate.product_mentions)),
@@ -281,12 +291,10 @@ def _fallback_bundle_slots(raw: str, candidate: ParsedTurnCandidate) -> list[Bun
     ]
 
 
-def _looks_like_digital_ecosystem(text: str) -> bool:
-    return (
-        any(term in text for term in ("一套", "配套", "搭配", "组合", "全家桶"))
-        and any(term in text for term in ("互联", "生态", "协同", "跨屏", "同品牌"))
-        and any(term in text for term in ("手机", "电脑", "笔记本", "平板", "耳机", "手表"))
-    )
+def _looks_like_single_product_replenishment(text: str) -> bool:
+    product_terms = ("酱油", "生抽", "老抽", "调味品", "调味料")
+    replenishment_terms = ("没了", "用完", "缺", "补", "买", "推荐", "来一瓶", "来点")
+    return any(term in text for term in product_terms) and any(term in text for term in replenishment_terms)
 
 
 def _merge_unique(first: list[str], second: list[str]) -> list[str]:
