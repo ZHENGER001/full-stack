@@ -32,10 +32,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,28 +43,39 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -75,6 +86,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,6 +102,7 @@ import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.smartshop.ai.data.mock.MockData
+import com.smartshop.ai.data.model.ShippingAddress
 import com.smartshop.ai.ui.components.ChatBubble
 import com.smartshop.ai.ui.navigation.Screen
 import com.smartshop.ai.ui.theme.Primary
@@ -114,9 +128,13 @@ fun ChatScreen(
     val messages by viewModel.messages.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val isTyping by viewModel.isTyping.collectAsState()
+    val addressUiState by viewModel.addressUiState.collectAsState()
     val listState = rememberLazyListState()
+    val addressSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
@@ -127,9 +145,31 @@ fun ChatScreen(
     var preferBackendVoice by remember { mutableStateOf(false) }
     var textToSpeech by remember { mutableStateOf<TextToSpeech?>(null) }
     var isTtsReady by remember { mutableStateOf(false) }
+    var ttsUnavailableMessage by remember { mutableStateOf<String?>(null) }
+    var ttsInitAttempt by remember { mutableStateOf(0) }
     var speakingMessageId by remember { mutableStateOf<String?>(null) }
     var shouldAutoSpeakVoiceReply by remember { mutableStateOf(false) }
     var voiceRequestStartedAt by remember { mutableStateOf<Long?>(null) }
+    var showAddressSheet by remember { mutableStateOf(false) }
+    var refreshCheckoutAfterAddressSave by remember { mutableStateOf(false) }
+
+    fun hideKeyboard() {
+        keyboardController?.hide()
+        focusManager.clearFocus()
+    }
+
+    fun openAddressSheet(refreshCheckoutAfterSave: Boolean) {
+        hideKeyboard()
+        refreshCheckoutAfterAddressSave = refreshCheckoutAfterSave
+        showAddressSheet = true
+        viewModel.loadAddresses()
+    }
+
+    fun sendChatMessage(text: String = inputText) {
+        if (text.isBlank()) return
+        hideKeyboard()
+        viewModel.sendMessage(text)
+    }
 
     fun createChatCameraUri(): Uri {
         val imageDir = File(context.cacheDir, "chat_images").apply { mkdirs() }
@@ -147,15 +187,26 @@ fun ChatScreen(
         cameraLauncher.launch(uri)
     }
 
-    DisposableEffect(context) {
+    DisposableEffect(context, ttsInitAttempt) {
         var ttsRef: TextToSpeech? = null
         val tts = TextToSpeech(context.applicationContext) { status ->
             mainHandler.post {
                 if (status == TextToSpeech.SUCCESS) {
-                    ttsRef?.setLanguage(Locale.getDefault())
-                    isTtsReady = true
+                    val languageResult = ttsRef?.setLanguage(Locale.SIMPLIFIED_CHINESE) ?: TextToSpeech.ERROR
+                    val isChineseSupported = languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                        languageResult != TextToSpeech.LANG_NOT_SUPPORTED &&
+                        languageResult != TextToSpeech.ERROR
+                    isTtsReady = isChineseSupported
+                    ttsUnavailableMessage = if (isChineseSupported) {
+                        ttsRef?.setSpeechRate(0.95f)
+                        ttsRef?.setPitch(1.0f)
+                        null
+                    } else {
+                        "当前手机文字转语音不支持中文，请在系统 TTS 设置里安装中文语音包或更换引擎"
+                    }
                 } else {
                     isTtsReady = false
+                    ttsUnavailableMessage = "语音朗读初始化失败，请检查系统文字转语音引擎，或稍后再点一次重试"
                 }
             }
         }
@@ -192,6 +243,7 @@ fun ChatScreen(
             tts.shutdown()
             textToSpeech = null
             isTtsReady = false
+            ttsUnavailableMessage = null
             speakingMessageId = null
         }
     }
@@ -213,7 +265,15 @@ fun ChatScreen(
         if (text.isBlank()) return
         val tts = textToSpeech
         if (tts == null || !isTtsReady) {
-            coroutineScope.launch { snackbarHostState.showSnackbar("语音朗读初始化中，请稍后再试") }
+            val message = if (tts == null) {
+                "语音朗读初始化中，请稍后再试"
+            } else {
+                ttsUnavailableMessage ?: "语音朗读暂不可用，请稍后再试"
+            }
+            if (tts != null) {
+                ttsInitAttempt += 1
+            }
+            coroutineScope.launch { snackbarHostState.showSnackbar(message) }
             return
         }
         if (speakingMessageId == messageId) {
@@ -250,6 +310,7 @@ fun ChatScreen(
         stopAssistantSpeech()
         voiceRequestStartedAt = System.currentTimeMillis()
         shouldAutoSpeakVoiceReply = true
+        hideKeyboard()
         viewModel.sendMessage(spokenText)
     }
 
@@ -387,13 +448,19 @@ fun ChatScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        uri?.let { viewModel.sendMessage(imageUri = it) }
+        uri?.let {
+            hideKeyboard()
+            viewModel.sendMessage(imageUri = it)
+        }
     }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success) {
-            pendingCameraUri?.let { viewModel.sendMessage(imageUri = it) }
+            pendingCameraUri?.let {
+                hideKeyboard()
+                viewModel.sendMessage(imageUri = it)
+            }
         } else {
             coroutineScope.launch { snackbarHostState.showSnackbar("未完成拍照") }
         }
@@ -446,6 +513,41 @@ fun ChatScreen(
         viewModel.events.collect { message ->
             snackbarHostState.showSnackbar(message)
         }
+    }
+
+    if (showAddressSheet) {
+        ChatAddressManagementSheet(
+            sheetState = addressSheetState,
+            uiState = addressUiState,
+            onDismiss = {
+                showAddressSheet = false
+                refreshCheckoutAfterAddressSave = false
+            },
+            onOpenFullAddressPage = {
+                showAddressSheet = false
+                refreshCheckoutAfterAddressSave = false
+                navController.navigate(Screen.Addresses.route) {
+                    launchSingleTop = true
+                }
+            },
+            onSave = { receiver, phone, province, city, district, detail, isDefault ->
+                viewModel.addAddress(
+                    receiverName = receiver,
+                    phone = phone,
+                    province = province,
+                    city = city,
+                    district = district,
+                    detail = detail,
+                    isDefault = isDefault
+                ) {
+                    showAddressSheet = false
+                    if (refreshCheckoutAfterAddressSave) {
+                        refreshCheckoutAfterAddressSave = false
+                        viewModel.sendMessage(text = "结算", displayText = "已更新收货地址")
+                    }
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -516,7 +618,7 @@ fun ChatScreen(
                     }
                 },
                 voiceInputState = voiceInputState,
-                onSend = { viewModel.sendMessage(inputText) }
+                onSend = { sendChatMessage() }
             )
         }
     ) { paddingValues ->
@@ -525,7 +627,6 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.background)
-                .imePadding()
         ) {
             // Quick suggestions shown only when conversation just started
             AnimatedVisibility(
@@ -544,7 +645,7 @@ fun ChatScreen(
                     ) {
                         items(MockData.quickSuggestions) { suggestion ->
                             SuggestionChip(
-                                onClick = { viewModel.sendMessage(suggestion) },
+                                onClick = { sendChatMessage(suggestion) },
                                 label = {
                                     Text(
                                         text = suggestion,
@@ -589,8 +690,22 @@ fun ChatScreen(
                             navController.navigate(Screen.ProductDetail.createRoute(productId))
                         },
                         onAddToCart = { productId -> viewModel.requestAddToCart(productId) },
+                        onBatchCartConfirm = { batchCart, selectedSkuIds ->
+                            hideKeyboard()
+                            viewModel.confirmBatchCart(batchCart, selectedSkuIds)
+                        },
                         onOpenCart = {
                             navController.navigate(Screen.Cart.route) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onOpenOrders = {
+                            navController.navigate(Screen.Orders.route) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onContinueShopping = {
+                            navController.navigate(Screen.Home.route) {
                                 launchSingleTop = true
                             }
                         },
@@ -613,18 +728,247 @@ fun ChatScreen(
                                     }
                                 }
                                 "search_more" -> {
-                                    if (action.label == "修改收货地址") {
-                                        navController.navigate(Screen.Addresses.route) {
-                                            launchSingleTop = true
-                                        }
+                                    if (action.label == "修改收货地址" || action.label == "修改地址") {
+                                        openAddressSheet(refreshCheckoutAfterSave = true)
                                     } else {
-                                        viewModel.sendMessage(action.label)
+                                        sendChatMessage(action.label)
                                     }
                                 }
                             }
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatAddressManagementSheet(
+    sheetState: SheetState,
+    uiState: ChatAddressUiState,
+    onDismiss: () -> Unit,
+    onOpenFullAddressPage: () -> Unit,
+    onSave: (String, String, String, String, String, String, Boolean) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.88f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "修改收货地址",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "保存后将作为本次下单默认地址",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("关闭")
+                }
+            }
+
+            Button(
+                onClick = onOpenFullAddressPage,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("进入地址管理页")
+            }
+
+            when {
+                uiState.isLoading -> Text(
+                    text = "正在加载地址...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                uiState.addresses.isEmpty() -> Text(
+                    text = "暂无收货地址",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                else -> {
+                    Text(
+                        text = "当前地址",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    uiState.addresses.forEach { address ->
+                        ChatAddressCard(address = address)
+                    }
+                }
+            }
+
+            if (!uiState.errorMessage.isNullOrBlank()) {
+                Text(
+                    text = uiState.errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            ChatAddressForm(
+                isSaving = uiState.isSaving,
+                onSave = onSave
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+    }
+}
+
+@Composable
+private fun ChatAddressCard(address: ShippingAddress) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = address.receiverName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = address.phone,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (address.isDefault) {
+                    Text(
+                        text = "默认",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Primary
+                    )
+                }
+            }
+            Text(
+                text = address.fullText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChatAddressForm(
+    isSaving: Boolean,
+    onSave: (String, String, String, String, String, String, Boolean) -> Unit
+) {
+    var receiver by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var province by remember { mutableStateOf("广东省") }
+    var city by remember { mutableStateOf("深圳市") }
+    var district by remember { mutableStateOf("南山区") }
+    var detail by remember { mutableStateOf("") }
+    var isDefault by remember { mutableStateOf(true) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "新增地址",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            OutlinedTextField(
+                value = receiver,
+                onValueChange = { receiver = it },
+                label = { Text("收货人") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = { Text("手机号") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = province,
+                    onValueChange = { province = it },
+                    label = { Text("省") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = city,
+                    onValueChange = { city = it },
+                    label = { Text("市") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            OutlinedTextField(
+                value = district,
+                onValueChange = { district = it },
+                label = { Text("区") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = detail,
+                onValueChange = { detail = it },
+                label = { Text("详细地址") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = isDefault, onCheckedChange = { isDefault = it })
+                Text("设为默认地址")
+            }
+            Button(
+                onClick = {
+                    onSave(
+                        receiver.trim(),
+                        phone.trim(),
+                        province.trim(),
+                        city.trim(),
+                        district.trim(),
+                        detail.trim(),
+                        isDefault
+                    )
+                },
+                enabled = !isSaving &&
+                    receiver.isNotBlank() &&
+                    phone.isNotBlank() &&
+                    province.isNotBlank() &&
+                    city.isNotBlank() &&
+                    district.isNotBlank() &&
+                    detail.isNotBlank(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isSaving) "保存中..." else "保存地址")
             }
         }
     }

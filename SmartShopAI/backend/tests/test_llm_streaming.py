@@ -34,6 +34,21 @@ class LlmStreamingTest(unittest.TestCase):
         self.assertGreaterEqual(len(deltas), 2)
         self.assertIn("排除", deltas[0])
 
+    def test_waiting_deltas_skip_generic_after_early_delta(self) -> None:
+        deltas = build_waiting_deltas(
+            message="除了耐克还有什么球鞋",
+            parsed_filters={"excluded_brands": ["Nike"]},
+            image_id=None,
+            has_chat_history=False,
+            skip_generic_intro=True,
+        )
+
+        combined = "\n".join(deltas)
+        self.assertNotIn("收到", combined)
+        self.assertNotIn("好的", combined)
+        self.assertNotIn("正在匹配", combined)
+        self.assertTrue(any("排除" in item for item in deltas))
+
     def test_streams_llm_chunks_as_delta_events(self) -> None:
         async def fake_stream(*_args, **_kwargs):
             yield "找到"
@@ -49,8 +64,9 @@ class LlmStreamingTest(unittest.TestCase):
         parsed = [event_payload(event) for event in events]
         self.assertEqual(parsed[0][0], "llm_status")
         self.assertEqual(parsed[0][1]["mode"], "calling")
-        self.assertEqual(parsed[1], ("delta", {"text": "找到"}))
-        self.assertEqual(parsed[2], ("delta", {"text": "手机"}))
+        non_empty_deltas = [item for item in parsed if item[0] == "delta" and item[1]["text"].strip()]
+        self.assertEqual(non_empty_deltas[0], ("delta", {"text": "找到"}))
+        self.assertEqual(non_empty_deltas[1], ("delta", {"text": "手机"}))
         self.assertEqual(result[0], "找到手机")
         self.assertEqual(result[1]["mode"], "llm_stream")
         self.assertEqual(result[1]["model"], "test-model")
@@ -67,8 +83,8 @@ class LlmStreamingTest(unittest.TestCase):
         parsed = [event_payload(event) for event in events]
         self.assertEqual(parsed[0][0], "llm_status")
         self.assertEqual(parsed[0][1]["mode"], "calling")
-        self.assertEqual(parsed[1][0], "delta")
-        self.assertIn("测试手机", parsed[1][1]["text"])
+        non_empty_deltas = [item for item in parsed if item[0] == "delta" and item[1]["text"].strip()]
+        self.assertIn("测试手机", non_empty_deltas[0][1]["text"])
         self.assertEqual(result[1]["mode"], "fallback")
         self.assertEqual(result[1]["reason"], "boom")
 

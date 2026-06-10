@@ -18,6 +18,9 @@ def get_connection() -> sqlite3.Connection:
     connection = sqlite3.connect(settings.database_path)
     connection.row_factory = dict_factory
     connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("PRAGMA busy_timeout = 5000")
+    if settings.database_path.name != ":memory:":
+        connection.execute("PRAGMA journal_mode = WAL")
     return connection
 
 
@@ -48,12 +51,31 @@ def initialize_database() -> None:
         _ensure_column(db, "chat_sessions", "last_recommended_product_ids", "TEXT")
         _ensure_column(db, "chat_sessions", "current_product_id", "TEXT")
         _ensure_column(db, "chat_sessions", "last_actions", "TEXT")
+        _ensure_column(db, "chat_sessions", "structured_state_json", "TEXT")
+        _ensure_query_cache_table(db)
 
 
 def _ensure_column(db: sqlite3.Connection, table: str, column: str, definition: str) -> None:
     columns = {row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
     if column not in columns:
         db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
+def _ensure_query_cache_table(db: sqlite3.Connection) -> None:
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS query_cache_entries (
+            cache_key TEXT PRIMARY KEY,
+            query_text TEXT NOT NULL DEFAULT '',
+            payload_json TEXT NOT NULL,
+            created_at REAL NOT NULL,
+            expires_at REAL NOT NULL,
+            hit_count INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_query_cache_expires ON query_cache_entries(expires_at)")
 
 
 def _sku_name(properties: dict[str, str]) -> str:

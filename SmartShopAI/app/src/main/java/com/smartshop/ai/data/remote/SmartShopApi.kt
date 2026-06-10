@@ -123,6 +123,7 @@ data class ProductCardDto(
     val price: Double,
     val rating: Float,
     val image_path: String,
+    val recommendation_title: String? = null,
     val reason: String?,
     val marketing_description: String? = null,
     val review_count: Int = 0,

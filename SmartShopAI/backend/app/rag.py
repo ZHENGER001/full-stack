@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from .query_parser import has_hard_filters
+from .query_parser import has_hard_filters, narrow_to_explicit_subcategories
 from .query_router import ParsedQuery, parse_query
 from .retrieval import hybrid_search_products
 from .search_document import build_search_keywords
@@ -94,11 +94,17 @@ def search_products_for_agent_with_diagnostics(
         if not cards:
             alternative_cards = build_alternative_products(retrieval_result.candidates, parsed_query.filters, limit)
 
+    retrieval_degradation = retrieval_result.diagnostics.get("degradation", {})
     diagnostics = {
         **retrieval_result.diagnostics,
         "verifier": verification.diagnostics,
         "confidence": confidence_diagnostics,
-        "fallback": {"used": fallback_used},
+        "fallback": {
+            "used": bool(fallback_used or retrieval_degradation.get("used")),
+            "popular_fallback_used": fallback_used,
+            "retrieval_degraded": bool(retrieval_degradation.get("used")),
+            "reason": "popular_products" if fallback_used else retrieval_degradation.get("reason"),
+        },
         "alternatives": {
             "used": bool(alternative_cards),
             "reason": "price_relaxed" if alternative_cards else None,
@@ -204,13 +210,14 @@ def apply_tool_constraints(
     if filters.get("match_mode") == "exact_or_none":
         route_notes.append("exact_or_none")
 
+    filters = narrow_to_explicit_subcategories(filters, parsed_query.raw_query)
     expansion_terms = [
-        parsed_query.rewritten_query,
-        *categories,
-        *subcategories,
-        *required_terms,
-        *attributes_include,
-        *scene_terms,
+        parsed_query.raw_query,
+        *(filters.get("target_categories") or []),
+        *(filters.get("target_subcategories") or []),
+        *(filters.get("required_terms") or []),
+        *(filters.get("attributes_include") or []),
+        *(filters.get("scene_terms") or []),
     ]
     rewritten_query = " ".join(dict.fromkeys(str(term).strip() for term in expansion_terms if str(term).strip()))
     return ParsedQuery(

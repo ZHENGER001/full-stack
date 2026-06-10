@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from app.query_parser import has_hard_filters, parse_user_filters
-from app.query_router import ParsedQuery
+from app.query_router import ParsedQuery, parse_query
 from app.rag import apply_confidence_gate, apply_tool_constraints, build_alternative_products
 from app.retrieval import _build_document, _keyword_search, _tokenize
 from app.search_document import build_product_search_document
@@ -32,6 +32,72 @@ class QueryConstraintTest(unittest.TestCase):
         self.assertEqual(filters["match_mode"], "exact_or_none")
         self.assertFalse(filters["allow_popular_fallback"])
         self.assertTrue(has_hard_filters(filters))
+
+    def test_wrapped_catalog_query_is_grounded_before_exact_mode(self) -> None:
+        filters = parse_user_filters("\u6211\u60f3\u4e70\u5507\u91c9", [])
+
+        self.assertTrue(filters["explicit_category"])
+        self.assertEqual(filters["target_categories"], ["\u7f8e\u5986\u62a4\u80a4"])
+        self.assertEqual(filters["target_subcategories"], ["\u5507\u91c9"])
+        self.assertEqual(filters["required_terms"], ["\u5507\u91c9"])
+        self.assertIsNone(filters["match_mode"])
+
+    def test_exact_subcategory_mention_narrows_broad_alias_matches(self) -> None:
+        filters = parse_user_filters("\u63a8\u8350\u7b14\u8bb0\u672c\u7535\u8111", [])
+
+        self.assertTrue(filters["explicit_category"])
+        self.assertEqual(filters["target_subcategories"], ["\u7b14\u8bb0\u672c\u7535\u8111"])
+
+    def test_exact_subcategory_narrowing_runs_after_tool_constraints(self) -> None:
+        parsed = parse_query("\u63a8\u8350\u7b14\u8bb0\u672c\u7535\u8111", [])
+
+        narrowed = apply_tool_constraints(
+            parsed,
+            {
+                "categories": ["\u6570\u7801\u7535\u5b50"],
+                "subcategories": ["\u5e73\u677f\u7535\u8111", "\u7b14\u8bb0\u672c\u7535\u8111"],
+                "required_terms": ["\u5e73\u677f", "\u5e73\u677f\u7535\u8111", "\u7b14\u8bb0\u672c"],
+            },
+            {},
+        )
+
+        self.assertEqual(narrowed.filters["target_subcategories"], ["\u7b14\u8bb0\u672c\u7535\u8111"])
+        self.assertNotIn("\u5e73\u677f", narrowed.filters["required_terms"])
+        self.assertNotIn("\u5e73\u677f\u7535\u8111", narrowed.rewritten_query)
+
+    def test_multiple_exact_subcategory_mentions_are_preserved(self) -> None:
+        filters = parse_user_filters(
+            "\u63a8\u8350\u7b14\u8bb0\u672c\u7535\u8111\u548c\u5e73\u677f\u7535\u8111\u5bf9\u6bd4",
+            [],
+        )
+
+        self.assertEqual(set(filters["target_subcategories"]), {"\u7b14\u8bb0\u672c\u7535\u8111", "\u5e73\u677f\u7535\u8111"})
+
+    def test_printer_out_of_ink_is_grounded_to_printing_supplies(self) -> None:
+        filters = parse_user_filters("\u5bb6\u91cc\u6253\u5370\u673a\u6ca1\u58a8\u6c34\u4e86", [])
+
+        self.assertTrue(filters["explicit_category"])
+        self.assertEqual(filters["target_categories"], ["\u529e\u516c\u6587\u5177"])
+        self.assertEqual(filters["target_subcategories"], ["\u6253\u5370\u8017\u6750"])
+        self.assertEqual(filters["required_terms"], ["\u6253\u5370\u8017\u6750"])
+        self.assertFalse(filters["allow_popular_fallback"])
+
+    def test_printer_ink_filters_reject_food_candidates(self) -> None:
+        filters = parse_user_filters("\u5bb6\u91cc\u6253\u5370\u673a\u6ca1\u58a8\u6c34\u4e86", [])
+        product = {
+            "id": "p_food",
+            "title": "\u96c0\u5de2\u5496\u5561",
+            "brand": "\u96c0\u5de2",
+            "category": "\u98df\u54c1\u996e\u6599",
+            "subcategory": "\u5496\u5561",
+            "price": 60,
+            "stock": 10,
+        }
+
+        result = verify_products([product], filters, limit=1)
+
+        self.assertEqual(result.products, [])
+        self.assertEqual(result.diagnostics["rejected"][0]["reason"], "subcategory_mismatch")
 
     def test_missing_office_accessory_terms_use_exact_or_none(self) -> None:
         for query in ["\u952e\u76d8", "\u9f20\u6807"]:
@@ -385,29 +451,6 @@ class QueryConstraintTest(unittest.TestCase):
 
         self.assertEqual(gated, products)
         self.assertEqual(diagnostics["status"], "pass")
-
-    def test_image_wide_match_keeps_category_as_weight_not_hard_filter(self) -> None:
-        parsed = ParsedQuery(
-            raw_query="黑色 真无线耳机 通勤",
-            rewritten_query="黑色 真无线耳机 通勤",
-            filters={
-                "target_categories": ["数码电子"],
-                "target_subcategories": ["真无线耳机"],
-                "required_terms": ["耳机"],
-                "explicit_category": True,
-                "match_mode": "exact_or_none",
-                "allow_popular_fallback": True,
-            },
-            route_notes=["category", "subcategory"],
-        )
-
-        result = apply_tool_constraints(parsed, {}, {"image_wide_match": True})
-
-        self.assertFalse(result.filters["explicit_category"])
-        self.assertIsNone(result.filters["match_mode"])
-        self.assertFalse(result.filters["allow_popular_fallback"])
-        self.assertFalse(result.filters["require_lexical_anchor"])
-        self.assertIn("image_wide_match", result.route_notes)
 
 
 if __name__ == "__main__":

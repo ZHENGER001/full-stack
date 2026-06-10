@@ -3,16 +3,24 @@ package com.smartshop.ai.data.chat
 import android.content.Context
 import android.net.Uri
 import com.smartshop.ai.data.model.ChatAction
+import com.smartshop.ai.data.model.BatchCartContent
+import com.smartshop.ai.data.model.BatchCartItem
+import com.smartshop.ai.data.model.BatchCartSku
 import com.smartshop.ai.data.model.CartItem
+import com.smartshop.ai.data.model.CheckoutConfirmationContent
+import com.smartshop.ai.data.model.CheckoutLineItem
 import com.smartshop.ai.data.model.ComparisonColumn
 import com.smartshop.ai.data.model.ComparisonContent
 import com.smartshop.ai.data.model.ComparisonRow
 import com.smartshop.ai.data.model.ComparisonSection
+import com.smartshop.ai.data.model.OrderSuccessContent
+import com.smartshop.ai.data.model.OrderSuccessItem
 import com.smartshop.ai.data.remote.CartItemDto
 import com.smartshop.ai.data.remote.ChatStreamRequestDto
 import com.smartshop.ai.data.remote.SmartShopApi
 import com.smartshop.ai.data.remote.toCartItem
 import com.smartshop.ai.data.remote.toProduct
+import com.smartshop.ai.data.remote.toSmartShopAssetUrl
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -133,13 +141,14 @@ class AiChatDataSource @Inject constructor(
                         price = item.getDouble("price"),
                         rating = item.optDouble("rating", 0.0).toFloat(),
                         image_path = item.optString("image_path"),
-                        reason = item.optString("reason").ifBlank { null },
-                        marketing_description = item.optString("marketing_description").ifBlank { null },
+                        recommendation_title = item.optNullableString("recommendation_title"),
+                        reason = item.optNullableString("reason"),
+                        marketing_description = item.optNullableString("marketing_description"),
                         review_count = item.optInt("review_count", 0),
                         sku_count = item.optInt("sku_count", 0),
                         faq_count = item.optInt("faq_count", 0),
                         stock = item.optInt("stock", 0),
-                        sku_summary = item.optString("sku_summary").ifBlank { null }
+                        sku_summary = item.optNullableString("sku_summary")
                     ).toProduct()
                 }
                 AiChatEvent.Products(products)
@@ -157,18 +166,22 @@ class AiChatDataSource @Inject constructor(
                         price = item.getDouble("price"),
                         rating = item.optDouble("rating", 0.0).toFloat(),
                         image_path = item.optString("image_path"),
-                        reason = item.optString("reason").ifBlank { null },
-                        marketing_description = item.optString("marketing_description").ifBlank { null },
+                        recommendation_title = item.optNullableString("recommendation_title"),
+                        reason = item.optNullableString("reason"),
+                        marketing_description = item.optNullableString("marketing_description"),
                         review_count = item.optInt("review_count", 0),
                         sku_count = item.optInt("sku_count", 0),
                         faq_count = item.optInt("faq_count", 0),
                         stock = item.optInt("stock", 0),
-                        sku_summary = item.optString("sku_summary").ifBlank { null }
+                        sku_summary = item.optNullableString("sku_summary")
                     ).toProduct()
                 }
                 AiChatEvent.Alternatives(products)
             }
             "comparison" -> AiChatEvent.Comparison(json.toComparisonContent())
+            "batch_cart" -> AiChatEvent.BatchCart(json.toBatchCartContent())
+            "checkout_confirmation" -> AiChatEvent.CheckoutConfirmation(json.toCheckoutConfirmationContent())
+            "order_success" -> AiChatEvent.OrderSuccess(json.toOrderSuccessContent())
             "actions" -> {
                 val actionsJson = json.optJSONArray("actions") ?: return null
                 val actions = (0 until actionsJson.length()).mapNotNull { index ->
@@ -223,6 +236,141 @@ class AiChatDataSource @Inject constructor(
             footnote = optNullableString("footnote")
         )
 
+    private fun JSONObject.toBatchCartContent(): BatchCartContent =
+        BatchCartContent(
+            batchId = optString("batch_id").ifBlank { optString("batchId") },
+            title = optString("title").ifBlank { "批量加入购物车" },
+            message = optString("message"),
+            items = optJSONArray("items").toBatchCartItems()
+        )
+
+    private fun JSONObject.toCheckoutConfirmationContent(): CheckoutConfirmationContent =
+        CheckoutConfirmationContent(
+            title = optString("title").ifBlank { "确认订单" },
+            statusLabel = optString("status_label").ifBlank { optString("statusLabel").ifBlank { "待确认订单" } },
+            receiverName = optString("receiver_name").ifBlank { optString("receiverName").ifBlank { "待补充" } },
+            receiverPhone = optString("receiver_phone").ifBlank { optString("receiverPhone") },
+            address = optString("address").ifBlank { "还没有默认收货地址" },
+            itemCount = optInt("item_count", optInt("itemCount", 0)),
+            lineItemCount = optInt("line_item_count", optInt("lineItemCount", optJSONArray("items")?.length() ?: 0)),
+            productTotal = optDouble("product_total", optDouble("productTotal", 0.0)),
+            payableAmount = optDouble("payable_amount", optDouble("payableAmount", 0.0)),
+            shownLimit = optInt("shown_limit", optInt("shownLimit", 3)).coerceAtLeast(1),
+            previewNotice = optNullableString("preview_notice") ?: optNullableString("previewNotice"),
+            items = optJSONArray("items").toCheckoutLineItems(),
+            actions = optJSONArray("actions").toChatActions(),
+            requiresSecondConfirm = optBoolean(
+                "requires_second_confirm",
+                optBoolean("requiresSecondConfirm", false)
+            ),
+            riskMessage = optNullableString("risk_message") ?: optNullableString("riskMessage")
+        )
+
+    private fun JSONObject.toOrderSuccessContent(): OrderSuccessContent =
+        OrderSuccessContent(
+            orderId = optString("order_id").ifBlank { optString("orderId") },
+            paymentId = optString("payment_id").ifBlank { optString("paymentId") },
+            receiverName = optString("receiver_name").ifBlank { optString("receiverName") },
+            receiverPhone = optString("receiver_phone").ifBlank { optString("receiverPhone") },
+            receiverAddress = optString("receiver_address").ifBlank { optString("receiverAddress") },
+            paidAmount = optDouble("paid_amount", optDouble("paidAmount", 0.0)),
+            items = optJSONArray("items").toOrderSuccessItems()
+        )
+
+    private fun JSONArray?.toOrderSuccessItems(): List<OrderSuccessItem> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                val productId = item.optString("product_id").ifBlank { item.optString("productId") }
+                val price = item.optDouble("price", 0.0)
+                val quantity = item.optInt("quantity", 1)
+                OrderSuccessItem(
+                    productId = productId,
+                    name = item.optString("name").ifBlank { item.optString("title").ifBlank { "商品" } },
+                    specText = item.optString("spec_text").ifBlank { item.optString("specText").ifBlank { "默认规格" } },
+                    quantity = quantity,
+                    price = price,
+                    lineTotal = item.optDouble("line_total", item.optDouble("lineTotal", price * quantity)),
+                    imageUrl = orderSuccessImageUrl(item, productId)
+                )
+            }
+        }
+    }
+
+    private fun orderSuccessImageUrl(item: JSONObject, productId: String): String {
+        val imagePath = item.optString("image_url").ifBlank {
+            item.optString("imageUrl").ifBlank { item.optString("image_path") }
+        }
+        if (imagePath.isNotBlank()) return imagePath.toSmartShopAssetUrl()
+        return "/api/product-thumbnails/$productId.jpg".toSmartShopAssetUrl()
+    }
+
+    private fun JSONArray?.toCheckoutLineItems(): List<CheckoutLineItem> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                val productId = item.optString("product_id").ifBlank { item.optString("productId") }
+                CheckoutLineItem(
+                    id = item.optNullableString("id"),
+                    productId = productId,
+                    skuId = item.optNullableString("sku_id") ?: item.optNullableString("skuId"),
+                    title = item.optString("title").ifBlank { "商品" },
+                    brand = item.optString("brand"),
+                    imageUrl = checkoutImageUrl(item, productId),
+                    skuName = item.optString("sku_name").ifBlank { item.optString("skuName").ifBlank { "默认规格" } },
+                    price = item.optDouble("price", 0.0),
+                    quantity = item.optInt("quantity", 1),
+                    lineTotal = item.optDouble("line_total", item.optDouble("lineTotal", 0.0))
+                )
+            }
+        }
+    }
+
+    private fun checkoutImageUrl(item: JSONObject, productId: String): String {
+        val imagePath = item.optString("image_path").ifBlank { item.optString("imageUrl") }
+        if (imagePath.isNotBlank()) return imagePath.toSmartShopAssetUrl()
+        return "/api/product-thumbnails/$productId.jpg".toSmartShopAssetUrl()
+    }
+
+    private fun JSONArray?.toBatchCartItems(): List<BatchCartItem> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                val productId = item.optString("product_id").ifBlank { item.optString("productId") }
+                BatchCartItem(
+                    productId = productId,
+                    title = item.optString("title"),
+                    brand = item.optString("brand"),
+                    imageUrl = batchCartThumbnailUrl(productId),
+                    price = item.optDouble("price", 0.0),
+                    quantity = item.optInt("quantity", 1),
+                    position = item.optInt("position", index + 1),
+                    status = item.optString("status"),
+                    selectedSkuId = item.optString("selected_sku_id").ifBlank { item.optString("selectedSkuId") }.ifBlank { null },
+                    skus = item.optJSONArray("skus").toBatchCartSkus()
+                )
+            }
+        }
+    }
+
+    private fun batchCartThumbnailUrl(productId: String): String =
+        "/api/product-thumbnails/$productId.jpg".toSmartShopAssetUrl()
+
+    private fun JSONArray?.toBatchCartSkus(): List<BatchCartSku> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { sku ->
+                BatchCartSku(
+                    skuId = sku.optString("sku_id").ifBlank { sku.optString("skuId") },
+                    skuName = sku.optString("sku_name").ifBlank { sku.optString("skuName") },
+                    label = sku.optString("label").ifBlank { sku.optString("sku_name").ifBlank { "默认规格" } },
+                    price = sku.optDouble("price", 0.0),
+                    stock = sku.optInt("stock", 0)
+                )
+            }
+        }
+    }
+
     private fun JSONArray?.toComparisonColumns(): List<ComparisonColumn> {
         if (this == null) return emptyList()
         return (0 until length()).mapNotNull { index ->
@@ -270,6 +418,11 @@ class AiChatDataSource @Inject constructor(
         return (0 until length()).mapNotNull { index ->
             optString(index).trim().takeIf { it.isNotBlank() }
         }
+    }
+
+    private fun JSONArray?.toChatActions(): List<ChatAction> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index -> parseAction(get(index)) }
     }
 
     private fun parseAction(raw: Any): ChatAction? {
@@ -329,8 +482,8 @@ class AiChatDataSource @Inject constructor(
     private fun defaultOrderStatusMessage(status: String): String =
         when (status) {
             "checking_cart" -> "正在读取购物车"
-            "need_address" -> "等待补充收货地址"
-            "awaiting_confirmation" -> "等待确认下单"
+            "need_address" -> "待确认收货地址"
+            "awaiting_confirmation" -> "待确认订单"
             "creating_order" -> "正在创建订单"
             "paying" -> "正在模拟支付"
             "paid" -> "支付成功"

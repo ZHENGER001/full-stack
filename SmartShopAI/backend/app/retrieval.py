@@ -8,7 +8,7 @@ from typing import Any
 
 from .query_router import ParsedQuery
 from .search_document import build_product_search_document
-from .vector_retriever import milvus_semantic_search
+from .vector_retriever import milvus_semantic_search_with_diagnostics
 
 try:
     import jieba
@@ -66,7 +66,7 @@ def hybrid_search_products(conn, parsed_query: ParsedQuery, limit: int = 24) -> 
     lane_limit = max(limit, 20)
     include_evidence = parsed_query.filters.get("retrieval_scope") == "full_evidence"
     documents = {str(row["id"]): _build_document(row, include_evidence=include_evidence) for row in rows}
-    dense_hits = _dense_search(parsed_query, lane_limit)
+    dense_hits, dense_diagnostics = _dense_search(parsed_query, lane_limit)
     bm25_hits = _bm25_search(parsed_query, rows, documents, lane_limit)
     keyword_hits = _keyword_search(parsed_query, rows, documents, lane_limit)
     fused_hits = _rrf_fuse([dense_hits, bm25_hits, keyword_hits], top_k=lane_limit)
@@ -82,10 +82,11 @@ def hybrid_search_products(conn, parsed_query: ParsedQuery, limit: int = 24) -> 
             "retrieval_scope": "full_evidence" if include_evidence else "catalog_only",
         },
         "lanes": {
-            "dense": _lane_diagnostics(dense_hits, backend="milvus"),
+            "dense": {**_lane_diagnostics(dense_hits, backend="milvus"), **dense_diagnostics},
             "bm25": _lane_diagnostics(bm25_hits),
             "keyword": _lane_diagnostics(keyword_hits),
         },
+        "degradation": _degradation_diagnostics(dense_diagnostics, bm25_hits, keyword_hits),
         "fusion": {
             "method": "rrf",
             "rank_constant": 60,
@@ -202,10 +203,10 @@ def _load_search_rows(conn) -> list[Any]:
     ).fetchall()
 
 
-def _dense_search(parsed_query: ParsedQuery, limit: int) -> list[RetrievalHit]:
-    hits = milvus_semantic_search(parsed_query.rewritten_query, top_k=limit)
+def _dense_search(parsed_query: ParsedQuery, limit: int) -> tuple[list[RetrievalHit], dict[str, Any]]:
+    result = milvus_semantic_search_with_diagnostics(parsed_query.rewritten_query, top_k=limit)
     ranked: list[RetrievalHit] = []
-    for index, item in enumerate(hits, start=1):
+    for index, item in enumerate(result.hits, start=1):
         product_id = str(item.get("product_id") or "")
         if not product_id:
             continue
@@ -218,7 +219,7 @@ def _dense_search(parsed_query: ParsedQuery, limit: int) -> list[RetrievalHit]:
                 metadata={"backend": "milvus"},
             )
         )
-    return ranked
+    return ranked, result.diagnostics
 
 
 def _bm25_search(
@@ -335,6 +336,26 @@ def _rank_hits(hits: list[RetrievalHit], limit: int) -> list[RetrievalHit]:
         )
         for index, hit in enumerate(ranked, start=1)
     ]
+
+
+def _degradation_diagnostics(
+    dense_diagnostics: dict[str, Any],
+    bm25_hits: list[RetrievalHit],
+    keyword_hits: list[RetrievalHit],
+) -> dict[str, Any]:
+    degraded = dense_diagnostics.get("status") == "degraded"
+    if not degraded:
+        return {"used": False, "reason": None}
+    fallback_lanes = []
+    if bm25_hits:
+        fallback_lanes.append("bm25")
+    if keyword_hits:
+        fallback_lanes.append("keyword")
+    return {
+        "used": True,
+        "reason": dense_diagnostics.get("reason") or "dense_unavailable",
+        "fallback_lanes": fallback_lanes,
+    }
 
 
 def _row_to_candidate(row: Any, hit: RetrievalHit) -> dict[str, Any]:

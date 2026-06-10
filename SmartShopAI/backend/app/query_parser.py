@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .catalog_grounder import ground_catalog_terms
+
 
 CATEGORY_ALIASES = [
     {
@@ -129,6 +131,14 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
             subcategories.update(alias["subcategories"])
             required_terms.update(alias["required_terms"])
 
+    grounding = ground_catalog_terms(text)
+    if grounding.matches:
+        explicit_category = True
+        for match in grounding.matches:
+            categories.update(match.categories)
+            subcategories.update(match.subcategories)
+            required_terms.update(match.required_terms)
+
     max_price = extract_max_price(text)
     price_sensitive = max_price is not None or any(term in text for term in PRICE_SENSITIVE_TERMS)
     scenes = [term for term in SCENE_TERMS if term in text]
@@ -148,9 +158,10 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         retrieval_scope=retrieval_scope,
     ):
         match_mode = "exact_or_none"
-        required_terms.add(_compact_query(text))
+        required_terms.add((grounding.unknown_terms or [grounding.core_query or _compact_query(text)])[0])
 
-    return {
+    allow_popular_fallback = False if match_mode == "exact_or_none" or (explicit_category and required_terms) else True
+    filters = {
         "raw_query": query,
         "target_categories": sorted(categories),
         "target_subcategories": sorted(subcategories),
@@ -164,8 +175,50 @@ def parse_user_filters(query: str, known_brands: list[str] | None = None) -> dic
         "brands_exclude": brands_exclude,
         "retrieval_scope": retrieval_scope,
         "match_mode": match_mode,
-        "allow_popular_fallback": False if match_mode == "exact_or_none" else True,
+        "allow_popular_fallback": allow_popular_fallback,
     }
+    return narrow_to_explicit_subcategories(filters, text)
+
+
+def narrow_to_explicit_subcategories(filters: dict[str, Any], raw_query: str | None) -> dict[str, Any]:
+    explicit_subcategories = _explicit_subcategory_mentions(
+        raw_query or "",
+        filters.get("target_subcategories") or [],
+    )
+    if not explicit_subcategories:
+        return filters
+    narrowed = dict(filters)
+    narrowed["target_subcategories"] = explicit_subcategories
+    narrowed["required_terms"] = [
+        term
+        for term in filters.get("required_terms") or []
+        if str(term).strip() and str(term).lower() in (raw_query or "").lower()
+    ]
+    return narrowed
+
+
+def _explicit_subcategory_mentions(raw_query: str, subcategories: list[Any]) -> list[str]:
+    explicit: list[str] = []
+    for subcategory in subcategories:
+        value = str(subcategory).strip()
+        if value and _has_positive_mention(raw_query, value):
+            explicit.append(value)
+    return list(dict.fromkeys(explicit))
+
+
+def _has_positive_mention(text: str, term: str) -> bool:
+    start = 0
+    while True:
+        index = text.find(term, start)
+        if index < 0:
+            return False
+        before = text[max(0, index - 8):index]
+        after = text[index + len(term):index + len(term) + 4]
+        if not any(negation in before for negation in NEGATION_TERMS) and not any(
+            negation in after for negation in NEGATION_TERMS
+        ):
+            return True
+        start = index + len(term)
 
 
 def extract_brand_filters(text: str, known_brands: list[str]) -> tuple[list[str], list[str]]:

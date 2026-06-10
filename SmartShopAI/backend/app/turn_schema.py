@@ -16,13 +16,23 @@ IntentType = Literal[
     "cart_list",
     "cart_clear",
     "bundle_recommendation",
+    "preference_question",
     "greeting",
     "capability_question",
     "unknown",
 ]
 
-RouteHint = Literal["direct_tool", "no_tool", "bounded_react", "plan_execute"]
+RouteHint = Literal["direct_tool", "no_tool", "bounded_react"]
 MatchMode = Literal["normal", "exact_or_none"]
+ProposedTool = Literal[
+    "search_products",
+    "bundle_recommendation",
+    "bounded_agent",
+    "product_detail",
+    "compare_products",
+    "cart_tool",
+    "no_tool",
+]
 
 
 class PriceConstraint(BaseModel):
@@ -56,6 +66,47 @@ class TurnConstraints(BaseModel):
     negative_terms: list[str] = Field(default_factory=list)
 
 
+class BundleSlotCandidate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    key: str = ""
+    title: str = ""
+    query: str = ""
+    reason: str = ""
+    product_mentions: list[str] = Field(default_factory=list)
+    attributes_include: list[str] = Field(default_factory=list)
+    scene_terms: list[str] = Field(default_factory=list)
+
+
+class ParsedTurnCandidate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    raw_message: str = ""
+    intent_type: IntentType = "unknown"
+    proposed_tool: ProposedTool | None = None
+    core_product_query: str | None = None
+    semantic_query: str | None = None
+    product_mentions: list[str] = Field(default_factory=list)
+    query_expansions: list[str] = Field(default_factory=list)
+    category_mentions: list[str] = Field(default_factory=list)
+    subcategory_mentions: list[str] = Field(default_factory=list)
+    brands_include: list[str] = Field(default_factory=list)
+    brands_exclude: list[str] = Field(default_factory=list)
+    attributes_include: list[str] = Field(default_factory=list)
+    attributes_exclude: list[str] = Field(default_factory=list)
+    scene_terms: list[str] = Field(default_factory=list)
+    price: PriceConstraint = Field(default_factory=PriceConstraint)
+    negative_terms: list[str] = Field(default_factory=list)
+    references: list[ProductReference] = Field(default_factory=list)
+    compare_dimensions: list[str] = Field(default_factory=list)
+    bundle_slots: list[BundleSlotCandidate] = Field(default_factory=list)
+    quantity: int | None = Field(default=None, ge=1)
+    needs_clarification: bool = False
+    clarification_question: str | None = None
+    source: Literal["rule", "llm", "hybrid"] = "hybrid"
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
 class RetrievalPolicyHint(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -78,6 +129,7 @@ class ParsedTurn(BaseModel):
     retrieval_policy_hint: RetrievalPolicyHint = Field(default_factory=RetrievalPolicyHint)
     references: list[ProductReference] = Field(default_factory=list)
     compare_dimensions: list[str] = Field(default_factory=list)
+    bundle_slots: list[BundleSlotCandidate] = Field(default_factory=list)
     quantity: int | None = Field(default=None, ge=1)
     is_unknown_short_query: bool = False
     source: Literal["rule", "llm", "hybrid"] = "hybrid"

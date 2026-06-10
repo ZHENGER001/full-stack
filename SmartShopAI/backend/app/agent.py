@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import re
+import shutil
 import threading
 import time
 import uuid
@@ -12,25 +13,30 @@ from typing import Any, AsyncIterator, Iterable
 
 from fastapi import HTTPException, UploadFile
 
-from .agent_tools import SearchProductsResult, SearchProductsVerification
 from .agentic_rag import plan_agentic_turn, retrieve_products_for_turn
-from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn
+from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn, resolve_product_references
 from .bundle_recommendation import build_bundle_answer, retrieve_bundle_recommendations
 from .catalog import get_cart
 from .config import get_settings
+from .conversation_memory import (
+    STRUCTURED_MEMORY_KEY,
+    build_updated_structured_memory,
+    dump_structured_memory,
+    parse_structured_memory,
+)
 from .llm_client import (
     LLMGenerationError,
     LLMGenerationResult,
     generate_agent_reply_with_status,
+    generate_preference_answer_with_status,
     generate_product_presentations,
     llm_model_name,
     stream_agent_reply_chunks_with_status,
 )
+from .observability import AgentTurnMetrics
 from .react_planner import has_checkout_signal, message_with_sku_hint, plan_react_transaction, product_reference_from_step
-from .rag import search_products_for_agent_with_diagnostics
 from .schemas import ProductCard
 from .turn_schema import ParsedTurn
-from .vision_client import analyze_image_file_with_vlm
 
 
 logger = logging.getLogger(__name__)
@@ -43,37 +49,16 @@ ACTION_LABELS = {
 }
 PRODUCT_ACTION_TYPES = {"go_detail", "add_to_cart"}
 ALLOWED_ACTION_TYPES = set(ACTION_LABELS)
-ALLOWED_UPLOAD_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
-ALLOWED_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-MAX_UPLOAD_BYTES = 8 * 1024 * 1024
-IMAGE_MIN_SEARCH_CONFIDENCE = 0.35
-IMAGE_EXACT_MATCH_MIN_SCORE = 12.0
-IMAGE_SIMILAR_MATCH_MIN_SCORE = 10.0
-GENERIC_IMAGE_TERMS = {
-    "商品",
-    "产品",
-    "物品",
-    "东西",
-    "类似款",
-    "相似款",
-    "日常",
-    "未知",
-    "unknown",
-    "object",
-    "item",
-    "product",
-}
-GENERIC_IMAGE_HINT_PHRASES = [
-    "帮我找这张图片里的类似商品",
-    "帮我找这张图里的类似商品",
-    "找这张图片里的类似商品",
-    "找这张图里的类似商品",
-    "根据这张图片找类似商品",
-    "帮我找类似商品",
-    "找类似商品",
-    "类似商品",
-    "相似商品",
-]
+BATCH_CART_CONFIRM_PREFIX = "__batch_cart_confirm__:"
+CHAT_RECOMMENDATION_DISPLAY_LIMIT = 3
+CHECKOUT_CONFIRM_LABEL = "确认下单并支付"
+CHECKOUT_SIGNATURE_FIELD = "checkout_signature"
+CHECKOUT_DETAIL_PREVIEW_LIMIT = 3
+HIGH_VALUE_ORDER_THRESHOLD = 5000.0
+
+
+def visible_chat_products(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return products[:CHAT_RECOMMENDATION_DISPLAY_LIMIT]
 
 
 def sse_event(event: str, payload: dict) -> str:
@@ -94,598 +79,85 @@ def order_status_event(
     return sse_event("order_status", payload)
 
 
-def mock_detect_from_hint(user_hint: str | None, filename: str | None = None) -> dict[str, Any]:
+def mock_detect_from_hint(user_hint: str | None, filename: str | None = None) -> dict[str, str]:
+    # TODO: replace mock image detection with real vision encoder.
     text = f"{user_hint or ''} {filename or ''}".lower()
+    if any(word in text for word in ["手机", "phone", "mobile", "redmi", "iphone", "huawei", "xiaomi", "oppo", "vivo"]):
+        return {"object_type": "手机", "color": "未知", "style": "数码", "material": "玻璃机身", "scene": "日常使用"}
+    if any(word in text for word in ["平板", "tablet", "ipad"]):
+        return {"object_type": "平板电脑", "color": "未知", "style": "数码", "material": "金属机身", "scene": "影音办公"}
+    if any(word in text for word in ["笔记本", "电脑", "laptop", "computer"]):
+        return {"object_type": "笔记本电脑", "color": "未知", "style": "数码", "material": "金属机身", "scene": "办公学习"}
     if any(word in text for word in ["鞋", "shoe", "sneaker", "跑步"]):
-        return {
-            "object_type": "鞋",
-            "category": "服饰运动",
-            "subcategory": "跑步鞋",
-            "color": "黑色",
-            "style": "运动",
-            "material": "织物",
-            "scene": ["跑步", "通勤"],
-            "search_terms": ["鞋", "运动", "跑步", "通勤"],
-            "confidence": 0.45,
-        }
+        return {"object_type": "鞋", "color": "黑色", "style": "运动", "material": "织物", "scene": "跑步通勤"}
     if any(word in text for word in ["耳机", "headphone", "earbud"]):
-        return {
-            "object_type": "耳机",
-            "category": "数码电子",
-            "subcategory": "真无线耳机",
-            "color": "黑色",
-            "style": "简约",
-            "material": "塑料",
-            "scene": ["通勤", "降噪"],
-            "search_terms": ["耳机", "蓝牙耳机", "通勤", "降噪"],
-            "confidence": 0.45,
-        }
+        return {"object_type": "耳机", "color": "黑色", "style": "简约", "material": "塑料", "scene": "通勤降噪"}
     if any(word in text for word in ["外套", "jacket", "coat", "衣"]):
-        return {
-            "object_type": "外套",
-            "category": "服饰运动",
-            "subcategory": "卫衣",
-            "color": "黑色",
-            "style": "休闲",
-            "material": "皮革",
-            "scene": ["街拍", "通勤"],
-            "search_terms": ["外套", "衣服", "休闲", "通勤"],
-            "confidence": 0.35,
-        }
+        return {"object_type": "外套", "color": "黑色", "style": "休闲", "material": "皮革", "scene": "街拍"}
     if any(word in text for word in ["洗面奶", "洁面", "护肤", "beauty"]):
-        return {
-            "object_type": "洁面产品",
-            "category": "美妆护肤",
-            "subcategory": "洁面",
-            "color": "白色",
-            "style": "护肤",
-            "material": "乳液",
-            "scene": ["日常洁面"],
-            "search_terms": ["洗面奶", "洁面", "护肤"],
-            "confidence": 0.45,
-        }
-    return {
-        "object_type": "商品",
-        "category": None,
-        "subcategory": None,
-        "color": "黑色",
-        "style": "休闲",
-        "material": "未知",
-        "scene": ["日常"],
-        "search_terms": ["日常", "类似款"],
-        "confidence": 0.2,
-    }
+        return {"object_type": "洁面产品", "color": "白色", "style": "护肤", "material": "乳液", "scene": "日常洁面"}
+    return {"object_type": "相似商品", "color": "未知", "style": "通用", "material": "未知", "scene": "日常使用"}
 
 
-def detected_to_query(detected: dict[str, Any], user_hint: str | None) -> str:
+def image_detection_intro(detected: dict[str, str]) -> str:
+    object_type = detected.get("object_type") or "相似商品"
+    color = detected.get("color") or "未知"
+    style = detected.get("style") or "通用"
+    material = detected.get("material") or "未知"
+    scene = detected.get("scene") or "日常使用"
+    if object_type == "相似商品" and color == "未知" and material == "未知":
+        return "我会根据图片线索匹配相似商品。"
+    description_parts = []
+    if color != "未知":
+        description_parts.append(color)
+    if style not in {"未知", "通用"}:
+        description_parts.append(style)
+    description = "".join(description_parts) + object_type
+    details = [f"我识别到图片里像是{description}"]
+    if material != "未知":
+        details.append(f"材质特征偏{material}")
+    if scene:
+        details.append(f"场景更接近{scene}")
+    return "，".join(details) + "。"
+
+
+def detected_to_query(detected: dict[str, str], user_hint: str | None) -> str:
     parts = [
-        detected.get("color"),
-        detected.get("style"),
-        detected.get("material"),
-        detected.get("object_type"),
-        detected.get("category"),
-        detected.get("subcategory"),
-        *list_value(detected.get("scene")),
-        *list_value(detected.get("search_terms")),
+        detected["color"],
+        detected["style"],
+        detected["material"],
+        detected["object_type"],
+        detected["scene"],
         user_hint or "类似款",
     ]
-    return " ".join(str(part) for part in parts if part and part != "未知")
+    return " ".join(part for part in parts if part and part != "未知")
 
 
 def save_upload(file: UploadFile) -> tuple[str, str, Path]:
     settings = get_settings()
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
-    content_type = (file.content_type or "").split(";", 1)[0].strip().lower()
-    ext = Path(file.filename or "upload.jpg").suffix.lower() or extension_for_content_type(content_type) or ".jpg"
-    if content_type and content_type not in ALLOWED_UPLOAD_CONTENT_TYPES:
-        raise HTTPException(status_code=415, detail="Only jpeg, png, and webp images are supported")
-    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
-        raise HTTPException(status_code=415, detail="Only jpeg, png, and webp images are supported")
-    data = file.file.read(MAX_UPLOAD_BYTES + 1)
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Image is larger than 8MB")
-    if not data:
-        raise HTTPException(status_code=400, detail="Image file is empty")
+    ext = Path(file.filename or "upload.jpg").suffix or ".jpg"
     image_id = f"img_{uuid.uuid4().hex[:12]}"
     filename = f"{image_id}{ext}"
     file_path = settings.upload_dir / filename
-    file_path.write_bytes(data)
+    with file_path.open("wb") as out:
+        shutil.copyfileobj(file.file, out)
     return image_id, f"/uploads/{filename}", file_path
 
 
-def extension_for_content_type(content_type: str) -> str | None:
-    return {
-        "image/jpeg": ".jpg",
-        "image/png": ".png",
-        "image/webp": ".webp",
-    }.get(content_type)
-
-
-def analyze_image(conn, image_id: str, user_hint: str | None = None) -> tuple[dict[str, Any], str]:
-    analysis = analyze_uploaded_image(conn, image_id, user_hint)
-    return analysis["detected"], analysis["query"]
-
-
-def analyze_uploaded_image(conn, image_id: str, user_hint: str | None = None) -> dict[str, Any]:
+def analyze_image(conn, image_id: str, user_hint: str | None = None) -> tuple[dict[str, str], str]:
     row = conn.execute("SELECT * FROM uploaded_images WHERE image_id = ?", (image_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Image not found")
     if row["detected_json"] and row["query"] and not user_hint:
-        cached = normalize_cached_image_analysis(json.loads(row["detected_json"]))
-        cached["image_id"] = image_id
-        cached["query"] = row["query"]
-        return cached
-
-    try:
-        vlm_analysis = run_async_blocking(
-            analyze_image_file_with_vlm(
-                Path(str(row["file_path"])),
-                user_hint=user_hint,
-                catalog_taxonomy=load_catalog_taxonomy(conn),
-            )
-        )
-        objects = [normalize_image_object(item) for item in vlm_analysis.to_dict()["objects"]]
-        provider = vlm_analysis.provider
-        model = vlm_analysis.model
-        fallback = False
-    except Exception as exc:
-        logger.info("image_vlm_failed=%s", exc.__class__.__name__)
-        detected = mock_detect_from_hint(user_hint, row["file_path"])
-        objects = [normalize_image_object(detected)]
-        provider = "fallback"
-        model = "mock"
-        fallback = True
-
-    objects = [item for item in objects if item.get("object_type")][:3]
-    if not objects:
-        objects = [normalize_image_object(mock_detect_from_hint(user_hint, row["file_path"]))]
-        provider = "fallback"
-        model = "mock"
-        fallback = True
-
-    query = build_image_analysis_query(objects, user_hint)
-    detected = objects[0]
-    payload = {
-        "image_id": image_id,
-        "detected": detected,
-        "objects": objects,
-        "query": query,
-        "provider": provider,
-        "model": model,
-        "fallback": fallback,
-    }
+        return json.loads(row["detected_json"]), row["query"]
+    detected = mock_detect_from_hint(user_hint, row["file_path"])
+    query = detected_to_query(detected, user_hint)
     conn.execute(
         "UPDATE uploaded_images SET detected_json = ?, query = ? WHERE image_id = ?",
-        (json.dumps(payload, ensure_ascii=False), query, image_id),
+        (json.dumps(detected, ensure_ascii=False), query, image_id),
     )
-    return payload
-
-
-def normalize_cached_image_analysis(payload: dict[str, Any]) -> dict[str, Any]:
-    if "objects" in payload:
-        objects = [normalize_image_object(item) for item in payload.get("objects") or [] if isinstance(item, dict)]
-        detected = normalize_image_object(payload.get("detected") or (objects[0] if objects else {}))
-        return {
-            "detected": detected,
-            "objects": objects or [detected],
-            "provider": str(payload.get("provider") or "cache"),
-            "model": str(payload.get("model") or ""),
-            "fallback": bool(payload.get("fallback")),
-        }
-    detected = normalize_image_object(payload)
-    return {
-        "detected": detected,
-        "objects": [detected],
-        "provider": "cache",
-        "model": "",
-        "fallback": True,
-    }
-
-
-def normalize_image_object(raw: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "object_type": str(raw.get("object_type") or raw.get("label") or "商品").strip(),
-        "category": blank_to_none(raw.get("category")),
-        "subcategory": blank_to_none(raw.get("subcategory") or raw.get("sub_category")),
-        "color": blank_to_none(raw.get("color")),
-        "style": blank_to_none(raw.get("style")),
-        "material": blank_to_none(raw.get("material")),
-        "scene": list_value(raw.get("scene")),
-        "search_terms": list_value(raw.get("search_terms") or raw.get("keywords")),
-        "confidence": confidence_value(raw.get("confidence")),
-    }
-
-
-def blank_to_none(value: Any) -> str | None:
-    text = str(value or "").strip()
-    return text or None
-
-
-def list_value(value: Any) -> list[str]:
-    if isinstance(value, list):
-        values = [str(item) for item in value]
-    elif isinstance(value, str):
-        values = re.split(r"[,，、\s]+", value)
-    else:
-        values = []
-    return list(dict.fromkeys(item.strip() for item in values if item.strip()))
-
-
-def confidence_value(value: Any) -> float:
-    try:
-        confidence = float(value)
-    except (TypeError, ValueError):
-        return 0.0
-    return max(0.0, min(confidence, 1.0))
-
-
-def build_image_analysis_query(objects: list[dict[str, Any]], user_hint: str | None) -> str:
-    parts: list[str] = []
-    for item in objects[:3]:
-        parts.extend(image_object_terms(item))
-    hint = clean_image_user_hint(user_hint)
-    if hint:
-        parts.append(hint)
-    return " ".join(dict.fromkeys(str(part).strip() for part in parts if str(part or "").strip()))
-
-
-def image_object_terms(item: dict[str, Any]) -> list[str]:
-    return meaningful_image_terms(
-        [
-            item.get("color"),
-            item.get("style"),
-            item.get("material"),
-            item.get("object_type"),
-            item.get("category"),
-            item.get("subcategory"),
-            *list_value(item.get("scene")),
-            *list_value(item.get("search_terms")),
-        ]
-    )
-
-
-def load_catalog_taxonomy(conn) -> str:
-    rows = conn.execute(
-        """
-        SELECT category, GROUP_CONCAT(DISTINCT subcategory) AS subcategories
-        FROM products
-        GROUP BY category
-        ORDER BY category
-        """
-    ).fetchall()
-    return "；".join(
-        f"{row['category']}：{row['subcategories']}"
-        for row in rows
-        if row.get("category")
-    )
-
-
-def image_analysis_event_payload(image_analysis: dict[str, Any], match_result: dict[str, Any] | None) -> dict[str, Any]:
-    objects = image_analysis.get("objects") or []
-    object_names = [
-        str(item.get("object_type"))
-        for item in objects
-        if isinstance(item, dict) and item.get("object_type")
-    ]
-    match_level = (match_result or {}).get("match_level") or "no_match"
-    if match_level == "exact_like" and object_names:
-        summary = f"我识别到图片里可能是{' / '.join(object_names[:3])}，商品库里找到了同类匹配。"
-    elif match_level == "similar" and object_names:
-        summary = f"我识别到图片里可能是{' / '.join(object_names[:3])}，商品库里找到了相似款，请以商品卡片为准。"
-    elif object_names:
-        summary = f"我识别到图片里可能是{' / '.join(object_names[:3])}，但商品库里暂时没有足够相似的商品。"
-    else:
-        summary = "图片线索不够明确，商品库里暂时没有足够相似的商品。"
-    return {
-        "image_id": image_analysis.get("image_id"),
-        "objects": objects,
-        "query": image_analysis.get("query"),
-        "provider": image_analysis.get("provider"),
-        "model": image_analysis.get("model"),
-        "fallback": bool(image_analysis.get("fallback")),
-        "match_level": match_level,
-        "summary": summary,
-    }
-
-
-def retrieve_image_match_products(
-    conn,
-    image_analysis: dict[str, Any],
-    message: str,
-    limit: int = 3,
-) -> dict[str, Any]:
-    objects = [
-        normalize_image_object(item)
-        for item in image_analysis.get("objects") or []
-        if isinstance(item, dict)
-    ][:3]
-    candidate_records: dict[str, dict[str, Any]] = {}
-    lane_diagnostics: list[dict[str, Any]] = []
-    rejected_records: list[dict[str, Any]] = []
-    skipped_objects: list[dict[str, Any]] = []
-    query_parts: list[str] = []
-
-    for object_index, item in enumerate(objects):
-        candidate_query = build_image_candidate_query(item, message)
-        if not candidate_query:
-            skipped_objects.append({"object": item, "reason": "low_confidence_or_generic"})
-            continue
-        query_parts.append(candidate_query)
-        products, diagnostics = search_products_for_agent_with_diagnostics(
-            conn,
-            candidate_query,
-            limit=max(limit * 2, 6),
-            constraints={},
-            retrieval_policy={
-                "image_wide_match": True,
-                "allow_popular_fallback": False,
-                "require_lexical_anchor": False,
-            },
-        )
-        lane_diagnostics.append(
-            {
-                "object": item,
-                "query": candidate_query,
-                "diagnostics": diagnostics,
-            }
-        )
-        for product in products:
-            product_data = product.model_dump(mode="json")
-            score, level, reason = score_image_product_match(product_data, item, object_index)
-            product_id = product_data["id"]
-            if not is_acceptable_image_match(score, level):
-                rejected_records.append(
-                    {
-                        "product_id": product_id,
-                        "match_level": level,
-                        "score": round(score, 3),
-                        "reason": "image_match_below_threshold",
-                    }
-                )
-                continue
-            current = candidate_records.get(product_id)
-            if current and current["score"] >= score:
-                continue
-            product_data["rerank_score"] = round(score, 3)
-            product_data["rerank_reason"] = reason
-            product_data["reason"] = reason
-            candidate_records[product_id] = {
-                "score": score,
-                "match_level": level,
-                "product": ProductCard.model_validate(product_data),
-                "object": item,
-            }
-
-    ranked_records = sorted(candidate_records.values(), key=lambda item: item["score"], reverse=True)
-    selected_products = [item["product"] for item in ranked_records[:limit]]
-    match_level = overall_image_match_level(ranked_records)
-    final_query = " ".join(dict.fromkeys(query_parts)) or str(image_analysis.get("query") or message)
-    diagnostics = {
-        "pipeline": [
-            "image_vlm",
-            "multi_candidate_query",
-            "dense_milvus",
-            "bm25",
-            "keyword",
-            "rrf",
-            "image_fusion",
-            "sqlite_hydrate",
-        ],
-        "image_match": {
-            "match_level": match_level,
-            "object_count": len(objects),
-            "skipped_object_count": len(skipped_objects),
-            "candidate_count": len(candidate_records),
-            "rejected_count": len(rejected_records),
-            "selected_product_ids": [product.id for product in selected_products],
-            "skipped_objects": skipped_objects[:5],
-            "rejected": rejected_records[:10],
-            "lanes": lane_diagnostics,
-        },
-    }
-    status = "ok" if selected_products else "empty"
-    search_result = SearchProductsResult(
-        status=status,
-        products=selected_products,
-        alternatives=[],
-        diagnostics=diagnostics,
-        verification=SearchProductsVerification(
-            status="pass" if selected_products else "empty",
-            accepted_count=len(selected_products),
-            rejected_count=len(rejected_records) + len(skipped_objects),
-            final_product_ids=[product.id for product in selected_products],
-        ),
-    )
-    return {
-        "final_user_query": final_query,
-        "parsed_filters": {
-            "raw_query": message,
-            "image_query": final_query,
-            "image_match": True,
-            "match_level": match_level,
-            "objects": objects,
-            "retrieval_scope": "catalog_only",
-            "allow_popular_fallback": False,
-        },
-        "search_result": search_result,
-        "pipeline": diagnostics["pipeline"],
-        "sources": ["image_vlm", "dense_milvus", "bm25", "keyword"],
-        "fusion": "image_weighted_rrf",
-        "match_level": match_level,
-    }
-
-
-def build_image_candidate_query(item: dict[str, Any], message: str) -> str:
-    confidence = float(item.get("confidence") or 0.0)
-    hint = clean_image_user_hint(message)
-    if not is_searchable_image_object(item):
-        return hint
-
-    terms = image_object_terms(item)
-    if confidence < 0.45:
-        terms = [
-            str(term)
-            for term in [
-                item.get("object_type"),
-                *list_value(item.get("search_terms")),
-                *list_value(item.get("scene")),
-                item.get("style"),
-                item.get("color"),
-            ]
-            if term and not is_generic_image_term(term)
-        ]
-    if hint:
-        terms.append(hint)
-    return " ".join(dict.fromkeys(str(term).strip() for term in terms if str(term).strip()))
-
-
-def score_image_product_match(product: dict[str, Any], item: dict[str, Any], object_index: int) -> tuple[float, str, str]:
-    base_score = float(product.get("rerank_score") or 0.0)
-    confidence = float(item.get("confidence") or 0.0)
-    category_match = bool(item.get("category") and product.get("category") == item.get("category"))
-    subcategory_match = bool(item.get("subcategory") and product.get("subcategory") == item.get("subcategory"))
-    strong_hits = image_strong_term_hit_count(product, item)
-    modifier_hits = image_modifier_term_hit_count(product, item)
-    score = base_score + confidence * 6.0 - object_index * 1.5
-    if category_match:
-        score += 4.0
-    if subcategory_match:
-        score += 8.0
-    score += min(strong_hits, 4) * 3.0
-    score += min(modifier_hits, 3) * 1.0
-
-    if subcategory_match and (strong_hits >= 1 or confidence >= 0.55):
-        level = "exact_like"
-        reason = "图片识别的品类和商品库信息高度一致，适合作为同类匹配。"
-    elif category_match and strong_hits >= 2 and confidence >= 0.55:
-        level = "exact_like"
-        reason = "图片识别的品类和多个商品关键词一致，适合作为同类匹配。"
-    elif category_match and strong_hits >= 1 and confidence >= 0.45:
-        level = "similar"
-        reason = "商品与图片中的物品在品类和关键名称上相近。"
-    elif strong_hits >= 2 and confidence >= 0.55:
-        level = "similar"
-        reason = "商品与图片中的物品命中了多个关键名称，作为相似款展示。"
-    elif strong_hits >= 1 and confidence >= 0.7 and base_score >= 1.5:
-        level = "similar"
-        reason = "商品与图片中的物品有明确关键词重合，作为相似款展示。"
-    else:
-        level = "weak"
-        reason = "图片线索与商品库证据不足，已过滤为弱匹配。"
-    return score, level, reason
-
-
-def image_term_hit_count(product: dict[str, Any], item: dict[str, Any]) -> int:
-    return image_strong_term_hit_count(product, item) + image_modifier_term_hit_count(product, item)
-
-
-def image_strong_term_hit_count(product: dict[str, Any], item: dict[str, Any]) -> int:
-    return count_image_term_hits(product, strong_image_object_terms(item))
-
-
-def image_modifier_term_hit_count(product: dict[str, Any], item: dict[str, Any]) -> int:
-    return count_image_term_hits(product, modifier_image_object_terms(item))
-
-
-def count_image_term_hits(product: dict[str, Any], terms: list[str]) -> int:
-    catalog_text = " ".join(
-        str(part or "")
-        for part in [
-            product.get("title"),
-            product.get("brand"),
-            product.get("category"),
-            product.get("subcategory"),
-            product.get("marketing_description"),
-            product.get("sku_summary"),
-        ]
-    ).lower()
-    return sum(1 for term in terms if term and str(term).lower() in catalog_text)
-
-
-def strong_image_object_terms(item: dict[str, Any]) -> list[str]:
-    return meaningful_image_terms(
-        [
-            item.get("object_type"),
-            item.get("subcategory"),
-            *list_value(item.get("search_terms")),
-        ]
-    )
-
-
-def modifier_image_object_terms(item: dict[str, Any]) -> list[str]:
-    return meaningful_image_terms(
-        [
-            item.get("color"),
-            item.get("style"),
-            item.get("material"),
-            *list_value(item.get("scene")),
-        ]
-    )
-
-
-def meaningful_image_terms(values: list[Any]) -> list[str]:
-    return list(
-        dict.fromkeys(
-            str(term).strip()
-            for term in values
-            if str(term or "").strip() and not is_generic_image_term(term)
-        )
-    )
-
-
-def is_searchable_image_object(item: dict[str, Any]) -> bool:
-    confidence = float(item.get("confidence") or 0.0)
-    return confidence >= IMAGE_MIN_SEARCH_CONFIDENCE and bool(strong_image_object_terms(item))
-
-
-def is_generic_image_term(value: Any) -> bool:
-    term = str(value or "").strip()
-    if not term or term == "未知":
-        return True
-    return term.lower() in GENERIC_IMAGE_TERMS
-
-
-def clean_image_user_hint(message: str | None) -> str:
-    text = str(message or "").strip()
-    if not text:
-        return ""
-    for phrase in GENERIC_IMAGE_HINT_PHRASES:
-        text = text.replace(phrase, " ")
-    text = re.sub(r"[，。,.!?！？:：；;\s]+", " ", text).strip()
-    if not text:
-        return ""
-    compact = text.replace(" ", "")
-    generic_compacts = {
-        "帮我找",
-        "帮我看看",
-        "找一下",
-        "看一下",
-        "拍照找货",
-        "找同款",
-        "同款",
-        "类似",
-        "相似",
-    }
-    return "" if compact in generic_compacts else text
-
-
-def is_acceptable_image_match(score: float, level: str) -> bool:
-    if level == "exact_like":
-        return score >= IMAGE_EXACT_MATCH_MIN_SCORE
-    if level == "similar":
-        return score >= IMAGE_SIMILAR_MATCH_MIN_SCORE
-    return False
-
-
-def overall_image_match_level(records: list[dict[str, Any]]) -> str:
-    if not records:
-        return "no_match"
-    levels = [record.get("match_level") for record in records]
-    if "exact_like" in levels:
-        return "exact_like"
-    if "similar" in levels:
-        return "similar"
-    return "no_match"
+    return detected, query
 
 
 def stream_chat(
@@ -696,15 +168,47 @@ def stream_chat(
     current_product_id: str | None = None,
     cart_context: list[dict] | None = None,
 ) -> Iterable[str]:
+    metrics = AgentTurnMetrics()
     try:
-        yield from _stream_chat(conn, session_id, message, image_id, current_product_id, cart_context or [])
+        for chunk in _stream_chat(conn, session_id, message, image_id, current_product_id, cart_context or []):
+            metrics.observe_sse_chunk(chunk)
+            yield chunk
     except Exception:
-        yield sse_event("error", {"message": "AI 导购暂时遇到问题，请稍后再试。"})
-        yield sse_event("delta", {"text": "AI 导购暂时遇到问题，请稍后再试。"})
-        yield sse_event("done", {"session_id": session_id})
+        for chunk in (
+            sse_event("error", {"message": "AI 导购暂时遇到问题，请稍后再试。"}),
+            sse_event("delta", {"text": "AI 导购暂时遇到问题，请稍后再试。"}),
+            sse_event("done", {"session_id": session_id}),
+        ):
+            metrics.observe_sse_chunk(chunk)
+            yield chunk
+    finally:
+        metrics.finish()
 
 
 def _stream_chat(
+    conn,
+    session_id: str,
+    message: str,
+    image_id: str | None,
+    current_product_id: str | None,
+    cart_context: list[dict],
+) -> Iterable[str]:
+    from .agent_orchestrator import stream_agent_turn
+    from .agent_state import AgentTurnRequest
+
+    yield from stream_agent_turn(
+        conn,
+        AgentTurnRequest(
+            session_id=session_id,
+            message=message,
+            image_id=image_id,
+            current_product_id=current_product_id,
+            cart_context=cart_context,
+        ),
+    )
+
+
+def _stream_chat_legacy(
     conn,
     session_id: str,
     message: str,
@@ -716,10 +220,14 @@ def _stream_chat(
     if current_product_id and product_exists(conn, current_product_id):
         update_session_state(conn, session_id, current_product_id=current_product_id)
     previous_chat_history = load_chat_history(conn, session_id)
+    stored_user_message = batch_cart_confirm_display_text(message) or message
     conn.execute(
         "INSERT INTO chat_messages(id, session_id, role, content, image_id) VALUES (?, ?, ?, ?, ?)",
-        (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", message, image_id),
+        (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", stored_user_message, image_id),
     )
+    if is_batch_cart_confirm_message(message):
+        yield from emit_batch_cart_confirm_turn(conn, session_id, message, image_id)
+        return
 
     chat_history = previous_chat_history
     conversation_state = load_conversation_state(conn, session_id, current_product_id, cart_context)
@@ -762,12 +270,27 @@ def _stream_chat(
             return
         if not turn_plan.should_search_products:
             assistant_content = turn_plan.policy.response_text or "这个操作我正在支持中。"
+            llm_status = None
+            if parsed_turn.intent_type == "preference_question":
+                assistant_content, llm_status = build_preference_answer(
+                    message,
+                    assistant_content,
+                    conversation_state,
+                )
             actions = build_clarification_actions(conn, parsed_turn.clarification_question or assistant_content)
+            if llm_status:
+                yield sse_event("llm_status", llm_status)
             yield sse_event("delta", {"text": assistant_content})
             if actions:
                 yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
-            update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+            update_session_state(
+                conn,
+                session_id,
+                last_query=message,
+                last_actions=actions or None,
+                parsed_turn=parsed_turn,
+            )
             yield sse_event("done", {"session_id": session_id})
             return
     except Exception as exc:
@@ -815,39 +338,25 @@ def _stream_chat(
             return
 
     image_query = None
-    image_analysis = None
-    image_match_result = None
     if image_id:
-        image_analysis = analyze_uploaded_image(conn, image_id, message)
-        image_query = image_analysis["query"]
-        image_match_result = retrieve_image_match_products(conn, image_analysis, message, limit=3)
-        yield sse_event("image_analysis", image_analysis_event_payload(image_analysis, image_match_result))
+        detected, image_query = analyze_image(conn, image_id, message)
+        yield sse_event(
+            "delta",
+            {
+                "text": image_detection_intro(detected)
+            },
+        )
 
     final_user_query = build_final_user_query(conn, message, image_query, current_product_id, session_id)
-    if image_match_result is not None:
-        final_user_query = image_match_result["final_user_query"]
-        parsed_filters = image_match_result["parsed_filters"]
-        search_result = image_match_result["search_result"]
-        retrieval_status_payload = {
-            "final_user_query": final_user_query,
-            "parsed_filters": parsed_filters,
-            "pipeline": image_match_result["pipeline"],
-            "sources": image_match_result["sources"],
-            "fusion": image_match_result["fusion"],
-            "vector_backend": "milvus",
-            "graph_backend": "image_wide_match",
-            "turn": {
-                "intent_type": parsed_turn.intent_type if parsed_turn else "image_search",
-                "route_hint": "image_wide_match",
-                "needs_clarification": False,
-                "graph_backend": turn_plan.graph_backend if turn_plan else "langgraph_fallback",
-            },
-        }
-    else:
-        retrieval_result = retrieve_products_for_turn(conn, final_user_query, load_known_brands(conn), turn_plan)
-        parsed_filters = retrieval_result.parsed_filters
-        search_result = retrieval_result.search_result
-        retrieval_status_payload = {
+    retrieval_result = retrieve_products_for_turn(conn, final_user_query, load_known_brands(conn), turn_plan)
+    parsed_filters = retrieval_result.parsed_filters
+    logger.info("agent_final_user_query=%s parsed_filters=%s", final_user_query, parsed_filters)
+    for waiting_text in build_waiting_deltas(message, parsed_filters, image_id, bool(chat_history)):
+        yield sse_event("delta", {"text": f"{waiting_text}\n"})
+        time.sleep(0.25)
+    yield sse_event(
+        "retrieval_status",
+        {
             "final_user_query": final_user_query,
             "parsed_filters": parsed_filters,
             "pipeline": retrieval_result.pipeline,
@@ -861,40 +370,38 @@ def _stream_chat(
                 "needs_clarification": parsed_turn.needs_clarification if parsed_turn else False,
                 "graph_backend": turn_plan.graph_backend if turn_plan else "langgraph_fallback",
             },
-        }
-    logger.info("agent_final_user_query=%s parsed_filters=%s", final_user_query, parsed_filters)
-    for waiting_text in build_waiting_deltas(message, parsed_filters, image_id, bool(chat_history)):
-        yield sse_event("delta", {"text": f"{waiting_text}\n"})
-        time.sleep(0.25)
-    yield sse_event("retrieval_status", retrieval_status_payload)
+        },
+    )
+    search_result = retrieval_result.search_result
     products = search_result.products
     alternatives = search_result.alternatives
     yield sse_event("retrieval_diagnostics", search_result.diagnostics)
     grounded_products = build_grounded_products(conn, products)
+    visible_products_from_search = visible_chat_products(grounded_products)
     grounded_alternatives = [] if grounded_products else build_grounded_products(conn, alternatives)
-    visible_products = grounded_products or grounded_alternatives
-    answer_message = final_user_query if image_id else message
-    enrich_product_presentations(answer_message, visible_products)
-    faq_context = load_faq_context(conn, [product["id"] for product in grounded_products])
+    visible_alternatives = visible_chat_products(grounded_alternatives)
+    visible_products = visible_products_from_search or visible_alternatives
+    enrich_product_presentations(message, visible_products)
+    faq_context = load_faq_context(conn, [product["id"] for product in visible_products_from_search])
     chat_history = load_chat_history(conn, session_id)
     actions = build_actions(conn, visible_products, final_user_query, parsed_filters)
-    if grounded_products:
-        yield sse_event("products", {"products": grounded_products})
-    elif grounded_alternatives:
-        yield sse_event("alternatives", {"products": grounded_alternatives, "match_type": "alternatives"})
-    if not grounded_products and grounded_alternatives:
-        answer = build_alternative_answer(answer_message, grounded_alternatives)
+    if visible_products_from_search:
+        yield sse_event("products", {"products": visible_products_from_search})
+    elif visible_alternatives:
+        yield sse_event("alternatives", {"products": visible_alternatives, "match_type": "alternatives"})
+    if not visible_products_from_search and visible_alternatives:
+        answer = build_alternative_answer(message, visible_alternatives)
         llm_status = {"mode": "fallback", "reason": "alternatives_available"}
         yield sse_event("llm_status", llm_status)
         yield sse_event("delta", {"text": answer})
     else:
         answer, llm_status = yield from stream_grounded_answer_events(
-            answer_message,
-            grounded_products,
+            message,
+            visible_products_from_search,
             faq_context,
             chat_history,
         )
-        if grounded_products:
+        if visible_products_from_search:
             yield sse_event("llm_status", llm_status)
 
     if actions:
@@ -909,6 +416,8 @@ def _stream_chat(
         last_recommended_product_ids=[product["id"] for product in visible_products],
         current_product_id=visible_products[0]["id"] if visible_products else current_product_id,
         last_actions=actions,
+        parsed_turn=parsed_turn,
+        visible_products=visible_products,
     )
     yield sse_event("done", {"session_id": session_id})
 
@@ -921,6 +430,20 @@ def emit_bounded_result(
     result: BoundedToolResult,
 ) -> Iterable[str]:
     yield from emit_bounded_events(conn, session_id, message, image_id, result, store=True, done=True)
+
+
+def build_preference_answer(
+    message: str,
+    fallback_answer: str,
+    conversation_state: dict[str, Any] | None,
+) -> tuple[str, dict[str, str]]:
+    try:
+        result = run_async_blocking(generate_preference_answer_with_status(message, fallback_answer, conversation_state))
+        return result.content, {"mode": "preference_llm", "provider": result.provider, "model": result.model}
+    except LLMGenerationError as exc:
+        return fallback_answer, {"mode": "fallback", "reason": str(exc)}
+    except Exception as exc:
+        return fallback_answer, {"mode": "fallback", "reason": exc.__class__.__name__}
 
 
 def emit_bounded_events(
@@ -964,6 +487,8 @@ def emit_bounded_events(
         last_recommended_product_ids=result.product_ids or None,
         current_product_id=result.current_product_id,
         last_actions=actions or None,
+        visible_products=result.products or None,
+        cart=result.cart,
     )
     if done:
         yield sse_event("done", {"session_id": session_id})
@@ -1035,6 +560,27 @@ def emit_react_transaction_turn(
         },
     )
     completed_any_step = False
+    react_conversation_state = load_conversation_state(conn, session_id, None, None)
+    cart_add_steps = [step for step in react_plan.steps if step.action == "cart_add"]
+    if len(cart_add_steps) > 1:
+        batch_payload = build_batch_cart_payload(conn, message, cart_add_steps, react_conversation_state)
+        if batch_payload:
+            yield sse_event(
+                "workflow_status",
+                {
+                    "workflow": "react_transaction",
+                    "step": "batch_cart_prepare",
+                    "status": "needs_sku",
+                    "item_count": len(batch_payload["items"]),
+                },
+            )
+            assistant_content = batch_payload["message"]
+            yield sse_event("delta", {"text": assistant_content})
+            yield sse_event("batch_cart", batch_payload)
+            store_assistant_message(conn, session_id, assistant_content, image_id)
+            update_session_state(conn, session_id, last_query=message)
+            yield sse_event("done", {"session_id": session_id})
+            return
     for step in react_plan.steps:
         if step.action == "cart_add":
             parsed_turn = ParsedTurn(
@@ -1045,7 +591,7 @@ def emit_react_transaction_turn(
                 quantity=step.quantity or 1,
                 source="llm",
             )
-            result = execute_bounded_turn(conn, parsed_turn, load_conversation_state(conn, session_id, None, None))
+            result = execute_bounded_turn(conn, parsed_turn, react_conversation_state)
             yield sse_event(
                 "workflow_status",
                 {
@@ -1079,7 +625,7 @@ def emit_react_transaction_turn(
                 update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
                 yield sse_event("done", {"session_id": session_id})
                 return
-            checkout_message = "确认下单并支付" if step.confirm_payment else "结算"
+            checkout_message = CHECKOUT_CONFIRM_LABEL if step.confirm_payment and is_checkout_address_confirm_message(message) else "结算"
             yield sse_event(
                 "workflow_status",
                 {
@@ -1096,6 +642,152 @@ def emit_react_transaction_turn(
         yield sse_event("done", {"session_id": session_id})
 
 
+def build_batch_cart_payload(conn, message: str, cart_add_steps: list[Any], conversation_state: dict[str, Any]) -> dict[str, Any] | None:
+    items: list[dict[str, Any]] = []
+    needs_sku = False
+    seen_product_ids: set[str] = set()
+    for index, step in enumerate(cart_add_steps, start=1):
+        product_ids, _diagnostics = resolve_product_references(conn, product_reference_from_step(step), conversation_state)
+        if not product_ids:
+            return None
+        product_id = product_ids[0]
+        if product_id in seen_product_ids:
+            continue
+        seen_product_ids.add(product_id)
+        product = conn.execute(
+            "SELECT id, title, brand, image_path, price FROM products WHERE id = ?",
+            (product_id,),
+        ).fetchone()
+        if not product:
+            return None
+        skus = fetch_cart_skus(conn, product_id)
+        selected_sku = resolve_sku_from_message(message_with_sku_hint(message, step), skus)
+        if len(skus) > 1 and selected_sku is None:
+            needs_sku = True
+        selected_sku_id = selected_sku["id"] if selected_sku else None
+        items.append(
+            {
+                "product_id": product["id"],
+                "title": product["title"],
+                "brand": product["brand"],
+                "image_path": product["image_path"],
+                "price": float(product["price"] or 0),
+                "quantity": step.quantity or 1,
+                "position": index,
+                "status": "selected" if selected_sku_id else "needs_sku",
+                "selected_sku_id": selected_sku_id,
+                "skus": build_batch_cart_sku_options(skus),
+            }
+        )
+    if not needs_sku:
+        return None
+    return {
+        "batch_id": f"batch_{uuid.uuid4().hex[:10]}",
+        "title": "批量加入购物车",
+        "message": "这些商品需要先确认规格，选好后我会一次性加入购物车。",
+        "items": items,
+    }
+
+
+def build_batch_cart_sku_options(skus: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "sku_id": sku["id"],
+            "sku_name": sku["sku_name"],
+            "label": compact_sku_label(sku, skus),
+            "price": float(sku.get("price") or 0),
+            "stock": int(sku.get("stock") or 0),
+        }
+        for sku in skus
+    ]
+
+
+def is_batch_cart_confirm_message(message: str) -> bool:
+    return message.strip().startswith(BATCH_CART_CONFIRM_PREFIX)
+
+
+def batch_cart_confirm_display_text(message: str) -> str | None:
+    if not is_batch_cart_confirm_message(message):
+        return None
+    return "确认加入购物车"
+
+
+def parse_batch_cart_confirm_payload(message: str) -> dict[str, Any]:
+    raw = message.strip()[len(BATCH_CART_CONFIRM_PREFIX) :].strip()
+    data = json.loads(raw)
+    if not isinstance(data, dict):
+        raise ValueError("invalid batch cart payload")
+    return data
+
+
+def emit_batch_cart_confirm_turn(conn, session_id: str, message: str, image_id: str | None) -> Iterable[str]:
+    try:
+        payload = parse_batch_cart_confirm_payload(message)
+        selections = validate_batch_cart_selections(conn, payload)
+    except (json.JSONDecodeError, ValueError) as exc:
+        assistant_content = f"批量加入购物车失败：{exc}"
+        yield sse_event("delta", {"text": assistant_content})
+        store_assistant_message(conn, session_id, assistant_content, image_id)
+        update_session_state(conn, session_id, last_query="确认加入购物车")
+        yield sse_event("done", {"session_id": session_id})
+        return
+
+    added: list[dict[str, Any]] = []
+    for product_id, sku_id, quantity in selections:
+        for _ in range(quantity):
+            cart_product = add_product_to_cart(conn, product_id, sku_id)
+            if cart_product:
+                added.append(cart_product)
+
+    cart_payload = get_cart(conn).model_dump(mode="json")
+    title_text = "、".join(item["title"] for item in added[:3])
+    suffix = f" 等 {len(added)} 件商品" if len(added) > 3 else ""
+    assistant_content = f"已把 {title_text}{suffix} 加入购物车。购物车详情如下。"
+    actions = normalize_actions(conn, [{"type": "open_cart", "label": "打开购物车", "product_id": None}])
+    yield sse_event("delta", {"text": assistant_content})
+    yield sse_event("cart", cart_payload)
+    yield sse_event("actions", {"actions": actions})
+    store_assistant_message(conn, session_id, assistant_content, image_id)
+    update_session_state(
+        conn,
+        session_id,
+        last_query="确认加入购物车",
+        current_product_id=added[0]["id"] if added else None,
+        last_actions=actions,
+    )
+    yield sse_event("done", {"session_id": session_id})
+
+
+def validate_batch_cart_selections(conn, payload: dict[str, Any]) -> list[tuple[str, str, int]]:
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError("缺少待加入商品")
+    selections: list[tuple[str, str, int]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("商品选择格式不正确")
+        product_id = str(item.get("product_id") or "").strip()
+        sku_id = str(item.get("sku_id") or "").strip()
+        quantity = int(item.get("quantity") or 1)
+        if not product_id or not sku_id:
+            raise ValueError("还有商品没有选择规格")
+        if quantity < 1:
+            raise ValueError("商品数量不正确")
+        row = conn.execute(
+            """
+            SELECT s.id
+            FROM product_skus s
+            JOIN products p ON p.id = s.product_id
+            WHERE p.id = ? AND s.id = ? AND s.stock >= ?
+            """,
+            (product_id, sku_id, quantity),
+        ).fetchone()
+        if not row:
+            raise ValueError("有商品规格不可购买，请重新选择")
+        selections.append((product_id, sku_id, quantity))
+    return selections
+
+
 def emit_bundle_recommendation_turn(
     conn,
     session_id: str,
@@ -1103,10 +795,12 @@ def emit_bundle_recommendation_turn(
     image_id: str | None,
     turn_plan,
 ) -> Iterable[str]:
-    yield sse_event("delta", {"text": "我先把这个场景拆成几个需要购买的部分。\n"})
-    time.sleep(0.2)
-    yield sse_event("delta", {"text": "再分别匹配防护、穿搭、鞋包和护理类商品。\n"})
-    result = retrieve_bundle_recommendations(conn, message, top_k_per_slot=1)
+    result = retrieve_bundle_recommendations(
+        conn,
+        message,
+        top_k_per_slot=1,
+        bundle_slots=turn_plan.parsed_turn.bundle_slots if turn_plan else None,
+    )
     yield sse_event(
         "retrieval_status",
         {
@@ -1128,24 +822,27 @@ def emit_bundle_recommendation_turn(
         },
     )
     grounded_products = build_grounded_products(conn, result.products)
-    enrich_product_presentations(message, grounded_products)
-    if grounded_products:
-        yield sse_event("products", {"products": grounded_products})
+    visible_products = visible_chat_products(grounded_products)
+    enrich_product_presentations(message, visible_products)
+    if visible_products:
+        yield sse_event("products", {"products": visible_products})
     answer = build_bundle_answer(result)
     yield sse_event("llm_status", {"mode": "bundle_template", "reason": "multi_slot_grounded"})
     yield sse_event("delta", {"text": answer})
-    actions = build_actions(conn, grounded_products, message, {})
+    actions = build_actions(conn, visible_products, message, {})
     if actions:
         yield sse_event("actions", {"actions": actions})
-    assistant_content = append_recommendation_marker(answer, grounded_products)
+    assistant_content = append_recommendation_marker(answer, visible_products)
     store_assistant_message(conn, session_id, assistant_content, image_id)
     update_session_state(
         conn,
         session_id,
         last_query=message,
-        last_recommended_product_ids=[product["id"] for product in grounded_products],
-        current_product_id=grounded_products[0]["id"] if grounded_products else None,
+        last_recommended_product_ids=[product["id"] for product in visible_products],
+        current_product_id=visible_products[0]["id"] if visible_products else None,
         last_actions=actions or None,
+        parsed_turn=turn_plan.parsed_turn if turn_plan else None,
+        visible_products=grounded_products,
     )
     yield sse_event("done", {"session_id": session_id})
 
@@ -1168,15 +865,15 @@ def emit_checkout_turn(
 
     if is_address_change_intent(message):
         assistant_content = "可以先到地址管理新增或修改收货地址。地址确认后，回到这里回复“结算”或“确认下单”，我会重新汇总订单。"
-        yield order_status_event("need_address", "等待补充收货地址")
+        yield order_status_event("need_address", "待确认收货地址")
         yield sse_event("delta", {"text": assistant_content})
-        yield sse_event("actions", {"actions": [{"type": "search_more", "label": "修改收货地址", "product_id": None}]})
+        yield sse_event("actions", {"actions": [{"type": "search_more", "label": "修改地址", "product_id": None}]})
         store_assistant_message(conn, session_id, assistant_content, image_id)
         update_session_state(
             conn,
             session_id,
             last_query=message,
-            last_actions=[{"type": "search_more", "label": "修改收货地址", "product_id": None}],
+            last_actions=[{"type": "search_more", "label": "修改地址", "product_id": None}],
         )
         yield sse_event("done", {"session_id": session_id})
         return
@@ -1206,59 +903,57 @@ def emit_checkout_turn(
     if is_checkout_confirm_intent(message):
         if not address:
             assistant_content = "下单前需要先补充收货地址。请到地址管理新增地址后，再回复“确认下单”。"
-            actions = [{"type": "search_more", "label": "修改收货地址", "product_id": None}]
-            yield order_status_event("need_address", "等待补充收货地址")
+            actions = [{"type": "search_more", "label": "修改地址", "product_id": None}]
+            yield order_status_event("need_address", "待确认收货地址")
             yield sse_event("delta", {"text": assistant_content})
             yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
             update_session_state(conn, session_id, last_query=message, last_actions=actions)
             yield sse_event("done", {"session_id": session_id})
             return
-        yield order_status_event("creating_order", "正在创建订单")
-        time.sleep(0.2)
-        try:
-            order = create_paid_order_from_cart(conn, address)
-        except ValueError as exc:
-            assistant_content = str(exc)
-            actions = normalize_actions(conn, build_checkout_failure_actions(assistant_content))
-            yield order_status_event("failed", "下单失败")
+        if has_valid_checkout_confirmation(conn, session_id, cart, address):
+            yield order_status_event("creating_order", "正在创建订单")
+            time.sleep(0.2)
+            try:
+                order = create_paid_order_from_cart(conn, address)
+            except ValueError as exc:
+                assistant_content = str(exc)
+                actions = normalize_actions(conn, build_checkout_failure_actions(assistant_content))
+                yield order_status_event("failed", "下单失败")
+                yield sse_event("delta", {"text": assistant_content})
+                yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
+                if actions:
+                    yield sse_event("actions", {"actions": actions})
+                store_assistant_message(conn, session_id, assistant_content, image_id)
+                update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+                yield sse_event("done", {"session_id": session_id})
+                return
+            yield order_status_event("paying", "正在模拟支付")
+            time.sleep(0.2)
+            assistant_content = build_order_success_text(order)
+            yield order_status_event(
+                "paid",
+                f"支付成功，订单号 {order['order_id']}",
+                order_id=order["order_id"],
+                payment_id=order["payment_id"],
+            )
+            yield sse_event("order_success", build_order_success_payload(order))
             yield sse_event("delta", {"text": assistant_content})
             yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
-            if actions:
-                yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
-            update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+            update_session_state(conn, session_id, last_query=message, last_actions=[])
             yield sse_event("done", {"session_id": session_id})
             return
-        yield order_status_event("paying", "正在模拟支付")
-        time.sleep(0.2)
-        assistant_content = build_order_success_text(order)
-        yield order_status_event(
-            "paid",
-            f"支付成功，订单号 {order['order_id']}",
-            order_id=order["order_id"],
-            payment_id=order["payment_id"],
-        )
-        yield sse_event("delta", {"text": assistant_content})
-        yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
-        store_assistant_message(conn, session_id, assistant_content, image_id)
-        update_session_state(conn, session_id, last_query=message, last_actions=None)
-        yield sse_event("done", {"session_id": session_id})
-        return
 
+    actions = build_checkout_confirmation_actions(conn, cart, address)
     assistant_content = build_checkout_confirmation_text(cart, address)
-    raw_actions = [
-        {"type": "search_more", "label": "修改收货地址", "product_id": None},
-        {"type": "search_more", "label": "取消下单", "product_id": None},
-    ]
-    if address:
-        raw_actions.insert(0, {"type": "search_more", "label": "确认下单并支付", "product_id": None})
-    actions = normalize_actions(conn, raw_actions)
+    confirmation_payload = build_checkout_confirmation_payload(cart, address, actions)
     yield order_status_event(
         "awaiting_confirmation" if address else "need_address",
-        "等待确认下单" if address else "等待补充收货地址",
+        "待确认订单" if address else "待确认收货地址",
     )
     yield sse_event("delta", {"text": assistant_content})
+    yield sse_event("checkout_confirmation", confirmation_payload)
     yield sse_event("cart", cart)
     yield sse_event("actions", {"actions": actions})
     store_assistant_message(conn, session_id, assistant_content, image_id)
@@ -1402,7 +1097,10 @@ def normalize_actions(conn, actions: list[dict[str, Any]]) -> list[dict[str, Any
         if action_type in PRODUCT_ACTION_TYPES and not product_exists(conn, product_id):
             continue
         label = str(action.get("label") or ACTION_LABELS[action_type])
-        normalized.append({"type": action_type, "label": label, "product_id": product_id})
+        normalized_action = {"type": action_type, "label": label, "product_id": product_id}
+        if CHECKOUT_SIGNATURE_FIELD in action:
+            normalized_action[CHECKOUT_SIGNATURE_FIELD] = str(action[CHECKOUT_SIGNATURE_FIELD])
+        normalized.append(normalized_action)
     return normalized
 
 
@@ -1427,7 +1125,43 @@ def build_actions(
 
 
 def build_clarification_actions(conn, question: str) -> list[dict[str, Any]]:
-    if "哪类带" in question:
+    if "具体对什么过敏" in question:
+        labels = [
+            "坚果/花生过敏",
+            "乳制品/鸡蛋过敏",
+            "小麦/海鲜过敏",
+        ]
+    elif "过敏" in question or "忌口" in question:
+        labels = [
+            "没有过敏忌口",
+            "给小孩/老人吃",
+            "低糖低盐优先",
+        ]
+    elif "肤质" in question or "酒精" in question or "香精" in question:
+        labels = [
+            "敏感肌，避开酒精香精",
+            "干皮，保湿优先",
+            "油皮，清爽控油",
+        ]
+    elif "脚宽" in question or "膝盖" in question or "磨脚" in question:
+        labels = [
+            "跑步用，脚宽",
+            "通勤穿，不磨脚",
+            "篮球实战，膝盖易不适",
+        ]
+    elif "长时间佩戴" in question or "孩子使用" in question or "护眼" in question:
+        labels = [
+            "长时间佩戴要舒适",
+            "给孩子用，护眼优先",
+            "降噪续航优先",
+        ]
+    elif "宠物" in question or "肠胃敏感" in question:
+        labels = [
+            "猫咪，肠胃敏感",
+            "狗狗，日常使用",
+            "避开易过敏成分",
+        ]
+    elif "哪类带" in question:
         labels = build_attribute_category_labels(question)
     elif "换一批推荐" in question and "删除购物车" in question:
         labels = [
@@ -1643,7 +1377,7 @@ def enrich_product_presentations(user_message: str, products: list[dict[str, Any
     for index, product in enumerate(products):
         generated = presentations.get(str(product.get("id"))) if presentations else None
         fallback_title, fallback_reason = fallback_product_presentation(user_message, product, index)
-        product["recommendation_title"] = (generated or {}).get("recommendation_title") or fallback_title
+        product["recommendation_title"] = fallback_title
         product["reason"] = (generated or {}).get("reason") or user_facing_reason(product.get("reason")) or fallback_reason
 
 
@@ -1668,7 +1402,7 @@ def fallback_product_presentation(user_message: str, product: dict[str, Any], in
         return "实战支撑", "更适合运动和日常穿搭，重点看支撑、缓震和耐磨。"
     if price <= 300:
         return "高性价比", f"这款{category}价格更友好，适合作为预算有限时的实用选择。"
-    return ("综合匹配" if index == 0 else "对比备选", f"这款{category}匹配当前需求，可结合价格、品牌和库存一起对比。")
+    return ("综合匹配" if index == 0 else "对比备选", f"这款{category}匹配当前需求，可结合价格、品牌和评分一起对比。")
 
 
 def user_facing_reason(value: Any) -> str | None:
@@ -1721,18 +1455,25 @@ def load_conversation_state(
     cart_context: list[dict] | None,
 ) -> dict[str, Any]:
     row = conn.execute(
-        "SELECT last_query, last_recommended_product_ids, current_product_id FROM chat_sessions WHERE id = ?",
+        """
+        SELECT last_query, last_recommended_product_ids, current_product_id, structured_state_json
+        FROM chat_sessions
+        WHERE id = ?
+        """,
         (session_id,),
     ).fetchone()
     cart_items = cart_context or [
         item.model_dump(mode="json")
         for item in get_cart(conn).items
     ]
+    structured_memory = parse_structured_memory(row["structured_state_json"] if row else None)
     return {
         "last_query": row["last_query"] if row else None,
         "last_recommended_product_ids": parse_product_id_list(row["last_recommended_product_ids"] if row else None),
         "current_product_id": current_product_id or (row["current_product_id"] if row else None),
         "cart_context": cart_items,
+        STRUCTURED_MEMORY_KEY: structured_memory,
+        "structured_state": structured_memory,
     }
 
 
@@ -1741,6 +1482,7 @@ def build_waiting_deltas(
     parsed_filters: dict[str, Any],
     image_id: str | None,
     has_chat_history: bool,
+    skip_generic_intro: bool = False,
 ) -> list[str]:
     texts: list[str] = []
     lower_message = message.lower()
@@ -1752,7 +1494,18 @@ def build_waiting_deltas(
     has_price = any(parsed_filters.get(key) is not None for key in ("min_price", "max_price"))
     wants_compare = any(word in message for word in ("对比", "比较", "哪个好", "哪款好")) or "compare" in lower_message
 
-    if image_id:
+    if skip_generic_intro:
+        if image_id:
+            texts.append("我会结合图片线索一起匹配。")
+        elif has_chat_history and any(word in message for word in ("再", "换", "继续", "还有", "便宜", "贵点")):
+            texts.append("我会基于刚才的条件继续筛。")
+        elif wants_compare:
+            texts.append("我会重点整理关键差异。")
+        elif has_exclusions:
+            texts.append("我会先排除你不想要的条件。")
+        elif has_price:
+            texts.append("我会控制在预算范围内。")
+    elif image_id:
         texts.append("我先根据图片线索匹配相似商品。")
     elif has_chat_history and any(word in message for word in ("再", "换", "继续", "还有", "便宜", "贵点")):
         texts.append("明白，我基于刚才的条件继续筛。")
@@ -1765,11 +1518,11 @@ def build_waiting_deltas(
     else:
         texts.append("好的，我先帮你筛一下符合条件的商品。")
 
-    if wants_compare:
+    if not skip_generic_intro and wants_compare:
         texts.append("正在对比价格、评分、库存和适合场景。")
-    elif has_exclusions:
+    elif not skip_generic_intro and has_exclusions:
         texts.append("正在匹配剩余品牌、价格和库存。")
-    else:
+    elif not skip_generic_intro:
         texts.append("正在匹配商品、价格、评分和库存。")
 
     texts.append("我会优先展示最符合条件的几款。")
@@ -1832,9 +1585,14 @@ def is_checkout_confirm_intent(message: str) -> bool:
     )
 
 
+def is_checkout_address_confirm_message(message: str) -> bool:
+    text = message.strip()
+    return any(word in text for word in ("确认下单", "确认下单并支付", "提交订单", "确认支付"))
+
+
 def is_address_change_intent(message: str) -> bool:
     text = message.strip()
-    return "收货地址" in text and any(word in text for word in ("修改", "更换", "换", "新增", "添加"))
+    return "地址" in text and any(word in text for word in ("修改", "更换", "换", "新增", "添加"))
 
 
 def load_default_address(conn) -> dict[str, Any] | None:
@@ -1873,29 +1631,139 @@ def restore_order_stock(conn, order_id: str) -> None:
 
 
 def build_checkout_confirmation_text(cart: dict[str, Any], address: dict[str, Any] | None) -> str:
-    selected_items = [item for item in cart.get("items", []) if item.get("selected", True)]
-    address_text = (
-        f"{address['receiver_name']} {address['phone']}，{address['province']}{address['city']}{address['district']}{address['detail']}"
-        if address
-        else "还没有默认收货地址"
-    )
-    lines = [
-        "我先帮你核对下单信息：",
-        f"收货地址：{address_text}",
-        "订单商品：",
-    ]
-    for index, item in enumerate(selected_items[:4], start=1):
-        lines.append(
-            f"{index}. {item['title']}｜{item.get('sku_name') or '默认规格'}｜x{item.get('quantity') or 1}｜¥{float(item.get('price') or 0):.2f}"
-        )
-    if len(selected_items) > 4:
-        lines.append(f"还有 {len(selected_items) - 4} 件商品未展开。")
-    lines.append(f"合计 ¥{float(cart.get('total_amount') or 0):.2f}")
     if address:
-        lines.append("确认无误后点“确认下单并支付”，我会模拟完成支付。")
-    else:
-        lines.append("请先补充收货地址，再继续下单。")
-    return "\n".join(lines)
+        return "我已整理好订单确认卡。请重点核对收货人、收货地址、商品数量和应付金额，确认无误后再继续支付。"
+    return "下单前需要先补充收货地址。地址确认后，我再帮你继续核对订单。"
+
+
+def build_checkout_confirmation_payload(
+    cart: dict[str, Any],
+    address: dict[str, Any] | None,
+    actions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    selected_items = [item for item in cart.get("items", []) if item.get("selected", True)]
+    product_total = round(
+        sum(float(item.get("price") or 0) * int(item.get("quantity") or 1) for item in selected_items),
+        2,
+    )
+    payable_amount = round(float(cart.get("total_amount") or product_total), 2)
+    item_count = sum(int(item.get("quantity") or 0) for item in selected_items)
+    high_value = payable_amount > HIGH_VALUE_ORDER_THRESHOLD or any(
+        float(item.get("price") or 0) >= HIGH_VALUE_ORDER_THRESHOLD
+        or float(item.get("price") or 0) * int(item.get("quantity") or 1) >= HIGH_VALUE_ORDER_THRESHOLD
+        for item in selected_items
+    )
+
+    items: list[dict[str, Any]] = []
+    for item in selected_items:
+        price = float(item.get("price") or 0)
+        quantity = int(item.get("quantity") or 1)
+        items.append(
+            {
+                "id": item.get("id"),
+                "product_id": item.get("product_id"),
+                "sku_id": item.get("sku_id"),
+                "title": item.get("title") or "商品",
+                "brand": item.get("brand") or "",
+                "image_path": item.get("image_path") or "",
+                "sku_name": item.get("sku_name") or "默认规格",
+                "price": round(price, 2),
+                "quantity": quantity,
+                "line_total": round(price * quantity, 2),
+            }
+        )
+
+    full_address = (
+        f"{address['province']}{address['city']}{address['district']}{address['detail']}"
+        if address
+        else ""
+    )
+    preview_notice = (
+        f"当前仅展示前 {CHECKOUT_DETAIL_PREVIEW_LIMIT} 件，共 {len(items)} 件商品"
+        if len(items) > CHECKOUT_DETAIL_PREVIEW_LIMIT
+        else None
+    )
+
+    payload: dict[str, Any] = {
+        "title": "确认订单",
+        "status_label": "待确认订单" if address else "待确认收货地址",
+        "receiver_name": address["receiver_name"] if address else "待补充",
+        "receiver_phone": address["phone"] if address else "",
+        "address": full_address if address else "还没有默认收货地址",
+        "item_count": item_count,
+        "line_item_count": len(items),
+        "product_total": product_total,
+        "payable_amount": payable_amount,
+        "shown_limit": CHECKOUT_DETAIL_PREVIEW_LIMIT,
+        "preview_notice": preview_notice,
+        "items": items,
+        "actions": actions,
+        "requires_second_confirm": high_value,
+        "risk_message": "订单金额较高，请再次核对商品、数量和收货地址后再支付。" if high_value else None,
+    }
+    return payload
+
+
+def build_checkout_confirmation_actions(
+    conn,
+    cart: dict[str, Any],
+    address: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    raw_actions = [
+        {"type": "open_cart", "label": "修改商品", "product_id": None},
+        {"type": "search_more", "label": "修改地址", "product_id": None},
+    ]
+    if address:
+        raw_actions.append(
+            {
+                "type": "search_more",
+                "label": CHECKOUT_CONFIRM_LABEL,
+                "product_id": None,
+                CHECKOUT_SIGNATURE_FIELD: checkout_confirmation_signature(cart, address),
+            },
+        )
+    return normalize_actions(conn, raw_actions)
+
+
+def checkout_confirmation_signature(cart: dict[str, Any], address: dict[str, Any]) -> str:
+    selected_items = [item for item in cart.get("items", []) if item.get("selected", True)]
+    signature = {
+        "address_id": address.get("id"),
+        "items": [
+            {
+                "id": item.get("id"),
+                "product_id": item.get("product_id"),
+                "sku_id": item.get("sku_id"),
+                "quantity": int(item.get("quantity") or 0),
+            }
+            for item in sorted(selected_items, key=lambda item: str(item.get("id") or ""))
+        ],
+    }
+    return json.dumps(signature, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def has_valid_checkout_confirmation(
+    conn,
+    session_id: str,
+    cart: dict[str, Any],
+    address: dict[str, Any],
+) -> bool:
+    row = conn.execute("SELECT last_actions FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
+    if not row or not row["last_actions"]:
+        return False
+    try:
+        actions = json.loads(row["last_actions"])
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(actions, list):
+        return False
+    expected = checkout_confirmation_signature(cart, address)
+    return any(
+        isinstance(action, dict)
+        and action.get("label") == CHECKOUT_CONFIRM_LABEL
+        and action.get(CHECKOUT_SIGNATURE_FIELD) == expected
+        for action in actions
+    )
 
 
 def build_checkout_failure_actions(message: str) -> list[dict[str, Any]]:
@@ -2018,17 +1886,56 @@ def find_stock_problem(conn, items: list[Any]) -> str | None:
 
 def build_order_success_text(order: dict[str, Any]) -> str:
     address = order["address"]
+    full_address = f"{address['province']}{address['city']}{address['district']}{address['detail']}"
     lines = [
         "下单完成，已模拟支付成功。",
+        "",
         f"订单号：{order['order_id']}",
         f"支付流水：{order['payment_id']}",
-        f"收货地址：{address['receiver_name']} {address['phone']}，{address['province']}{address['city']}{address['district']}{address['detail']}",
-        "订单商品：",
+        f"收货人：{address['receiver_name']} {address['phone']}",
+        f"收货地址：{full_address}",
+        f"实付金额：¥{float(order['total_amount']):.2f}",
+        "",
+        "商品明细：",
     ]
-    for index, item in enumerate(order["items"][:4], start=1):
-        lines.append(f"{index}. {item.title}｜{item.sku_name}｜x{item.quantity}｜¥{item.price:.2f}")
-    lines.append(f"实付 ¥{order['total_amount']:.2f}")
+    for index, item in enumerate(order["items"][:CHECKOUT_DETAIL_PREVIEW_LIMIT], start=1):
+        line_total = float(item.price) * int(item.quantity)
+        lines.append(f"{index}. {item.title}（{item.sku_name}）")
+        lines.append(f"   单价 ¥{float(item.price):.2f}，数量 {int(item.quantity)}，小计 ¥{line_total:.2f}")
+    if len(order["items"]) > CHECKOUT_DETAIL_PREVIEW_LIMIT:
+        lines.append(f"当前仅展示前 {CHECKOUT_DETAIL_PREVIEW_LIMIT} 件，共 {len(order['items'])} 件商品。可在“我的订单”查看全部明细。")
+    else:
+        lines.append("可在“我的订单”查看订单详情。")
     return "\n".join(lines)
+
+
+def build_order_success_payload(order: dict[str, Any]) -> dict[str, Any]:
+    address = order["address"]
+    full_address = f"{address['province']}{address['city']}{address['district']}{address['detail']}"
+    items: list[dict[str, Any]] = []
+    for item in order["items"]:
+        price = float(item.price)
+        quantity = int(item.quantity)
+        items.append(
+            {
+                "product_id": item.product_id,
+                "name": item.title,
+                "spec_text": item.sku_name or "默认规格",
+                "quantity": quantity,
+                "price": round(price, 2),
+                "line_total": round(price * quantity, 2),
+                "image_url": item.image_path or f"/api/product-thumbnails/{item.product_id}.jpg",
+            }
+        )
+    return {
+        "order_id": order["order_id"],
+        "payment_id": order["payment_id"],
+        "receiver_name": address["receiver_name"],
+        "receiver_phone": address["phone"],
+        "receiver_address": full_address,
+        "paid_amount": round(float(order["total_amount"]), 2),
+        "items": items,
+    }
 
 
 def generate_grounded_answer(
@@ -2068,7 +1975,6 @@ def stream_grounded_answer_events(
     yield sse_event("llm_status", {"mode": "calling", "provider": "poe", "stream": True})
     chunks: list[str] = []
     try:
-        yield sse_event("delta", {"text": "\n"})
         for chunk in iter_async_blocking(
             stream_agent_reply_chunks_with_status(message, grounded_products, faq_context, chat_history)
         ):
@@ -2184,7 +2090,34 @@ def update_session_state(
     last_recommended_product_ids: list[str] | None = None,
     current_product_id: str | None = None,
     last_actions: list[dict[str, Any]] | None = None,
+    parsed_turn: ParsedTurn | None = None,
+    visible_products: list[dict[str, Any]] | None = None,
+    cart: dict[str, Any] | None = None,
 ) -> None:
+    row = conn.execute(
+        "SELECT structured_state_json FROM chat_sessions WHERE id = ?",
+        (session_id,),
+    ).fetchone()
+    previous_memory = parse_structured_memory(row["structured_state_json"] if row else None)
+    should_update_memory = (
+        last_query is not None
+        or parsed_turn is not None
+        or visible_products is not None
+        or current_product_id is not None
+        or cart is not None
+    )
+    structured_state_json = None
+    if should_update_memory:
+        structured_state_json = dump_structured_memory(
+            build_updated_structured_memory(
+                previous_memory,
+                message=last_query or previous_memory.get("last_query") or "",
+                parsed_turn=parsed_turn,
+                visible_products=visible_products,
+                current_product_id=current_product_id,
+                cart=cart,
+            )
+        )
     conn.execute(
         """
         UPDATE chat_sessions
@@ -2192,7 +2125,8 @@ def update_session_state(
             last_query = COALESCE(?, last_query),
             last_recommended_product_ids = COALESCE(?, last_recommended_product_ids),
             current_product_id = COALESCE(?, current_product_id),
-            last_actions = COALESCE(?, last_actions)
+            last_actions = COALESCE(?, last_actions),
+            structured_state_json = COALESCE(?, structured_state_json)
         WHERE id = ?
         """,
         (
@@ -2200,6 +2134,7 @@ def update_session_state(
             json.dumps(last_recommended_product_ids, ensure_ascii=False) if last_recommended_product_ids is not None else None,
             current_product_id,
             json.dumps(last_actions, ensure_ascii=False) if last_actions is not None else None,
+            structured_state_json,
             session_id,
         ),
     )

@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .agent import analyze_uploaded_image, save_upload, stream_chat
+from .agent import analyze_image, save_upload, stream_chat
 from .asr_client import asr_model_name, asr_provider_name, transcribe_audio_bytes
 from .catalog import (
     first_sku,
@@ -25,6 +25,7 @@ from .catalog import (
 )
 from .config import get_settings
 from .database import get_db, init_db
+from .observability import install_metrics, record_asr_request, record_image_analyze
 from .schemas import (
     AudioTranscribeResponse,
     CartItemCreate,
@@ -65,6 +66,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+install_metrics(app)
 settings.upload_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 if settings.dataset_path.exists():
@@ -718,29 +720,32 @@ def api_image_upload(file: UploadFile = File(...)):
 
 @app.post("/api/agent/image/analyze", response_model=ImageAnalyzeResponse)
 def api_image_analyze(payload: ImageAnalyzeRequest):
-    with get_db() as conn:
-        analysis = analyze_uploaded_image(conn, payload.image_id, payload.user_hint)
-        return ImageAnalyzeResponse(
-            image_id=payload.image_id,
-            detected=analysis["detected"],
-            query=analysis["query"],
-            objects=analysis["objects"],
-            provider=analysis["provider"],
-            model=analysis["model"],
-            fallback=analysis["fallback"],
-        )
+    try:
+        with get_db() as conn:
+            detected, query = analyze_image(conn, payload.image_id, payload.user_hint)
+            record_image_analyze(True)
+            return ImageAnalyzeResponse(image_id=payload.image_id, detected=detected, query=query)
+    except Exception:
+        record_image_analyze(False)
+        raise
 
 
 @app.post("/api/agent/audio/transcribe", response_model=AudioTranscribeResponse)
 async def api_audio_transcribe(file: UploadFile = File(...)):
-    data = await file.read()
-    text = await transcribe_audio_bytes(file.filename or "speech.webm", file.content_type, data)
-    return AudioTranscribeResponse(
-        text=text or "",
-        provider=asr_provider_name(),
-        model=asr_model_name(),
-        available=bool(text),
-    )
+    provider = asr_provider_name()
+    try:
+        data = await file.read()
+        text = await transcribe_audio_bytes(file.filename or "speech.webm", file.content_type, data)
+        record_asr_request(provider, bool(text))
+        return AudioTranscribeResponse(
+            text=text or "",
+            provider=provider,
+            model=asr_model_name(),
+            available=bool(text),
+        )
+    except Exception:
+        record_asr_request(provider, False)
+        raise
 
 
 @app.post("/api/agent/chat/stream")

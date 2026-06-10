@@ -29,7 +29,8 @@ fun ProductCardDto.toProduct(): Product = Product(
     skuSummaries = sku_summary?.takeIf { it.isNotBlank() }?.let { listOf(it) }.orEmpty(),
     faqSummaries = faq_summary,
     reviewSummaries = review_summary,
-    aiComment = userFacingComment(reason, marketing_description)
+    aiComment = userFacingComment(reason, marketing_description),
+    recommendationTitle = recommendation_title.orEmpty()
 )
 
 fun ProductDetailDto.toProduct(): Product = Product(
@@ -103,7 +104,7 @@ fun CartItemDto.toCartItem(): CartItem = CartItem(
     brand = brand
 )
 
-private fun String.toAssetUrl(): String {
+fun String.toSmartShopAssetUrl(): String {
     if (startsWith("http://") || startsWith("https://")) return this
     val base = BuildConfig.SMARTSHOP_BASE_URL.trimEnd('/')
     val normalized = replace("\\", "/").trimStart('/')
@@ -115,6 +116,8 @@ private fun String.toAssetUrl(): String {
         .joinToString("/") { segment -> Uri.encode(segment) }
     return "$base/assets/$encodedPath"
 }
+
+private fun String.toAssetUrl(): String = toSmartShopAssetUrl()
 
 private fun userFacingComment(reason: String?, marketingDescription: String?): String {
     val candidate = reason

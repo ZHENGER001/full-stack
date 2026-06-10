@@ -8,7 +8,7 @@ plugins {
 
 val smartshopBaseUrl = providers.gradleProperty("smartshopBaseUrl")
     .orElse(providers.environmentVariable("SMARTSHOP_BASE_URL"))
-    .orElse("http://10.0.2.2:8000/")
+    .orElse("http://192.168.0.178:8000/")
 
 android {
     namespace = "com.smartshop.ai"

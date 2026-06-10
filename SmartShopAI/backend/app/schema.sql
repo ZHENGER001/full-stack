@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     last_recommended_product_ids TEXT,
     current_product_id TEXT,
     last_actions TEXT,
+    structured_state_json TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -145,6 +146,16 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS query_cache_entries (
+    cache_key TEXT PRIMARY KEY,
+    query_text TEXT NOT NULL DEFAULT '',
+    payload_json TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    expires_at REAL NOT NULL,
+    hit_count INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category, subcategory);
 CREATE INDEX IF NOT EXISTS idx_products_search ON products(title, brand, category, subcategory);
 CREATE INDEX IF NOT EXISTS idx_product_skus_product ON product_skus(product_id);
@@ -153,3 +164,4 @@ CREATE INDEX IF NOT EXISTS idx_favorites_created ON favorites(created_at);
 CREATE INDEX IF NOT EXISTS idx_footprints_viewed ON footprints(viewed_at);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_product ON rag_chunks(product_id);
+CREATE INDEX IF NOT EXISTS idx_query_cache_expires ON query_cache_entries(expires_at);
