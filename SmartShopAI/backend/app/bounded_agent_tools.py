@@ -9,6 +9,7 @@ from typing import Any, Literal
 import httpx
 
 from .catalog import first_sku, get_cart, row_to_product_card
+from .concurrency import sync_llm_slot
 from .llm_client import LLMGenerationError, _env_value, _extract_content, _extract_json_object, llm_model_name
 from .turn_schema import ParsedTurn, ProductReference
 
@@ -348,20 +349,21 @@ def _write_compare_payload_with_llm(
         "如果证据不足，就写“当前数据不足”。不要输出 Markdown。"
     )
     try:
-        with httpx.Client(timeout=httpx.Timeout(timeout, connect=4.0)) as client:
-            response = client.post(
-                f"{base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": llm_model_name(),
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": json.dumps(evidence, ensure_ascii=False)},
-                    ],
-                    "temperature": 0.45,
-                    "max_tokens": 900,
-                },
-            )
+        with sync_llm_slot():
+            with httpx.Client(timeout=httpx.Timeout(timeout, connect=4.0)) as client:
+                response = client.post(
+                    f"{base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": llm_model_name(),
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": json.dumps(evidence, ensure_ascii=False)},
+                        ],
+                        "temperature": 0.45,
+                        "max_tokens": 900,
+                    },
+                )
             response.raise_for_status()
             data = json.loads(_extract_json_object(_extract_content(response.json())))
             return _sanitize_llm_comparison_payload(data, fallback, products, priority_dimensions)

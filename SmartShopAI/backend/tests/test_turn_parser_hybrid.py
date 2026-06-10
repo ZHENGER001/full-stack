@@ -124,17 +124,86 @@ class TurnParserHybridTest(unittest.TestCase):
         parsed = parse("推荐手机")
 
         self.assertEqual(parsed.intent_type, "product_search")
-        self.assertEqual(parsed.route_hint, "direct_tool")
+        self.assertTrue(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "no_tool")
         self.assertIn("数码电子", parsed.constraints.categories)
         self.assertIn("智能手机", parsed.constraints.subcategories)
+        self.assertIn("拍照", parsed.clarification_question or "")
+        self.assertIn("续航", parsed.clarification_question or "")
 
     def test_bluetooth_earphones_with_price(self) -> None:
         parsed = parse("200元以下蓝牙耳机")
 
         self.assertEqual(parsed.intent_type, "product_search")
+        self.assertFalse(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "direct_tool")
         self.assertEqual(parsed.constraints.price.max, 200)
         self.assertIn("真无线耳机", parsed.constraints.subcategories)
         self.assertIn("耳机", parsed.constraints.required_terms)
+
+    def test_bluetooth_earphones_with_budget_does_not_trigger_wearable_safety_question(self) -> None:
+        parsed = parse("推荐一款500元以内的蓝牙耳机")
+
+        self.assertEqual(parsed.intent_type, "product_search")
+        self.assertFalse(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "direct_tool")
+        self.assertEqual(parsed.constraints.price.max, 500)
+        self.assertIn("真无线耳机", parsed.constraints.subcategories)
+
+    def test_premium_bluetooth_earphones_ask_preference_before_recommendation(self) -> None:
+        parsed = parse("推荐一款2000元以内的蓝牙耳机")
+
+        self.assertEqual(parsed.intent_type, "product_search")
+        self.assertTrue(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "no_tool")
+        self.assertIn("降噪", parsed.clarification_question or "")
+        self.assertIn("续航", parsed.clarification_question or "")
+        self.assertNotIn("预算大概多少", parsed.clarification_question or "")
+
+    def test_general_earphone_search_asks_preference_before_recommendation(self) -> None:
+        parsed = parse("推荐一款耳机")
+
+        self.assertEqual(parsed.intent_type, "product_search")
+        self.assertTrue(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "no_tool")
+        self.assertIn("真无线耳机", parsed.constraints.subcategories)
+        self.assertEqual(parsed.constraints.required_terms, ["耳机"])
+        self.assertIn("降噪", parsed.clarification_question or "")
+        self.assertIn("续航", parsed.clarification_question or "")
+
+    def test_noise_cancelling_earphone_refinement_does_not_repeat_preference_question(self) -> None:
+        parsed = parse(
+            "优先降噪的耳机有哪些",
+            {
+                "structured_memory": {
+                    "category": "数码电子",
+                    "subcategory": "真无线耳机",
+                }
+            },
+        )
+
+        self.assertEqual(parsed.intent_type, "product_search")
+        self.assertFalse(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "direct_tool")
+        self.assertIn("降噪", parsed.constraints.attributes_include)
+        self.assertEqual(parsed.constraints.required_terms, ["耳机"])
+
+    def test_earphone_preference_tradeoff_is_not_product_compare(self) -> None:
+        parsed = parse(
+            "降噪和续航哪个更重要",
+            {
+                "structured_memory": {
+                    "category": "数码电子",
+                    "subcategory": "真无线耳机",
+                    "budget_max": 500,
+                }
+            },
+        )
+
+        self.assertEqual(parsed.intent_type, "preference_question")
+        self.assertEqual(parsed.route_hint, "no_tool")
+        self.assertIn("通勤", parsed.clarification_question or "")
+        self.assertIn("长途", parsed.clarification_question or "")
 
     def test_unknown_short_controller_exact_or_none(self) -> None:
         parsed = parse("手柄")

@@ -216,6 +216,8 @@ def _apply_grounding(constraints: TurnConstraints, grounding: CatalogGroundingRe
         constraints.categories = _merge_unique(constraints.categories, match.categories)
         constraints.subcategories = _merge_unique(constraints.subcategories, match.subcategories)
         constraints.required_terms = _merge_unique(constraints.required_terms, match.required_terms)
+    if "真无线耳机" in constraints.subcategories and "耳机" in constraints.required_terms:
+        constraints.required_terms = [term for term in constraints.required_terms if term != "真无线耳机"]
 
 
 def _has_structured_constraints(constraints: TurnConstraints) -> bool:

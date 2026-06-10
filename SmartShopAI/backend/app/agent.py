@@ -28,10 +28,12 @@ from .llm_client import (
     LLMGenerationError,
     LLMGenerationResult,
     generate_agent_reply_with_status,
+    generate_preference_answer_with_status,
     generate_product_presentations,
     llm_model_name,
     stream_agent_reply_chunks_with_status,
 )
+from .observability import AgentTurnMetrics
 from .react_planner import has_checkout_signal, message_with_sku_hint, plan_react_transaction, product_reference_from_step
 from .schemas import ProductCard
 from .turn_schema import ParsedTurn
@@ -80,6 +82,12 @@ def order_status_event(
 def mock_detect_from_hint(user_hint: str | None, filename: str | None = None) -> dict[str, str]:
     # TODO: replace mock image detection with real vision encoder.
     text = f"{user_hint or ''} {filename or ''}".lower()
+    if any(word in text for word in ["手机", "phone", "mobile", "redmi", "iphone", "huawei", "xiaomi", "oppo", "vivo"]):
+        return {"object_type": "手机", "color": "未知", "style": "数码", "material": "玻璃机身", "scene": "日常使用"}
+    if any(word in text for word in ["平板", "tablet", "ipad"]):
+        return {"object_type": "平板电脑", "color": "未知", "style": "数码", "material": "金属机身", "scene": "影音办公"}
+    if any(word in text for word in ["笔记本", "电脑", "laptop", "computer"]):
+        return {"object_type": "笔记本电脑", "color": "未知", "style": "数码", "material": "金属机身", "scene": "办公学习"}
     if any(word in text for word in ["鞋", "shoe", "sneaker", "跑步"]):
         return {"object_type": "鞋", "color": "黑色", "style": "运动", "material": "织物", "scene": "跑步通勤"}
     if any(word in text for word in ["耳机", "headphone", "earbud"]):
@@ -88,7 +96,29 @@ def mock_detect_from_hint(user_hint: str | None, filename: str | None = None) ->
         return {"object_type": "外套", "color": "黑色", "style": "休闲", "material": "皮革", "scene": "街拍"}
     if any(word in text for word in ["洗面奶", "洁面", "护肤", "beauty"]):
         return {"object_type": "洁面产品", "color": "白色", "style": "护肤", "material": "乳液", "scene": "日常洁面"}
-    return {"object_type": "商品", "color": "黑色", "style": "休闲", "material": "未知", "scene": "日常"}
+    return {"object_type": "相似商品", "color": "未知", "style": "通用", "material": "未知", "scene": "日常使用"}
+
+
+def image_detection_intro(detected: dict[str, str]) -> str:
+    object_type = detected.get("object_type") or "相似商品"
+    color = detected.get("color") or "未知"
+    style = detected.get("style") or "通用"
+    material = detected.get("material") or "未知"
+    scene = detected.get("scene") or "日常使用"
+    if object_type == "相似商品" and color == "未知" and material == "未知":
+        return "我会根据图片线索匹配相似商品。"
+    description_parts = []
+    if color != "未知":
+        description_parts.append(color)
+    if style not in {"未知", "通用"}:
+        description_parts.append(style)
+    description = "".join(description_parts) + object_type
+    details = [f"我识别到图片里像是{description}"]
+    if material != "未知":
+        details.append(f"材质特征偏{material}")
+    if scene:
+        details.append(f"场景更接近{scene}")
+    return "，".join(details) + "。"
 
 
 def detected_to_query(detected: dict[str, str], user_hint: str | None) -> str:
@@ -138,12 +168,21 @@ def stream_chat(
     current_product_id: str | None = None,
     cart_context: list[dict] | None = None,
 ) -> Iterable[str]:
+    metrics = AgentTurnMetrics()
     try:
-        yield from _stream_chat(conn, session_id, message, image_id, current_product_id, cart_context or [])
+        for chunk in _stream_chat(conn, session_id, message, image_id, current_product_id, cart_context or []):
+            metrics.observe_sse_chunk(chunk)
+            yield chunk
     except Exception:
-        yield sse_event("error", {"message": "AI 导购暂时遇到问题，请稍后再试。"})
-        yield sse_event("delta", {"text": "AI 导购暂时遇到问题，请稍后再试。"})
-        yield sse_event("done", {"session_id": session_id})
+        for chunk in (
+            sse_event("error", {"message": "AI 导购暂时遇到问题，请稍后再试。"}),
+            sse_event("delta", {"text": "AI 导购暂时遇到问题，请稍后再试。"}),
+            sse_event("done", {"session_id": session_id}),
+        ):
+            metrics.observe_sse_chunk(chunk)
+            yield chunk
+    finally:
+        metrics.finish()
 
 
 def _stream_chat(
@@ -231,7 +270,16 @@ def _stream_chat_legacy(
             return
         if not turn_plan.should_search_products:
             assistant_content = turn_plan.policy.response_text or "这个操作我正在支持中。"
+            llm_status = None
+            if parsed_turn.intent_type == "preference_question":
+                assistant_content, llm_status = build_preference_answer(
+                    message,
+                    assistant_content,
+                    conversation_state,
+                )
             actions = build_clarification_actions(conn, parsed_turn.clarification_question or assistant_content)
+            if llm_status:
+                yield sse_event("llm_status", llm_status)
             yield sse_event("delta", {"text": assistant_content})
             if actions:
                 yield sse_event("actions", {"actions": actions})
@@ -295,10 +343,7 @@ def _stream_chat_legacy(
         yield sse_event(
             "delta",
             {
-                "text": (
-                    f"我识别到图片里像是{detected['color']}{detected['style']}风格的{detected['object_type']}，"
-                    f"材质特征偏{detected['material']}，场景更接近{detected['scene']}。"
-                )
+                "text": image_detection_intro(detected)
             },
         )
 
@@ -385,6 +430,20 @@ def emit_bounded_result(
     result: BoundedToolResult,
 ) -> Iterable[str]:
     yield from emit_bounded_events(conn, session_id, message, image_id, result, store=True, done=True)
+
+
+def build_preference_answer(
+    message: str,
+    fallback_answer: str,
+    conversation_state: dict[str, Any] | None,
+) -> tuple[str, dict[str, str]]:
+    try:
+        result = run_async_blocking(generate_preference_answer_with_status(message, fallback_answer, conversation_state))
+        return result.content, {"mode": "preference_llm", "provider": result.provider, "model": result.model}
+    except LLMGenerationError as exc:
+        return fallback_answer, {"mode": "fallback", "reason": str(exc)}
+    except Exception as exc:
+        return fallback_answer, {"mode": "fallback", "reason": exc.__class__.__name__}
 
 
 def emit_bounded_events(

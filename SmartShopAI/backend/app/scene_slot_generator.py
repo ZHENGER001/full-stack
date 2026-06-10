@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
+from .concurrency import llm_slot
 from .config import BASE_DIR
 from .llm_client import LLMGenerationError, _env_value, _extract_content, _timeout_seconds, llm_model_name
 from .turn_schema import BundleSlotCandidate
@@ -69,20 +70,21 @@ async def generate_scene_slots_with_llm(
     user_prompt = f"请拆解这个组合购物需求，只输出 JSON object：\n{json.dumps(payload, ensure_ascii=False)}"
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=8.0)) as client:
-            response = await client.post(
-                f"{base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": SCENE_SLOT_SYSTEM_PROMPT},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "temperature": 0.1,
-                    "max_tokens": 900,
-                },
-            )
+        async with llm_slot():
+            async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=8.0)) as client:
+                response = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": SCENE_SLOT_SYSTEM_PROMPT},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": 0.1,
+                        "max_tokens": 900,
+                    },
+                )
             response.raise_for_status()
             data = GeneratedSceneSlots.model_validate(json.loads(_extract_json_object(_extract_content(response.json()))))
             slots = _sanitize_slots(data.slots)

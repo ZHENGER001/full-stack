@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 
+from .concurrency import milvus_slot
 from .config import BASE_DIR, _load_env_file
 from .timeouts import milvus_connect_timeout_seconds, milvus_timeout_seconds
 
@@ -137,15 +138,16 @@ class MilvusRestClient:
         ignore_missing: bool = False,
     ) -> dict[str, Any]:
         try:
-            with httpx.Client(
-                timeout=httpx.Timeout(self.timeout_seconds, connect=milvus_connect_timeout_seconds()),
-                trust_env=False,
-            ) as client:
-                response = client.post(
-                    f"{self.base_url}{path}",
-                    headers=self._headers(),
-                    json=payload,
-                )
+            with milvus_slot():
+                with httpx.Client(
+                    timeout=httpx.Timeout(self.timeout_seconds, connect=milvus_connect_timeout_seconds()),
+                    trust_env=False,
+                ) as client:
+                    response = client.post(
+                        f"{self.base_url}{path}",
+                        headers=self._headers(),
+                        json=payload,
+                    )
                 response.raise_for_status()
                 data = response.json()
         except Exception as exc:

@@ -58,7 +58,7 @@ def build_safety_clarification_question(parsed: ParsedTurn, constraints: TurnCon
         return "为了避开刺激成分，请问你的肤质是干皮、油皮、敏感肌还是混合皮？是否需要避开酒精、香精或酸类？"
     if _matches_any(haystack, SPORT_TERMS) and _is_broad_or_sensitive(raw, haystack):
         return "为了减少磨脚或运动不适，请问主要用于跑步、篮球、通勤还是健身？有没有脚宽、足弓、膝盖不适或容易磨脚的情况？"
-    if _matches_any(haystack, DIGITAL_WEARABLE_TERMS) and _is_broad_or_sensitive(raw, haystack):
+    if _matches_any(haystack, DIGITAL_WEARABLE_TERMS) and _has_wearable_safety_risk(raw, haystack):
         return "为了避免佩戴不适，请问是长时间佩戴或给孩子使用吗？更在意降噪、续航、护眼、重量还是通话？"
     if _matches_any(haystack, PET_TERMS) and _is_broad_or_sensitive(raw, haystack):
         return "为了避免宠物不适，请问是猫还是狗？年龄和体重大概多少？有没有过敏、肠胃敏感或医生建议避开的成分？"
@@ -108,3 +108,9 @@ def _is_broad_or_sensitive(raw: str, haystack: str) -> bool:
     broad_terms = ("推荐", "买", "想要", "有没有", "哪些", "清单", "一套", "适合")
     sensitive_audience = ("老人", "小孩", "孩子", "宝宝", "孕妇", "宠物", "猫", "狗")
     return any(term in raw for term in broad_terms) or any(term in haystack for term in sensitive_audience)
+
+
+def _has_wearable_safety_risk(raw: str, haystack: str) -> bool:
+    sensitive_audience = ("老人", "小孩", "孩子", "宝宝", "孕妇")
+    wearable_risk = ("长时间佩戴", "久戴", "入耳不适", "耳朵疼", "耳压", "护眼", "重量轻")
+    return any(term in haystack for term in sensitive_audience) or any(term in raw for term in wearable_risk)

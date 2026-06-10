@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 
+from .concurrency import embedding_slot
 from .config import BASE_DIR, _load_env_file
 from .timeouts import embedding_connect_timeout_seconds, embedding_timeout_seconds
 
@@ -107,15 +108,16 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        with httpx.Client(
-            timeout=httpx.Timeout(_timeout_seconds(), connect=embedding_connect_timeout_seconds()),
-            trust_env=False,
-        ) as client:
-            response = client.post(
-                f"{base_url}/embeddings",
-                headers=headers,
-                json=payload,
-            )
+        with embedding_slot():
+            with httpx.Client(
+                timeout=httpx.Timeout(_timeout_seconds(), connect=embedding_connect_timeout_seconds()),
+                trust_env=False,
+            ) as client:
+                response = client.post(
+                    f"{base_url}/embeddings",
+                    headers=headers,
+                    json=payload,
+                )
             response.raise_for_status()
             return _extract_vectors(response.json(), expected_count=len(clean_texts))
     except EmbeddingError:

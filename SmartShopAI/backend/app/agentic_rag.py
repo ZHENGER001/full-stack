@@ -137,8 +137,9 @@ def _search_products_node(state: AgenticRetrievalState) -> dict[str, Any]:
         ),
     )
     if query_cache_enabled():
-        search_result = _mark_cache_miss(search_result, cache_key)
-        default_query_cache().set(cache_key, search_result, query_text=query)
+        search_result = _mark_cache_miss(search_result, cache_key, stored=bool(search_result.products))
+        if search_result.products:
+            default_query_cache().set(cache_key, search_result, query_text=query)
     return {"search_result": search_result}
 
 
@@ -250,8 +251,9 @@ def retrieve_products_for_turn(
         ),
     )
     if query_cache_enabled():
-        search_result = _mark_cache_miss(search_result, cache_key)
-        default_query_cache().set(cache_key, search_result, query_text=query)
+        search_result = _mark_cache_miss(search_result, cache_key, stored=bool(search_result.products))
+        if search_result.products:
+            default_query_cache().set(cache_key, search_result, query_text=query)
     return AgenticRetrievalResult(
         query=query,
         parsed_filters=parsed_filters,
@@ -259,7 +261,7 @@ def retrieve_products_for_turn(
     )
 
 
-def _mark_cache_miss(result: SearchProductsResult, key: str) -> SearchProductsResult:
+def _mark_cache_miss(result: SearchProductsResult, key: str, stored: bool) -> SearchProductsResult:
     diagnostics = dict(result.diagnostics or {})
-    diagnostics["cache"] = {"hit": False, "key": key, "stored": True}
+    diagnostics["cache"] = {"hit": False, "key": key, "stored": stored}
     return result.model_copy(update={"diagnostics": diagnostics})

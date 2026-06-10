@@ -7,6 +7,7 @@ from typing import Any, AsyncIterator
 
 import httpx
 
+from .concurrency import llm_slot
 from .config import BASE_DIR, _load_env_file
 from .timeouts import llm_connect_timeout_seconds, llm_timeout_seconds
 
@@ -181,12 +182,13 @@ async def generate_agent_reply_with_status(
             chat_history,
         )
         timeout_seconds = _timeout_seconds()
-        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=llm_connect_timeout_seconds())) as client:
-            response = await client.post(
-                url,
-                headers=headers,
-                json=payload,
-            )
+        async with llm_slot():
+            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=llm_connect_timeout_seconds())) as client:
+                response = await client.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                )
             response.raise_for_status()
             content = _extract_content(response.json())
             if not content:
@@ -220,28 +222,29 @@ async def stream_agent_reply_chunks_with_status(
             stream=True,
         )
         timeout_seconds = _timeout_seconds()
-        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=llm_connect_timeout_seconds())) as client:
-            async with client.stream("POST", url, headers=headers, json=payload) as response:
-                response.raise_for_status()
-                async for raw_line in response.aiter_lines():
-                    line = raw_line.strip()
-                    if not line:
-                        continue
-                    if line.startswith("data:"):
-                        data_text = line.removeprefix("data:").strip()
-                    elif line.startswith("{"):
-                        data_text = line
-                    else:
-                        continue
-                    if data_text == "[DONE]":
-                        break
-                    data = json.loads(data_text)
-                    if line.startswith("{"):
-                        content = _extract_content(data)
-                    else:
-                        content = _extract_stream_delta(data)
-                    if content:
-                        yield content
+        async with llm_slot():
+            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=llm_connect_timeout_seconds())) as client:
+                async with client.stream("POST", url, headers=headers, json=payload) as response:
+                    response.raise_for_status()
+                    async for raw_line in response.aiter_lines():
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        if line.startswith("data:"):
+                            data_text = line.removeprefix("data:").strip()
+                        elif line.startswith("{"):
+                            data_text = line
+                        else:
+                            continue
+                        if data_text == "[DONE]":
+                            break
+                        data = json.loads(data_text)
+                        if line.startswith("{"):
+                            content = _extract_content(data)
+                        else:
+                            content = _extract_stream_delta(data)
+                        if content:
+                            yield content
     except LLMGenerationError:
         raise
     except httpx.HTTPStatusError as exc:
@@ -309,20 +312,21 @@ async def generate_product_presentations(
         ensure_ascii=False,
     )
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=llm_connect_timeout_seconds())) as client:
-            response = await client.post(
-                f"{base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "temperature": 0.2,
-                    "max_tokens": 1000,
-                },
-            )
+        async with llm_slot():
+            async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=llm_connect_timeout_seconds())) as client:
+                response = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": 0.2,
+                        "max_tokens": 1000,
+                    },
+                )
             response.raise_for_status()
             content = _extract_content(response.json())
             data = json.loads(_extract_json_object(content))
@@ -350,6 +354,77 @@ async def generate_product_presentations(
         raise LLMGenerationError("presentation network error") from exc
     except Exception as exc:
         raise LLMGenerationError("presentation generation failed") from exc
+
+
+async def generate_preference_answer_with_status(
+    user_message: str,
+    fallback_answer: str,
+    conversation_state: dict[str, Any] | None = None,
+) -> LLMGenerationResult:
+    api_key = _env_value("POE_API_KEY")
+    if not api_key:
+        raise LLMGenerationError("POE_API_KEY is not configured")
+    base_url = (_env_value("POE_BASE_URL", "https://api.poe.com/v1") or "https://api.poe.com/v1").rstrip("/")
+    model = llm_model_name()
+    memory = (conversation_state or {}).get("structured_memory") or (conversation_state or {}).get("structured_state") or {}
+    payload = {
+        "user_question": user_message,
+        "category": memory.get("category"),
+        "subcategory": memory.get("subcategory"),
+        "budget_max": memory.get("budget_max"),
+        "fallback_answer": fallback_answer,
+        "strict_rules": [
+            "只解释偏好取舍，不推荐具体商品",
+            "不能切换到其他品类",
+            "不能编造商品、价格、库存或参数",
+            "最后必须追问一个使用场景问题",
+            "回答不超过90个中文字符",
+        ],
+    }
+    system_prompt = (
+        "你是电商导购偏好取舍解释器。只基于输入的品类、问题和 fallback_answer 改写自然语言。"
+        "不要输出商品清单、品牌对比、表格、JSON 或 Markdown。"
+    )
+    try:
+        async with llm_slot():
+            async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=llm_connect_timeout_seconds())) as client:
+                response = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                        ],
+                        "temperature": 0.25,
+                        "max_tokens": 180,
+                    },
+                )
+            response.raise_for_status()
+            content = sanitize_preference_answer(_extract_content(response.json()))
+            if not content:
+                raise LLMGenerationError("preference answer is empty")
+            return LLMGenerationResult(content=content, provider="poe", model=model)
+    except LLMGenerationError:
+        raise
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code if exc.response is not None else "unknown"
+        raise LLMGenerationError(f"preference HTTP status {status_code}") from exc
+    except httpx.TimeoutException as exc:
+        raise LLMGenerationError("preference timed out") from exc
+    except httpx.HTTPError as exc:
+        raise LLMGenerationError("preference network error") from exc
+    except Exception as exc:
+        raise LLMGenerationError("preference generation failed") from exc
+
+
+def sanitize_preference_answer(text: str) -> str:
+    cleaned = " ".join((text or "").strip().split())
+    forbidden = ("RRF", "BM25", "retrieval", "score", "SQL", "{", "}", "|")
+    if not cleaned or any(token.lower() in cleaned.lower() for token in forbidden):
+        return ""
+    return cleaned[:140].rstrip("，。；; ")
 
 
 def sanitize_presentation_text(text: str, max_length: int) -> str:

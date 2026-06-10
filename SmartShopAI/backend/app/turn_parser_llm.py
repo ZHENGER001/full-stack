@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
+from .concurrency import llm_slot
 from .llm_client import LLMGenerationError, _env_value, _extract_content, _timeout_seconds, llm_model_name
 from .turn_schema import ParsedTurnCandidate
 
@@ -57,20 +58,21 @@ async def parse_turn_with_llm(
     )
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=8.0)) as client:
-            response = await client.post(
-                f"{base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": TURN_PARSER_SYSTEM_PROMPT},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "temperature": 0,
-                    "max_tokens": 900,
-                },
-            )
+        async with llm_slot():
+            async with httpx.AsyncClient(timeout=httpx.Timeout(_timeout_seconds(), connect=8.0)) as client:
+                response = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": TURN_PARSER_SYSTEM_PROMPT},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": 0,
+                        "max_tokens": 900,
+                    },
+                )
             response.raise_for_status()
             content = _extract_content(response.json())
             data = json.loads(_extract_json_object(content))

@@ -101,10 +101,19 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
             return
         if not state.turn_plan.should_search_products:
             assistant_content = state.turn_plan.policy.response_text or "这个操作我正在支持中。"
+            llm_status = None
+            if state.parsed_turn.intent_type == "preference_question":
+                assistant_content, llm_status = legacy.build_preference_answer(
+                    message,
+                    assistant_content,
+                    state.conversation_state,
+                )
             actions = legacy.build_clarification_actions(
                 conn,
                 state.parsed_turn.clarification_question or assistant_content,
             )
+            if llm_status:
+                yield legacy.sse_event("llm_status", llm_status)
             yield legacy.sse_event("delta", {"text": assistant_content})
             if actions:
                 yield legacy.sse_event("actions", {"actions": actions})
@@ -168,10 +177,7 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
         yield legacy.sse_event(
             "delta",
             {
-                "text": (
-                    f"我识别到图片里像是{detected['color']}{detected['style']}风格的{detected['object_type']}，"
-                    f"材质特征偏{detected['material']}，场景更接近{detected['scene']}。"
-                )
+                "text": legacy.image_detection_intro(detected)
             },
         )
 
