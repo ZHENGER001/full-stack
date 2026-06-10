@@ -3,12 +3,14 @@ package com.smartshop.ai.ui.chat
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartshop.ai.data.account.AccountRepository
 import com.smartshop.ai.data.cart.CartRepository
 import com.smartshop.ai.data.chat.AiChatEvent
 import com.smartshop.ai.data.chat.ChatHistoryRepository
 import com.smartshop.ai.data.chat.AiChatRepository
 import com.smartshop.ai.data.model.BatchCartContent
 import com.smartshop.ai.data.model.ChatMessage
+import com.smartshop.ai.data.model.ShippingAddress
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +28,8 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     private val chatRepository: AiChatRepository,
     private val cartRepository: CartRepository,
-    private val chatHistoryRepository: ChatHistoryRepository
+    private val chatHistoryRepository: ChatHistoryRepository,
+    private val accountRepository: AccountRepository
 ) : ViewModel() {
 
     private val greetingMessage = ChatMessage(
@@ -44,6 +47,9 @@ class ChatViewModel @Inject constructor(
 
     private val _isTyping = MutableStateFlow(false)
     val isTyping: StateFlow<Boolean> = _isTyping.asStateFlow()
+
+    private val _addressUiState = MutableStateFlow(ChatAddressUiState())
+    val addressUiState: StateFlow<ChatAddressUiState> = _addressUiState.asStateFlow()
 
     private val _events = MutableSharedFlow<String>()
     val events: SharedFlow<String> = _events.asSharedFlow()
@@ -94,6 +100,12 @@ class ChatViewModel @Inject constructor(
                     is AiChatEvent.BatchCart -> updateAssistantMessage(assistantMessageId) {
                         it.copy(batchCart = event.batchCart, isLoading = false)
                     }
+                    is AiChatEvent.CheckoutConfirmation -> updateAssistantMessage(assistantMessageId) {
+                        it.copy(checkoutConfirmation = event.confirmation, isLoading = false)
+                    }
+                    is AiChatEvent.OrderSuccess -> updateAssistantMessage(assistantMessageId) {
+                        it.copy(orderSuccess = event.orderSuccess, isLoading = false)
+                    }
                     is AiChatEvent.Actions -> updateAssistantMessage(assistantMessageId) {
                         it.copy(actions = event.actions)
                     }
@@ -133,6 +145,51 @@ class ChatViewModel @Inject constructor(
 
     fun requestAddToCart(productId: String) {
         sendMessage(text = "加入购物车:$productId", displayText = "加入购物车")
+    }
+
+    fun loadAddresses() {
+        viewModelScope.launch {
+            _addressUiState.value = _addressUiState.value.copy(isLoading = true, errorMessage = null)
+            runCatching { accountRepository.getAddresses() }
+                .onSuccess { addresses ->
+                    _addressUiState.value = ChatAddressUiState(addresses = addresses, isLoading = false)
+                }
+                .onFailure { error ->
+                    _addressUiState.value = _addressUiState.value.copy(
+                        isLoading = false,
+                        errorMessage = error.message ?: "地址加载失败"
+                    )
+                }
+        }
+    }
+
+    fun addAddress(
+        receiverName: String,
+        phone: String,
+        province: String,
+        city: String,
+        district: String,
+        detail: String,
+        isDefault: Boolean,
+        onSuccess: () -> Unit = {}
+    ) {
+        if (_addressUiState.value.isSaving) return
+        viewModelScope.launch {
+            _addressUiState.value = _addressUiState.value.copy(isSaving = true, errorMessage = null)
+            runCatching {
+                accountRepository.addAddress(receiverName, phone, province, city, district, detail, isDefault)
+            }.onSuccess {
+                val addresses = accountRepository.getAddresses()
+                _addressUiState.value = ChatAddressUiState(addresses = addresses, isLoading = false)
+                _events.emit("地址已保存")
+                onSuccess()
+            }.onFailure { error ->
+                _addressUiState.value = _addressUiState.value.copy(
+                    isSaving = false,
+                    errorMessage = error.message ?: "保存地址失败"
+                )
+            }
+        }
     }
 
     fun confirmBatchCart(batchCart: BatchCartContent, selectedSkuIds: Map<String, String>) {
@@ -208,5 +265,12 @@ class ChatViewModel @Inject constructor(
 
 data class VoiceTranscriptionResult(
     val text: String = "",
+    val errorMessage: String? = null
+)
+
+data class ChatAddressUiState(
+    val addresses: List<ShippingAddress> = emptyList(),
+    val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
     val errorMessage: String? = null
 )

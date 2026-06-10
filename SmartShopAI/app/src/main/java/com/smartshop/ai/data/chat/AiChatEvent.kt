@@ -3,7 +3,9 @@ package com.smartshop.ai.data.chat
 import com.smartshop.ai.data.model.ChatAction
 import com.smartshop.ai.data.model.BatchCartContent
 import com.smartshop.ai.data.model.CartItem
+import com.smartshop.ai.data.model.CheckoutConfirmationContent
 import com.smartshop.ai.data.model.ComparisonContent
+import com.smartshop.ai.data.model.OrderSuccessContent
 import com.smartshop.ai.data.model.Product
 
 sealed interface AiChatEvent {
@@ -12,6 +14,8 @@ sealed interface AiChatEvent {
     data class Alternatives(val products: List<Product>) : AiChatEvent
     data class Comparison(val comparison: ComparisonContent) : AiChatEvent
     data class BatchCart(val batchCart: BatchCartContent) : AiChatEvent
+    data class CheckoutConfirmation(val confirmation: CheckoutConfirmationContent) : AiChatEvent
+    data class OrderSuccess(val orderSuccess: OrderSuccessContent) : AiChatEvent
     data class Actions(val actions: List<ChatAction>) : AiChatEvent
     data class Cart(val items: List<CartItem>, val totalAmount: Double) : AiChatEvent
     data class OrderStatus(

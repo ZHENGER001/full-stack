@@ -42,6 +42,15 @@ ACTION_LABELS = {
 PRODUCT_ACTION_TYPES = {"go_detail", "add_to_cart"}
 ALLOWED_ACTION_TYPES = set(ACTION_LABELS)
 BATCH_CART_CONFIRM_PREFIX = "__batch_cart_confirm__:"
+CHAT_RECOMMENDATION_DISPLAY_LIMIT = 3
+CHECKOUT_CONFIRM_LABEL = "确认下单并支付"
+CHECKOUT_SIGNATURE_FIELD = "checkout_signature"
+CHECKOUT_DETAIL_PREVIEW_LIMIT = 3
+HIGH_VALUE_ORDER_THRESHOLD = 5000.0
+
+
+def visible_chat_products(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return products[:CHAT_RECOMMENDATION_DISPLAY_LIMIT]
 
 
 def sse_event(event: str, payload: dict) -> str:
@@ -311,29 +320,31 @@ def _stream_chat_legacy(
     alternatives = search_result.alternatives
     yield sse_event("retrieval_diagnostics", search_result.diagnostics)
     grounded_products = build_grounded_products(conn, products)
+    visible_products_from_search = visible_chat_products(grounded_products)
     grounded_alternatives = [] if grounded_products else build_grounded_products(conn, alternatives)
-    visible_products = grounded_products or grounded_alternatives
+    visible_alternatives = visible_chat_products(grounded_alternatives)
+    visible_products = visible_products_from_search or visible_alternatives
     enrich_product_presentations(message, visible_products)
-    faq_context = load_faq_context(conn, [product["id"] for product in grounded_products])
+    faq_context = load_faq_context(conn, [product["id"] for product in visible_products_from_search])
     chat_history = load_chat_history(conn, session_id)
     actions = build_actions(conn, visible_products, final_user_query, parsed_filters)
-    if grounded_products:
-        yield sse_event("products", {"products": grounded_products})
-    elif grounded_alternatives:
-        yield sse_event("alternatives", {"products": grounded_alternatives, "match_type": "alternatives"})
-    if not grounded_products and grounded_alternatives:
-        answer = build_alternative_answer(message, grounded_alternatives)
+    if visible_products_from_search:
+        yield sse_event("products", {"products": visible_products_from_search})
+    elif visible_alternatives:
+        yield sse_event("alternatives", {"products": visible_alternatives, "match_type": "alternatives"})
+    if not visible_products_from_search and visible_alternatives:
+        answer = build_alternative_answer(message, visible_alternatives)
         llm_status = {"mode": "fallback", "reason": "alternatives_available"}
         yield sse_event("llm_status", llm_status)
         yield sse_event("delta", {"text": answer})
     else:
         answer, llm_status = yield from stream_grounded_answer_events(
             message,
-            grounded_products,
+            visible_products_from_search,
             faq_context,
             chat_history,
         )
-        if grounded_products:
+        if visible_products_from_search:
             yield sse_event("llm_status", llm_status)
 
     if actions:
@@ -539,7 +550,7 @@ def emit_react_transaction_turn(
                 update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
                 yield sse_event("done", {"session_id": session_id})
                 return
-            checkout_message = "确认下单并支付" if step.confirm_payment else "结算"
+            checkout_message = CHECKOUT_CONFIRM_LABEL if step.confirm_payment and is_checkout_address_confirm_message(message) else "结算"
             yield sse_event(
                 "workflow_status",
                 {
@@ -736,23 +747,24 @@ def emit_bundle_recommendation_turn(
         },
     )
     grounded_products = build_grounded_products(conn, result.products)
-    enrich_product_presentations(message, grounded_products)
-    if grounded_products:
-        yield sse_event("products", {"products": grounded_products})
+    visible_products = visible_chat_products(grounded_products)
+    enrich_product_presentations(message, visible_products)
+    if visible_products:
+        yield sse_event("products", {"products": visible_products})
     answer = build_bundle_answer(result)
     yield sse_event("llm_status", {"mode": "bundle_template", "reason": "multi_slot_grounded"})
     yield sse_event("delta", {"text": answer})
-    actions = build_actions(conn, grounded_products, message, {})
+    actions = build_actions(conn, visible_products, message, {})
     if actions:
         yield sse_event("actions", {"actions": actions})
-    assistant_content = append_recommendation_marker(answer, grounded_products)
+    assistant_content = append_recommendation_marker(answer, visible_products)
     store_assistant_message(conn, session_id, assistant_content, image_id)
     update_session_state(
         conn,
         session_id,
         last_query=message,
-        last_recommended_product_ids=[product["id"] for product in grounded_products],
-        current_product_id=grounded_products[0]["id"] if grounded_products else None,
+        last_recommended_product_ids=[product["id"] for product in visible_products],
+        current_product_id=visible_products[0]["id"] if visible_products else None,
         last_actions=actions or None,
     )
     yield sse_event("done", {"session_id": session_id})
@@ -776,15 +788,15 @@ def emit_checkout_turn(
 
     if is_address_change_intent(message):
         assistant_content = "可以先到地址管理新增或修改收货地址。地址确认后，回到这里回复“结算”或“确认下单”，我会重新汇总订单。"
-        yield order_status_event("need_address", "等待补充收货地址")
+        yield order_status_event("need_address", "待确认收货地址")
         yield sse_event("delta", {"text": assistant_content})
-        yield sse_event("actions", {"actions": [{"type": "search_more", "label": "修改收货地址", "product_id": None}]})
+        yield sse_event("actions", {"actions": [{"type": "search_more", "label": "修改地址", "product_id": None}]})
         store_assistant_message(conn, session_id, assistant_content, image_id)
         update_session_state(
             conn,
             session_id,
             last_query=message,
-            last_actions=[{"type": "search_more", "label": "修改收货地址", "product_id": None}],
+            last_actions=[{"type": "search_more", "label": "修改地址", "product_id": None}],
         )
         yield sse_event("done", {"session_id": session_id})
         return
@@ -814,59 +826,57 @@ def emit_checkout_turn(
     if is_checkout_confirm_intent(message):
         if not address:
             assistant_content = "下单前需要先补充收货地址。请到地址管理新增地址后，再回复“确认下单”。"
-            actions = [{"type": "search_more", "label": "修改收货地址", "product_id": None}]
-            yield order_status_event("need_address", "等待补充收货地址")
+            actions = [{"type": "search_more", "label": "修改地址", "product_id": None}]
+            yield order_status_event("need_address", "待确认收货地址")
             yield sse_event("delta", {"text": assistant_content})
             yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
             update_session_state(conn, session_id, last_query=message, last_actions=actions)
             yield sse_event("done", {"session_id": session_id})
             return
-        yield order_status_event("creating_order", "正在创建订单")
-        time.sleep(0.2)
-        try:
-            order = create_paid_order_from_cart(conn, address)
-        except ValueError as exc:
-            assistant_content = str(exc)
-            actions = normalize_actions(conn, build_checkout_failure_actions(assistant_content))
-            yield order_status_event("failed", "下单失败")
+        if has_valid_checkout_confirmation(conn, session_id, cart, address):
+            yield order_status_event("creating_order", "正在创建订单")
+            time.sleep(0.2)
+            try:
+                order = create_paid_order_from_cart(conn, address)
+            except ValueError as exc:
+                assistant_content = str(exc)
+                actions = normalize_actions(conn, build_checkout_failure_actions(assistant_content))
+                yield order_status_event("failed", "下单失败")
+                yield sse_event("delta", {"text": assistant_content})
+                yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
+                if actions:
+                    yield sse_event("actions", {"actions": actions})
+                store_assistant_message(conn, session_id, assistant_content, image_id)
+                update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+                yield sse_event("done", {"session_id": session_id})
+                return
+            yield order_status_event("paying", "正在模拟支付")
+            time.sleep(0.2)
+            assistant_content = build_order_success_text(order)
+            yield order_status_event(
+                "paid",
+                f"支付成功，订单号 {order['order_id']}",
+                order_id=order["order_id"],
+                payment_id=order["payment_id"],
+            )
+            yield sse_event("order_success", build_order_success_payload(order))
             yield sse_event("delta", {"text": assistant_content})
             yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
-            if actions:
-                yield sse_event("actions", {"actions": actions})
             store_assistant_message(conn, session_id, assistant_content, image_id)
-            update_session_state(conn, session_id, last_query=message, last_actions=actions or None)
+            update_session_state(conn, session_id, last_query=message, last_actions=[])
             yield sse_event("done", {"session_id": session_id})
             return
-        yield order_status_event("paying", "正在模拟支付")
-        time.sleep(0.2)
-        assistant_content = build_order_success_text(order)
-        yield order_status_event(
-            "paid",
-            f"支付成功，订单号 {order['order_id']}",
-            order_id=order["order_id"],
-            payment_id=order["payment_id"],
-        )
-        yield sse_event("delta", {"text": assistant_content})
-        yield sse_event("cart", get_cart(conn).model_dump(mode="json"))
-        store_assistant_message(conn, session_id, assistant_content, image_id)
-        update_session_state(conn, session_id, last_query=message, last_actions=None)
-        yield sse_event("done", {"session_id": session_id})
-        return
 
+    actions = build_checkout_confirmation_actions(conn, cart, address)
     assistant_content = build_checkout_confirmation_text(cart, address)
-    raw_actions = [
-        {"type": "search_more", "label": "修改收货地址", "product_id": None},
-        {"type": "search_more", "label": "取消下单", "product_id": None},
-    ]
-    if address:
-        raw_actions.insert(0, {"type": "search_more", "label": "确认下单并支付", "product_id": None})
-    actions = normalize_actions(conn, raw_actions)
+    confirmation_payload = build_checkout_confirmation_payload(cart, address, actions)
     yield order_status_event(
         "awaiting_confirmation" if address else "need_address",
-        "等待确认下单" if address else "等待补充收货地址",
+        "待确认订单" if address else "待确认收货地址",
     )
     yield sse_event("delta", {"text": assistant_content})
+    yield sse_event("checkout_confirmation", confirmation_payload)
     yield sse_event("cart", cart)
     yield sse_event("actions", {"actions": actions})
     store_assistant_message(conn, session_id, assistant_content, image_id)
@@ -1010,7 +1020,10 @@ def normalize_actions(conn, actions: list[dict[str, Any]]) -> list[dict[str, Any
         if action_type in PRODUCT_ACTION_TYPES and not product_exists(conn, product_id):
             continue
         label = str(action.get("label") or ACTION_LABELS[action_type])
-        normalized.append({"type": action_type, "label": label, "product_id": product_id})
+        normalized_action = {"type": action_type, "label": label, "product_id": product_id}
+        if CHECKOUT_SIGNATURE_FIELD in action:
+            normalized_action[CHECKOUT_SIGNATURE_FIELD] = str(action[CHECKOUT_SIGNATURE_FIELD])
+        normalized.append(normalized_action)
     return normalized
 
 
@@ -1440,9 +1453,14 @@ def is_checkout_confirm_intent(message: str) -> bool:
     )
 
 
+def is_checkout_address_confirm_message(message: str) -> bool:
+    text = message.strip()
+    return any(word in text for word in ("确认下单", "确认下单并支付", "提交订单", "确认支付"))
+
+
 def is_address_change_intent(message: str) -> bool:
     text = message.strip()
-    return "收货地址" in text and any(word in text for word in ("修改", "更换", "换", "新增", "添加"))
+    return "地址" in text and any(word in text for word in ("修改", "更换", "换", "新增", "添加"))
 
 
 def load_default_address(conn) -> dict[str, Any] | None:
@@ -1481,29 +1499,139 @@ def restore_order_stock(conn, order_id: str) -> None:
 
 
 def build_checkout_confirmation_text(cart: dict[str, Any], address: dict[str, Any] | None) -> str:
-    selected_items = [item for item in cart.get("items", []) if item.get("selected", True)]
-    address_text = (
-        f"{address['receiver_name']} {address['phone']}，{address['province']}{address['city']}{address['district']}{address['detail']}"
-        if address
-        else "还没有默认收货地址"
-    )
-    lines = [
-        "我先帮你核对下单信息：",
-        f"收货地址：{address_text}",
-        "订单商品：",
-    ]
-    for index, item in enumerate(selected_items[:4], start=1):
-        lines.append(
-            f"{index}. {item['title']}｜{item.get('sku_name') or '默认规格'}｜x{item.get('quantity') or 1}｜¥{float(item.get('price') or 0):.2f}"
-        )
-    if len(selected_items) > 4:
-        lines.append(f"还有 {len(selected_items) - 4} 件商品未展开。")
-    lines.append(f"合计 ¥{float(cart.get('total_amount') or 0):.2f}")
     if address:
-        lines.append("确认无误后点“确认下单并支付”，我会模拟完成支付。")
-    else:
-        lines.append("请先补充收货地址，再继续下单。")
-    return "\n".join(lines)
+        return "我已整理好订单确认卡。请重点核对收货人、收货地址、商品数量和应付金额，确认无误后再继续支付。"
+    return "下单前需要先补充收货地址。地址确认后，我再帮你继续核对订单。"
+
+
+def build_checkout_confirmation_payload(
+    cart: dict[str, Any],
+    address: dict[str, Any] | None,
+    actions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    selected_items = [item for item in cart.get("items", []) if item.get("selected", True)]
+    product_total = round(
+        sum(float(item.get("price") or 0) * int(item.get("quantity") or 1) for item in selected_items),
+        2,
+    )
+    payable_amount = round(float(cart.get("total_amount") or product_total), 2)
+    item_count = sum(int(item.get("quantity") or 0) for item in selected_items)
+    high_value = payable_amount > HIGH_VALUE_ORDER_THRESHOLD or any(
+        float(item.get("price") or 0) >= HIGH_VALUE_ORDER_THRESHOLD
+        or float(item.get("price") or 0) * int(item.get("quantity") or 1) >= HIGH_VALUE_ORDER_THRESHOLD
+        for item in selected_items
+    )
+
+    items: list[dict[str, Any]] = []
+    for item in selected_items:
+        price = float(item.get("price") or 0)
+        quantity = int(item.get("quantity") or 1)
+        items.append(
+            {
+                "id": item.get("id"),
+                "product_id": item.get("product_id"),
+                "sku_id": item.get("sku_id"),
+                "title": item.get("title") or "商品",
+                "brand": item.get("brand") or "",
+                "image_path": item.get("image_path") or "",
+                "sku_name": item.get("sku_name") or "默认规格",
+                "price": round(price, 2),
+                "quantity": quantity,
+                "line_total": round(price * quantity, 2),
+            }
+        )
+
+    full_address = (
+        f"{address['province']}{address['city']}{address['district']}{address['detail']}"
+        if address
+        else ""
+    )
+    preview_notice = (
+        f"当前仅展示前 {CHECKOUT_DETAIL_PREVIEW_LIMIT} 件，共 {len(items)} 件商品"
+        if len(items) > CHECKOUT_DETAIL_PREVIEW_LIMIT
+        else None
+    )
+
+    payload: dict[str, Any] = {
+        "title": "确认订单",
+        "status_label": "待确认订单" if address else "待确认收货地址",
+        "receiver_name": address["receiver_name"] if address else "待补充",
+        "receiver_phone": address["phone"] if address else "",
+        "address": full_address if address else "还没有默认收货地址",
+        "item_count": item_count,
+        "line_item_count": len(items),
+        "product_total": product_total,
+        "payable_amount": payable_amount,
+        "shown_limit": CHECKOUT_DETAIL_PREVIEW_LIMIT,
+        "preview_notice": preview_notice,
+        "items": items,
+        "actions": actions,
+        "requires_second_confirm": high_value,
+        "risk_message": "订单金额较高，请再次核对商品、数量和收货地址后再支付。" if high_value else None,
+    }
+    return payload
+
+
+def build_checkout_confirmation_actions(
+    conn,
+    cart: dict[str, Any],
+    address: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    raw_actions = [
+        {"type": "open_cart", "label": "修改商品", "product_id": None},
+        {"type": "search_more", "label": "修改地址", "product_id": None},
+    ]
+    if address:
+        raw_actions.append(
+            {
+                "type": "search_more",
+                "label": CHECKOUT_CONFIRM_LABEL,
+                "product_id": None,
+                CHECKOUT_SIGNATURE_FIELD: checkout_confirmation_signature(cart, address),
+            },
+        )
+    return normalize_actions(conn, raw_actions)
+
+
+def checkout_confirmation_signature(cart: dict[str, Any], address: dict[str, Any]) -> str:
+    selected_items = [item for item in cart.get("items", []) if item.get("selected", True)]
+    signature = {
+        "address_id": address.get("id"),
+        "items": [
+            {
+                "id": item.get("id"),
+                "product_id": item.get("product_id"),
+                "sku_id": item.get("sku_id"),
+                "quantity": int(item.get("quantity") or 0),
+            }
+            for item in sorted(selected_items, key=lambda item: str(item.get("id") or ""))
+        ],
+    }
+    return json.dumps(signature, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def has_valid_checkout_confirmation(
+    conn,
+    session_id: str,
+    cart: dict[str, Any],
+    address: dict[str, Any],
+) -> bool:
+    row = conn.execute("SELECT last_actions FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
+    if not row or not row["last_actions"]:
+        return False
+    try:
+        actions = json.loads(row["last_actions"])
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(actions, list):
+        return False
+    expected = checkout_confirmation_signature(cart, address)
+    return any(
+        isinstance(action, dict)
+        and action.get("label") == CHECKOUT_CONFIRM_LABEL
+        and action.get(CHECKOUT_SIGNATURE_FIELD) == expected
+        for action in actions
+    )
 
 
 def build_checkout_failure_actions(message: str) -> list[dict[str, Any]]:
@@ -1626,17 +1754,56 @@ def find_stock_problem(conn, items: list[Any]) -> str | None:
 
 def build_order_success_text(order: dict[str, Any]) -> str:
     address = order["address"]
+    full_address = f"{address['province']}{address['city']}{address['district']}{address['detail']}"
     lines = [
         "下单完成，已模拟支付成功。",
+        "",
         f"订单号：{order['order_id']}",
         f"支付流水：{order['payment_id']}",
-        f"收货地址：{address['receiver_name']} {address['phone']}，{address['province']}{address['city']}{address['district']}{address['detail']}",
-        "订单商品：",
+        f"收货人：{address['receiver_name']} {address['phone']}",
+        f"收货地址：{full_address}",
+        f"实付金额：¥{float(order['total_amount']):.2f}",
+        "",
+        "商品明细：",
     ]
-    for index, item in enumerate(order["items"][:4], start=1):
-        lines.append(f"{index}. {item.title}｜{item.sku_name}｜x{item.quantity}｜¥{item.price:.2f}")
-    lines.append(f"实付 ¥{order['total_amount']:.2f}")
+    for index, item in enumerate(order["items"][:CHECKOUT_DETAIL_PREVIEW_LIMIT], start=1):
+        line_total = float(item.price) * int(item.quantity)
+        lines.append(f"{index}. {item.title}（{item.sku_name}）")
+        lines.append(f"   单价 ¥{float(item.price):.2f}，数量 {int(item.quantity)}，小计 ¥{line_total:.2f}")
+    if len(order["items"]) > CHECKOUT_DETAIL_PREVIEW_LIMIT:
+        lines.append(f"当前仅展示前 {CHECKOUT_DETAIL_PREVIEW_LIMIT} 件，共 {len(order['items'])} 件商品。可在“我的订单”查看全部明细。")
+    else:
+        lines.append("可在“我的订单”查看订单详情。")
     return "\n".join(lines)
+
+
+def build_order_success_payload(order: dict[str, Any]) -> dict[str, Any]:
+    address = order["address"]
+    full_address = f"{address['province']}{address['city']}{address['district']}{address['detail']}"
+    items: list[dict[str, Any]] = []
+    for item in order["items"]:
+        price = float(item.price)
+        quantity = int(item.quantity)
+        items.append(
+            {
+                "product_id": item.product_id,
+                "name": item.title,
+                "spec_text": item.sku_name or "默认规格",
+                "quantity": quantity,
+                "price": round(price, 2),
+                "line_total": round(price * quantity, 2),
+                "image_url": item.image_path or f"/api/product-thumbnails/{item.product_id}.jpg",
+            }
+        )
+    return {
+        "order_id": order["order_id"],
+        "payment_id": order["payment_id"],
+        "receiver_name": address["receiver_name"],
+        "receiver_phone": address["phone"],
+        "receiver_address": full_address,
+        "paid_amount": round(float(order["total_amount"]), 2),
+        "items": items,
+    }
 
 
 def generate_grounded_answer(

@@ -1,6 +1,12 @@
 package com.smartshop.ai.ui.product
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,7 +56,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -134,13 +142,19 @@ class ProductDetailViewModel @Inject constructor(
         if (_uiState.value.product?.id == productId) return
         viewModelScope.launch {
             val cachedProduct = productRepository.getCachedProduct(productId)
-            _uiState.value = ProductDetailUiState(product = cachedProduct, isLoading = true)
+            val isFavorited = accountRepository.isFavorite(productId)
+            _uiState.value = ProductDetailUiState(
+                product = cachedProduct,
+                isLoading = true,
+                isFavorited = isFavorited
+            )
             runCatching { productRepository.getProductDetail(productId) }
                 .onSuccess { product ->
                     _uiState.value = _uiState.value.copy(
                         product = product,
                         isLoading = false,
                         selectedSkuId = null,
+                        isFavorited = accountRepository.isFavorite(product.id),
                         errorMessage = null
                     )
                     recordFootprint(product.id)
@@ -221,6 +235,26 @@ class ProductDetailViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(isFavoriteActionLoading = false)
                     onError(error.message ?: "收藏失败")
+                }
+        }
+    }
+
+    fun removeFavorite(onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+        val product = _uiState.value.product ?: return
+        if (_uiState.value.isFavoriteActionLoading) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isFavoriteActionLoading = true)
+            runCatching { accountRepository.removeFavorite(product.id) }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isFavoriteActionLoading = false,
+                        isFavorited = false
+                    )
+                    onSuccess()
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(isFavoriteActionLoading = false)
+                    onError(error.message ?: "取消收藏失败")
                 }
         }
     }
@@ -332,6 +366,7 @@ fun ProductDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val product = uiState.product
     val context = LocalContext.current
+    var showFavoriteAddedAnimation by remember(productId) { mutableStateOf(false) }
     val paymentSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val skuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -445,10 +480,20 @@ fun ProductDetailScreen(
                     isCartLoading = uiState.isCartActionLoading,
                     isPaymentLoading = uiState.showMockPaymentLoading,
                     onFavorite = {
-                        viewModel.addFavorite(
-                            onSuccess = { Toast.makeText(context, "已添加到我的收藏", Toast.LENGTH_SHORT).show() },
-                            onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
-                        )
+                        if (uiState.isFavorited) {
+                            viewModel.removeFavorite(
+                                onSuccess = {
+                                    showFavoriteAddedAnimation = false
+                                    Toast.makeText(context, "已取消收藏", Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                            )
+                        } else {
+                            viewModel.addFavorite(
+                                onSuccess = { showFavoriteAddedAnimation = true },
+                                onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                            )
+                        }
                     },
                     onAddCart = {
                         viewModel.openSkuSheet(SkuAction.AddToCart)
@@ -488,6 +533,12 @@ fun ProductDetailScreen(
             }
         }
 
+        FavoriteAddedOverlay(
+            visible = showFavoriteAddedAnimation,
+            onDismiss = { showFavoriteAddedAnimation = false },
+            modifier = Modifier.align(Alignment.Center)
+        )
+
         if (uiState.showMockPaymentLoading) {
             Box(
                 modifier = Modifier
@@ -496,6 +547,58 @@ fun ProductDetailScreen(
                 contentAlignment = Alignment.Center
             ) {
                 MockWeChatLoadingDialog()
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoriteAddedOverlay(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LaunchedEffect(visible) {
+        if (visible) {
+            delay(1200)
+            onDismiss()
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = fadeIn(animationSpec = tween(140)) +
+            scaleIn(initialScale = 0.82f, animationSpec = tween(180)),
+        exit = fadeOut(animationSpec = tween(120)) +
+            scaleOut(targetScale = 0.92f, animationSpec = tween(120))
+    ) {
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF202124).copy(alpha = 0.92f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = null,
+                    tint = PriceColor,
+                    modifier = Modifier
+                        .width(46.dp)
+                        .height(46.dp)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "已添加收藏",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -530,10 +633,11 @@ private fun ProductBottomBar(
                 Icon(
                     imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = null,
+                    tint = if (isFavorited) PriceColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.height(18.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("收藏")
+                Text(if (isFavorited) "已收藏" else "收藏")
             }
             Button(
                 onClick = onAddCart,

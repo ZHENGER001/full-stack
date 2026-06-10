@@ -17,6 +17,7 @@ import com.smartshop.ai.data.remote.OrderItemDto
 import com.smartshop.ai.data.remote.PaymentRequest
 import com.smartshop.ai.data.remote.SmartShopApi
 import com.smartshop.ai.data.remote.AddressDto
+import com.smartshop.ai.data.remote.AddressCreateRequest
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -51,6 +52,8 @@ class AccountRepository @Inject constructor(
             }.getOrNull()
         }
 
+    suspend fun isFavorite(productId: String): Boolean = productId in favoriteProductIds
+
     suspend fun addFavorite(productId: String): FavoriteItem {
         favoriteProductIds += productId
         return FavoriteItem(
@@ -78,7 +81,13 @@ class AccountRepository @Inject constructor(
         return item
     }
 
-    suspend fun getAddresses(): List<ShippingAddress> = addresses.toList()
+    suspend fun getAddresses(): List<ShippingAddress> =
+        runCatching {
+            api.getAddresses().items.map { it.toShippingAddress() }.also { remoteAddresses ->
+                addresses.clear()
+                addresses += remoteAddresses
+            }
+        }.getOrElse { addresses.toList() }
 
     suspend fun addAddress(
         receiverName: String,
@@ -89,6 +98,27 @@ class AccountRepository @Inject constructor(
         detail: String,
         isDefault: Boolean
     ): ShippingAddress {
+        runCatching {
+            api.addAddress(
+                AddressCreateRequest(
+                    receiver_name = receiverName,
+                    phone = phone,
+                    province = province,
+                    city = city,
+                    district = district,
+                    detail = detail,
+                    is_default = isDefault
+                )
+            ).toShippingAddress()
+        }.onSuccess { remoteAddress ->
+            if (remoteAddress.isDefault) {
+                addresses.replaceAll { it.copy(isDefault = false) }
+            }
+            addresses.removeAll { it.id == remoteAddress.id }
+            addresses += remoteAddress
+            return remoteAddress
+        }
+
         if (isDefault) {
             addresses.replaceAll { it.copy(isDefault = false) }
         }
