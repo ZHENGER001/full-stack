@@ -3,6 +3,9 @@ package com.smartshop.ai.data.chat
 import android.content.Context
 import android.net.Uri
 import com.smartshop.ai.data.model.ChatAction
+import com.smartshop.ai.data.model.BatchCartContent
+import com.smartshop.ai.data.model.BatchCartItem
+import com.smartshop.ai.data.model.BatchCartSku
 import com.smartshop.ai.data.model.CartItem
 import com.smartshop.ai.data.model.ComparisonColumn
 import com.smartshop.ai.data.model.ComparisonContent
@@ -13,6 +16,7 @@ import com.smartshop.ai.data.remote.ChatStreamRequestDto
 import com.smartshop.ai.data.remote.SmartShopApi
 import com.smartshop.ai.data.remote.toCartItem
 import com.smartshop.ai.data.remote.toProduct
+import com.smartshop.ai.data.remote.toSmartShopAssetUrl
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -171,6 +175,7 @@ class AiChatDataSource @Inject constructor(
                 AiChatEvent.Alternatives(products)
             }
             "comparison" -> AiChatEvent.Comparison(json.toComparisonContent())
+            "batch_cart" -> AiChatEvent.BatchCart(json.toBatchCartContent())
             "actions" -> {
                 val actionsJson = json.optJSONArray("actions") ?: return null
                 val actions = (0 until actionsJson.length()).mapNotNull { index ->
@@ -224,6 +229,53 @@ class AiChatDataSource @Inject constructor(
             recommendation = optString("recommendation"),
             footnote = optNullableString("footnote")
         )
+
+    private fun JSONObject.toBatchCartContent(): BatchCartContent =
+        BatchCartContent(
+            batchId = optString("batch_id").ifBlank { optString("batchId") },
+            title = optString("title").ifBlank { "批量加入购物车" },
+            message = optString("message"),
+            items = optJSONArray("items").toBatchCartItems()
+        )
+
+    private fun JSONArray?.toBatchCartItems(): List<BatchCartItem> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { item ->
+                val productId = item.optString("product_id").ifBlank { item.optString("productId") }
+                BatchCartItem(
+                    productId = productId,
+                    title = item.optString("title"),
+                    brand = item.optString("brand"),
+                    imageUrl = batchCartThumbnailUrl(productId),
+                    price = item.optDouble("price", 0.0),
+                    quantity = item.optInt("quantity", 1),
+                    position = item.optInt("position", index + 1),
+                    status = item.optString("status"),
+                    selectedSkuId = item.optString("selected_sku_id").ifBlank { item.optString("selectedSkuId") }.ifBlank { null },
+                    skus = item.optJSONArray("skus").toBatchCartSkus()
+                )
+            }
+        }
+    }
+
+    private fun batchCartThumbnailUrl(productId: String): String =
+        "/api/product-thumbnails/$productId.jpg".toSmartShopAssetUrl()
+
+    private fun JSONArray?.toBatchCartSkus(): List<BatchCartSku> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index ->
+            optJSONObject(index)?.let { sku ->
+                BatchCartSku(
+                    skuId = sku.optString("sku_id").ifBlank { sku.optString("skuId") },
+                    skuName = sku.optString("sku_name").ifBlank { sku.optString("skuName") },
+                    label = sku.optString("label").ifBlank { sku.optString("sku_name").ifBlank { "默认规格" } },
+                    price = sku.optDouble("price", 0.0),
+                    stock = sku.optInt("stock", 0)
+                )
+            }
+        }
+    }
 
     private fun JSONArray?.toComparisonColumns(): List<ComparisonColumn> {
         if (this == null) return emptyList()

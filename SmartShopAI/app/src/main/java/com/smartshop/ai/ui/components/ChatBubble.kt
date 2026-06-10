@@ -10,6 +10,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,6 +45,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,6 +62,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.smartshop.ai.data.model.BatchCartContent
+import com.smartshop.ai.data.model.BatchCartItem
+import com.smartshop.ai.data.model.BatchCartSku
 import com.smartshop.ai.data.model.CartItem
 import com.smartshop.ai.data.model.ChatAction
 import com.smartshop.ai.data.model.ChatMessage
@@ -82,6 +88,7 @@ fun ChatBubble(
     modifier: Modifier = Modifier,
     onProductClick: (String) -> Unit = {},
     onAddToCart: (String) -> Unit = {},
+    onBatchCartConfirm: (BatchCartContent, Map<String, String>) -> Unit = { _, _ -> },
     onActionClick: (ChatAction) -> Unit = {},
     onOpenCart: () -> Unit = {},
     onSpeak: (ChatMessage) -> Unit = {},
@@ -196,6 +203,14 @@ fun ChatBubble(
                                 OrderStatusPill(text = message.orderStatusText)
                             }
 
+                            if (!isUser && message.batchCart != null) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                BatchCartSelectionCard(
+                                    batchCart = message.batchCart,
+                                    onConfirm = onBatchCartConfirm
+                                )
+                            }
+
                             if (!isUser && message.productRecommendations.isNotEmpty() && comparison == null) {
                                 Spacer(modifier = Modifier.height(14.dp))
                                 InlineRecommendationList(
@@ -301,6 +316,254 @@ private fun OrderStatusPill(text: String) {
             style = MaterialTheme.typography.labelMedium,
             color = Primary,
             fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun BatchCartSelectionCard(
+    batchCart: BatchCartContent,
+    onConfirm: (BatchCartContent, Map<String, String>) -> Unit
+) {
+    val selectedSkuIds = remember(batchCart.batchId) {
+        mutableStateMapOf<String, String>().apply {
+            batchCart.items.forEach { item ->
+                val selected = item.selectedSkuId ?: item.skus.singleOrNull()?.skuId
+                if (!selected.isNullOrBlank()) put(item.productId, selected)
+            }
+        }
+    }
+    var submitted by remember(batchCart.batchId) { mutableStateOf(false) }
+    val selectedCount = batchCart.items.count { selectedSkuIds[it.productId] != null }
+    val ready = selectedCount == batchCart.items.size && batchCart.items.isNotEmpty()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(180))
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.AddShoppingCart,
+                contentDescription = null,
+                tint = Primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = batchCart.title.ifBlank { "批量加入购物车" },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AiBubbleText
+                )
+                Text(
+                    text = "已选择 $selectedCount / ${batchCart.items.size} 个商品规格",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            BatchCartProgressPill(ready = ready)
+        }
+
+        batchCart.items.forEach { item ->
+            BatchCartItemRow(
+                item = item,
+                selectedSkuId = selectedSkuIds[item.productId],
+                onSelectSku = { skuId ->
+                    selectedSkuIds[item.productId] = skuId
+                    submitted = false
+                }
+            )
+        }
+
+        val buttonColor = if (ready && !submitted) Primary else MaterialTheme.colorScheme.surfaceVariant
+        val textColor = if (ready && !submitted) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(buttonColor)
+                .clickable(enabled = ready && !submitted) {
+                    submitted = true
+                    onConfirm(batchCart, selectedSkuIds.toMap())
+                }
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.AddShoppingCart,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = when {
+                        submitted -> "已提交"
+                        ready -> "确认加入购物车"
+                        else -> "请先选完规格"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatchCartProgressPill(ready: Boolean) {
+    val text = if (ready) "可确认" else "待选择"
+    val color = if (ready) Primary else MaterialTheme.colorScheme.tertiary
+    Box(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(999.dp))
+            .border(1.dp, color.copy(alpha = 0.26f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 9.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun BatchCartItemRow(
+    item: BatchCartItem,
+    selectedSkuId: String?,
+    onSelectSku: (String) -> Unit
+) {
+    val selectedSku = item.skus.firstOrNull { it.skuId == selectedSkuId }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f), RoundedCornerShape(10.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(
+                model = item.imageUrl,
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AiBubbleText,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "${item.brand} · ¥${"%.2f".format(item.price)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            BatchCartSkuStatus(label = selectedSku?.label)
+        }
+
+        if (item.skus.isEmpty()) {
+            Text(
+                text = "暂无可购买规格",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        } else {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item.skus.forEach { sku ->
+                    BatchCartSkuChip(
+                        sku = sku,
+                        selected = sku.skuId == selectedSkuId,
+                        onClick = { onSelectSku(sku.skuId) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatchCartSkuStatus(label: String?) {
+    val selected = !label.isNullOrBlank()
+    val color = if (selected) Primary else MaterialTheme.colorScheme.error
+    Box(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.10f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = if (selected) "已选 $label" else "待选",
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun BatchCartSkuChip(
+    sku: BatchCartSku,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val bg = if (selected) Primary else MaterialTheme.colorScheme.surface
+    val fg = if (selected) Color.White else AiBubbleText
+    val border = if (selected) Primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+    Column(
+        modifier = Modifier
+            .widthIn(min = 86.dp, max = 150.dp)
+            .clip(RoundedCornerShape(9.dp))
+            .background(bg)
+            .border(1.dp, border, RoundedCornerShape(9.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = sku.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = fg,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = "¥${"%.0f".format(sku.price)} · 库存${sku.stock}",
+            style = MaterialTheme.typography.labelSmall,
+            color = fg.copy(alpha = 0.78f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

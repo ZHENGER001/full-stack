@@ -29,10 +29,14 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
     if current_product_id and legacy.product_exists(conn, current_product_id):
         legacy.update_session_state(conn, session_id, current_product_id=current_product_id)
     previous_chat_history = legacy.load_chat_history(conn, session_id)
+    stored_user_message = legacy.batch_cart_confirm_display_text(message) or message
     conn.execute(
         "INSERT INTO chat_messages(id, session_id, role, content, image_id) VALUES (?, ?, ?, ?, ?)",
-        (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", message, image_id),
+        (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", stored_user_message, image_id),
     )
+    if legacy.is_batch_cart_confirm_message(message):
+        yield from legacy.emit_batch_cart_confirm_turn(conn, session_id, message, image_id)
+        return
 
     state = AgentTurnState(
         request=request,

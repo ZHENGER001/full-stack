@@ -7,6 +7,7 @@ import com.smartshop.ai.data.cart.CartRepository
 import com.smartshop.ai.data.chat.AiChatEvent
 import com.smartshop.ai.data.chat.ChatHistoryRepository
 import com.smartshop.ai.data.chat.AiChatRepository
+import com.smartshop.ai.data.model.BatchCartContent
 import com.smartshop.ai.data.model.ChatMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,6 +18,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 import javax.inject.Inject
 
 @HiltViewModel
@@ -88,6 +91,9 @@ class ChatViewModel @Inject constructor(
                     is AiChatEvent.Comparison -> updateAssistantMessage(assistantMessageId) {
                         it.copy(comparison = event.comparison, isLoading = false)
                     }
+                    is AiChatEvent.BatchCart -> updateAssistantMessage(assistantMessageId) {
+                        it.copy(batchCart = event.batchCart, isLoading = false)
+                    }
                     is AiChatEvent.Actions -> updateAssistantMessage(assistantMessageId) {
                         it.copy(actions = event.actions)
                     }
@@ -127,6 +133,30 @@ class ChatViewModel @Inject constructor(
 
     fun requestAddToCart(productId: String) {
         sendMessage(text = "加入购物车:$productId", displayText = "加入购物车")
+    }
+
+    fun confirmBatchCart(batchCart: BatchCartContent, selectedSkuIds: Map<String, String>) {
+        val items = JSONArray()
+        batchCart.items.forEach { item ->
+            val skuId = selectedSkuIds[item.productId] ?: item.selectedSkuId
+            if (!skuId.isNullOrBlank()) {
+                items.put(
+                    JSONObject().apply {
+                        put("product_id", item.productId)
+                        put("sku_id", skuId)
+                        put("quantity", item.quantity)
+                    }
+                )
+            }
+        }
+        val payload = JSONObject().apply {
+            put("batch_id", batchCart.batchId)
+            put("items", items)
+        }
+        sendMessage(
+            text = "$BATCH_CART_CONFIRM_PREFIX${payload}",
+            displayText = "确认加入购物车"
+        )
     }
 
     private suspend fun appendAssistantTextAnimated(messageId: String, text: String) {
@@ -170,6 +200,7 @@ class ChatViewModel @Inject constructor(
     }
 
     private companion object {
+        const val BATCH_CART_CONFIRM_PREFIX = "__batch_cart_confirm__:"
         const val TYPING_CHUNK_SIZE = 2
         const val TYPING_CHUNK_DELAY_MS = 18L
     }

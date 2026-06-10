@@ -35,7 +35,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -75,6 +74,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -117,6 +118,8 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
@@ -130,6 +133,17 @@ fun ChatScreen(
     var speakingMessageId by remember { mutableStateOf<String?>(null) }
     var shouldAutoSpeakVoiceReply by remember { mutableStateOf(false) }
     var voiceRequestStartedAt by remember { mutableStateOf<Long?>(null) }
+
+    fun hideKeyboard() {
+        keyboardController?.hide()
+        focusManager.clearFocus()
+    }
+
+    fun sendChatMessage(text: String = inputText) {
+        if (text.isBlank()) return
+        hideKeyboard()
+        viewModel.sendMessage(text)
+    }
 
     fun createChatCameraUri(): Uri {
         val imageDir = File(context.cacheDir, "chat_images").apply { mkdirs() }
@@ -250,6 +264,7 @@ fun ChatScreen(
         stopAssistantSpeech()
         voiceRequestStartedAt = System.currentTimeMillis()
         shouldAutoSpeakVoiceReply = true
+        hideKeyboard()
         viewModel.sendMessage(spokenText)
     }
 
@@ -387,13 +402,19 @@ fun ChatScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        uri?.let { viewModel.sendMessage(imageUri = it) }
+        uri?.let {
+            hideKeyboard()
+            viewModel.sendMessage(imageUri = it)
+        }
     }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success) {
-            pendingCameraUri?.let { viewModel.sendMessage(imageUri = it) }
+            pendingCameraUri?.let {
+                hideKeyboard()
+                viewModel.sendMessage(imageUri = it)
+            }
         } else {
             coroutineScope.launch { snackbarHostState.showSnackbar("未完成拍照") }
         }
@@ -516,7 +537,7 @@ fun ChatScreen(
                     }
                 },
                 voiceInputState = voiceInputState,
-                onSend = { viewModel.sendMessage(inputText) }
+                onSend = { sendChatMessage() }
             )
         }
     ) { paddingValues ->
@@ -525,7 +546,6 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.background)
-                .imePadding()
         ) {
             // Quick suggestions shown only when conversation just started
             AnimatedVisibility(
@@ -544,7 +564,7 @@ fun ChatScreen(
                     ) {
                         items(MockData.quickSuggestions) { suggestion ->
                             SuggestionChip(
-                                onClick = { viewModel.sendMessage(suggestion) },
+                                onClick = { sendChatMessage(suggestion) },
                                 label = {
                                     Text(
                                         text = suggestion,
@@ -589,6 +609,10 @@ fun ChatScreen(
                             navController.navigate(Screen.ProductDetail.createRoute(productId))
                         },
                         onAddToCart = { productId -> viewModel.requestAddToCart(productId) },
+                        onBatchCartConfirm = { batchCart, selectedSkuIds ->
+                            hideKeyboard()
+                            viewModel.confirmBatchCart(batchCart, selectedSkuIds)
+                        },
                         onOpenCart = {
                             navController.navigate(Screen.Cart.route) {
                                 launchSingleTop = true
@@ -618,7 +642,7 @@ fun ChatScreen(
                                             launchSingleTop = true
                                         }
                                     } else {
-                                        viewModel.sendMessage(action.label)
+                                        sendChatMessage(action.label)
                                     }
                                 }
                             }

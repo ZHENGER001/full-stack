@@ -14,7 +14,7 @@ from typing import Any, AsyncIterator, Iterable
 from fastapi import HTTPException, UploadFile
 
 from .agentic_rag import plan_agentic_turn, retrieve_products_for_turn
-from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn
+from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn, resolve_product_references
 from .bundle_recommendation import build_bundle_answer, retrieve_bundle_recommendations
 from .catalog import get_cart
 from .config import get_settings
@@ -41,6 +41,7 @@ ACTION_LABELS = {
 }
 PRODUCT_ACTION_TYPES = {"go_detail", "add_to_cart"}
 ALLOWED_ACTION_TYPES = set(ACTION_LABELS)
+BATCH_CART_CONFIRM_PREFIX = "__batch_cart_confirm__:"
 
 
 def sse_event(event: str, payload: dict) -> str:
@@ -165,10 +166,14 @@ def _stream_chat_legacy(
     if current_product_id and product_exists(conn, current_product_id):
         update_session_state(conn, session_id, current_product_id=current_product_id)
     previous_chat_history = load_chat_history(conn, session_id)
+    stored_user_message = batch_cart_confirm_display_text(message) or message
     conn.execute(
         "INSERT INTO chat_messages(id, session_id, role, content, image_id) VALUES (?, ?, ?, ?, ?)",
-        (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", message, image_id),
+        (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", stored_user_message, image_id),
     )
+    if is_batch_cart_confirm_message(message):
+        yield from emit_batch_cart_confirm_turn(conn, session_id, message, image_id)
+        return
 
     chat_history = previous_chat_history
     conversation_state = load_conversation_state(conn, session_id, current_product_id, cart_context)
@@ -469,6 +474,27 @@ def emit_react_transaction_turn(
         },
     )
     completed_any_step = False
+    react_conversation_state = load_conversation_state(conn, session_id, None, None)
+    cart_add_steps = [step for step in react_plan.steps if step.action == "cart_add"]
+    if len(cart_add_steps) > 1:
+        batch_payload = build_batch_cart_payload(conn, message, cart_add_steps, react_conversation_state)
+        if batch_payload:
+            yield sse_event(
+                "workflow_status",
+                {
+                    "workflow": "react_transaction",
+                    "step": "batch_cart_prepare",
+                    "status": "needs_sku",
+                    "item_count": len(batch_payload["items"]),
+                },
+            )
+            assistant_content = batch_payload["message"]
+            yield sse_event("delta", {"text": assistant_content})
+            yield sse_event("batch_cart", batch_payload)
+            store_assistant_message(conn, session_id, assistant_content, image_id)
+            update_session_state(conn, session_id, last_query=message)
+            yield sse_event("done", {"session_id": session_id})
+            return
     for step in react_plan.steps:
         if step.action == "cart_add":
             parsed_turn = ParsedTurn(
@@ -479,7 +505,7 @@ def emit_react_transaction_turn(
                 quantity=step.quantity or 1,
                 source="llm",
             )
-            result = execute_bounded_turn(conn, parsed_turn, load_conversation_state(conn, session_id, None, None))
+            result = execute_bounded_turn(conn, parsed_turn, react_conversation_state)
             yield sse_event(
                 "workflow_status",
                 {
@@ -528,6 +554,152 @@ def emit_react_transaction_turn(
             return
     if completed_any_step:
         yield sse_event("done", {"session_id": session_id})
+
+
+def build_batch_cart_payload(conn, message: str, cart_add_steps: list[Any], conversation_state: dict[str, Any]) -> dict[str, Any] | None:
+    items: list[dict[str, Any]] = []
+    needs_sku = False
+    seen_product_ids: set[str] = set()
+    for index, step in enumerate(cart_add_steps, start=1):
+        product_ids, _diagnostics = resolve_product_references(conn, product_reference_from_step(step), conversation_state)
+        if not product_ids:
+            return None
+        product_id = product_ids[0]
+        if product_id in seen_product_ids:
+            continue
+        seen_product_ids.add(product_id)
+        product = conn.execute(
+            "SELECT id, title, brand, image_path, price FROM products WHERE id = ?",
+            (product_id,),
+        ).fetchone()
+        if not product:
+            return None
+        skus = fetch_cart_skus(conn, product_id)
+        selected_sku = resolve_sku_from_message(message_with_sku_hint(message, step), skus)
+        if len(skus) > 1 and selected_sku is None:
+            needs_sku = True
+        selected_sku_id = selected_sku["id"] if selected_sku else None
+        items.append(
+            {
+                "product_id": product["id"],
+                "title": product["title"],
+                "brand": product["brand"],
+                "image_path": product["image_path"],
+                "price": float(product["price"] or 0),
+                "quantity": step.quantity or 1,
+                "position": index,
+                "status": "selected" if selected_sku_id else "needs_sku",
+                "selected_sku_id": selected_sku_id,
+                "skus": build_batch_cart_sku_options(skus),
+            }
+        )
+    if not needs_sku:
+        return None
+    return {
+        "batch_id": f"batch_{uuid.uuid4().hex[:10]}",
+        "title": "批量加入购物车",
+        "message": "这些商品需要先确认规格，选好后我会一次性加入购物车。",
+        "items": items,
+    }
+
+
+def build_batch_cart_sku_options(skus: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "sku_id": sku["id"],
+            "sku_name": sku["sku_name"],
+            "label": compact_sku_label(sku, skus),
+            "price": float(sku.get("price") or 0),
+            "stock": int(sku.get("stock") or 0),
+        }
+        for sku in skus
+    ]
+
+
+def is_batch_cart_confirm_message(message: str) -> bool:
+    return message.strip().startswith(BATCH_CART_CONFIRM_PREFIX)
+
+
+def batch_cart_confirm_display_text(message: str) -> str | None:
+    if not is_batch_cart_confirm_message(message):
+        return None
+    return "确认加入购物车"
+
+
+def parse_batch_cart_confirm_payload(message: str) -> dict[str, Any]:
+    raw = message.strip()[len(BATCH_CART_CONFIRM_PREFIX) :].strip()
+    data = json.loads(raw)
+    if not isinstance(data, dict):
+        raise ValueError("invalid batch cart payload")
+    return data
+
+
+def emit_batch_cart_confirm_turn(conn, session_id: str, message: str, image_id: str | None) -> Iterable[str]:
+    try:
+        payload = parse_batch_cart_confirm_payload(message)
+        selections = validate_batch_cart_selections(conn, payload)
+    except (json.JSONDecodeError, ValueError) as exc:
+        assistant_content = f"批量加入购物车失败：{exc}"
+        yield sse_event("delta", {"text": assistant_content})
+        store_assistant_message(conn, session_id, assistant_content, image_id)
+        update_session_state(conn, session_id, last_query="确认加入购物车")
+        yield sse_event("done", {"session_id": session_id})
+        return
+
+    added: list[dict[str, Any]] = []
+    for product_id, sku_id, quantity in selections:
+        for _ in range(quantity):
+            cart_product = add_product_to_cart(conn, product_id, sku_id)
+            if cart_product:
+                added.append(cart_product)
+
+    cart_payload = get_cart(conn).model_dump(mode="json")
+    title_text = "、".join(item["title"] for item in added[:3])
+    suffix = f" 等 {len(added)} 件商品" if len(added) > 3 else ""
+    assistant_content = f"已把 {title_text}{suffix} 加入购物车。购物车详情如下。"
+    actions = normalize_actions(conn, [{"type": "open_cart", "label": "打开购物车", "product_id": None}])
+    yield sse_event("delta", {"text": assistant_content})
+    yield sse_event("cart", cart_payload)
+    yield sse_event("actions", {"actions": actions})
+    store_assistant_message(conn, session_id, assistant_content, image_id)
+    update_session_state(
+        conn,
+        session_id,
+        last_query="确认加入购物车",
+        current_product_id=added[0]["id"] if added else None,
+        last_actions=actions,
+    )
+    yield sse_event("done", {"session_id": session_id})
+
+
+def validate_batch_cart_selections(conn, payload: dict[str, Any]) -> list[tuple[str, str, int]]:
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError("缺少待加入商品")
+    selections: list[tuple[str, str, int]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("商品选择格式不正确")
+        product_id = str(item.get("product_id") or "").strip()
+        sku_id = str(item.get("sku_id") or "").strip()
+        quantity = int(item.get("quantity") or 1)
+        if not product_id or not sku_id:
+            raise ValueError("还有商品没有选择规格")
+        if quantity < 1:
+            raise ValueError("商品数量不正确")
+        row = conn.execute(
+            """
+            SELECT s.id
+            FROM product_skus s
+            JOIN products p ON p.id = s.product_id
+            WHERE p.id = ? AND s.id = ? AND s.stock >= ?
+            """,
+            (product_id, sku_id, quantity),
+        ).fetchone()
+        if not row:
+            raise ValueError("有商品规格不可购买，请重新选择")
+        selections.append((product_id, sku_id, quantity))
+    return selections
 
 
 def emit_bundle_recommendation_turn(
@@ -1504,7 +1676,6 @@ def stream_grounded_answer_events(
     yield sse_event("llm_status", {"mode": "calling", "provider": "poe", "stream": True})
     chunks: list[str] = []
     try:
-        yield sse_event("delta", {"text": "\n"})
         for chunk in iter_async_blocking(
             stream_agent_reply_chunks_with_status(message, grounded_products, faq_context, chat_history)
         ):

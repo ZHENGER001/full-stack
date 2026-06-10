@@ -12,6 +12,7 @@ from .turn_schema import ProductReference
 
 
 ReactAction = Literal["cart_add", "checkout", "cart_remove", "cart_update_quantity", "cart_list", "none"]
+RULE_BATCH_REFERENCE_REASON = "规则识别批量引用"
 
 
 class ReactPlanStep(BaseModel):
@@ -65,6 +66,8 @@ async def plan_react_transaction(
     conversation_state: dict[str, Any],
 ) -> ReactTransactionPlan:
     fallback = plan_react_transaction_with_rules(message, conversation_state)
+    if is_rule_resolved_reference_plan(fallback):
+        return fallback
     if not should_call_react_llm(message):
         return fallback
 
@@ -125,17 +128,33 @@ def plan_react_transaction_with_rules(message: str, conversation_state: dict[str
 
     steps: list[ReactPlanStep] = []
     if wants_cart_add:
-        ref_type, position = infer_product_reference(text, conversation_state)
-        steps.append(
-            ReactPlanStep(
-                action="cart_add",
-                product_reference=ref_type,
-                position=position,
-                sku_hint=extract_sku_hint(text),
-                quantity=extract_quantity_hint(text) or 1,
-                reason="自然语言购买意图归一为加购",
+        positions = infer_product_reference_positions(text, conversation_state)
+        if positions:
+            steps.extend(
+                ReactPlanStep(
+                    action="cart_add",
+                    product_reference="position",
+                    position=position,
+                    sku_hint=extract_sku_hint(text),
+                    quantity=1,
+                    reason=RULE_BATCH_REFERENCE_REASON,
+                )
+                for position in positions
             )
-        )
+        elif has_structured_multi_product_reference(text):
+            return ReactTransactionPlan()
+        else:
+            ref_type, position = infer_product_reference(text, conversation_state)
+            steps.append(
+                ReactPlanStep(
+                    action="cart_add",
+                    product_reference=ref_type,
+                    position=position,
+                    sku_hint=extract_sku_hint(text),
+                    quantity=extract_quantity_hint(text) or 1,
+                    reason="自然语言购买意图归一为加购",
+                )
+            )
     if wants_checkout:
         steps.append(
             ReactPlanStep(
@@ -151,6 +170,10 @@ def plan_react_transaction_with_rules(message: str, conversation_state: dict[str
         confidence=0.68 if wants_cart_add and wants_checkout else 0.55,
         steps=steps,
     )
+
+
+def is_rule_resolved_reference_plan(plan: ReactTransactionPlan) -> bool:
+    return any(step.action == "cart_add" and step.reason == RULE_BATCH_REFERENCE_REASON for step in plan.steps)
 
 
 def is_safe_react_plan(message: str, plan: ReactTransactionPlan) -> bool:
@@ -225,12 +248,131 @@ def has_unresolved_product_reference_signal(text: str) -> bool:
     return any(term in text for term in ("这双", "这款", "这个", "刚才", "刚刚", "第一", "第二", "第三"))
 
 
+def infer_product_reference_positions(text: str, conversation_state: dict[str, Any]) -> list[int]:
+    recent_count = recent_recommendation_count(conversation_state)
+    if recent_count <= 0:
+        return []
+
+    ordinal_positions = valid_recent_positions(extract_ordinal_positions(text), recent_count)
+    if len(ordinal_positions) > 1:
+        return ordinal_positions
+
+    number_list_positions = valid_recent_positions(extract_number_list_positions(text), recent_count)
+    if number_list_positions:
+        return number_list_positions
+
+    range_positions = extract_range_positions(text, recent_count)
+    if range_positions:
+        return range_positions
+
+    if has_all_recent_reference(text):
+        return list(range(1, recent_count + 1))
+
+    return []
+
+
+def has_structured_multi_product_reference(text: str) -> bool:
+    if len(extract_ordinal_positions(text)) > 1:
+        return True
+    if extract_number_list_positions(text):
+        return True
+    if re.search(r"(?:前|头|最后|后)\s*[一二两三四五六七八九十\d]+\s*(?:款|个|双|台|件)?", text):
+        return True
+    return has_all_recent_reference(text)
+
+
+def recent_recommendation_count(conversation_state: dict[str, Any]) -> int:
+    recent_ids = conversation_state.get("last_recommended_product_ids") or []
+    if not isinstance(recent_ids, (list, tuple)):
+        return 0
+    return len(recent_ids)
+
+
+def extract_ordinal_positions(text: str) -> list[int]:
+    positions: list[int] = []
+    for match in re.finditer(r"第\s*([一二两三四五六七八九十\d]+)\s*(?:款|个|双|台|件)?", text):
+        number = parse_reference_number(match.group(1))
+        if number is not None:
+            positions.append(number)
+    return positions
+
+
+def extract_number_list_positions(text: str) -> list[int]:
+    match = re.search(r"(?<![\dA-Za-z])\d{1,2}(?:\s*(?:[,，、]|和|与|及|跟)\s*\d{1,2})+(?![\dA-Za-z])", text)
+    if not match:
+        return []
+    return [int(token) for token in re.findall(r"\d{1,2}", match.group(0))]
+
+
+def extract_range_positions(text: str, recent_count: int) -> list[int]:
+    front_match = re.search(r"(?:前|头)\s*([一二两三四五六七八九十\d]+)\s*(?:款|个|双|台|件)?", text)
+    if front_match:
+        count = parse_reference_number(front_match.group(1))
+        if count and 1 <= count <= recent_count:
+            return list(range(1, count + 1))
+
+    back_match = re.search(r"(?:最后|后)\s*([一二两三四五六七八九十\d]+)\s*(?:款|个|双|台|件)?", text)
+    if back_match:
+        count = parse_reference_number(back_match.group(1))
+        if count and 1 <= count <= recent_count:
+            return list(range(recent_count - count + 1, recent_count + 1))
+
+    return []
+
+
+def has_all_recent_reference(text: str) -> bool:
+    return any(term in text for term in ("全部", "全都", "所有", "都"))
+
+
+def valid_recent_positions(positions: list[int], recent_count: int) -> list[int]:
+    if not positions:
+        return []
+    deduped: list[int] = []
+    for position in positions:
+        if position < 1 or position > recent_count:
+            return []
+        if position not in deduped:
+            deduped.append(position)
+    return deduped
+
+
+def parse_reference_number(token: str) -> int | None:
+    token = token.strip()
+    if token.isdigit():
+        return int(token)
+
+    number_map = {
+        "一": 1,
+        "二": 2,
+        "两": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+    }
+    if token in number_map:
+        return number_map[token]
+    if token == "十":
+        return 10
+    if token.startswith("十"):
+        return 10 + number_map.get(token[1:], 0)
+    if "十" in token:
+        left, right = token.split("十", 1)
+        tens = number_map.get(left)
+        if tens is None:
+            return None
+        return tens * 10 + (number_map.get(right, 0) if right else 0)
+    return None
+
+
 def infer_product_reference(text: str, conversation_state: dict[str, Any]) -> tuple[Literal["current_product", "last_product", "position", "product_id"], int | None]:
     match = re.search(r"第\s*([一二两三四五\d]+)\s*(款|个|双)", text)
     if match:
         token = match.group(1)
-        number_map = {"一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5}
-        return "position", int(token) if token.isdigit() else number_map.get(token, 1)
+        return "position", parse_reference_number(token) or 1
     if any(term in text for term in ("刚才", "刚刚", "上一", "上一个")):
         return "last_product", None
     if conversation_state.get("current_product_id"):

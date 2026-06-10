@@ -1,6 +1,9 @@
 package com.smartshop.ai.data.chat
 
 import android.content.Context
+import com.smartshop.ai.data.model.BatchCartContent
+import com.smartshop.ai.data.model.BatchCartItem
+import com.smartshop.ai.data.model.BatchCartSku
 import com.smartshop.ai.data.model.ChatAction
 import com.smartshop.ai.data.model.CartItem
 import com.smartshop.ai.data.model.ChatMessage
@@ -9,6 +12,7 @@ import com.smartshop.ai.data.model.ComparisonContent
 import com.smartshop.ai.data.model.ComparisonRow
 import com.smartshop.ai.data.model.ComparisonSection
 import com.smartshop.ai.data.model.Product
+import com.smartshop.ai.data.remote.toSmartShopAssetUrl
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -51,6 +55,7 @@ class ChatHistoryRepository @Inject constructor(
             productRecommendations.forEach { array.put(it.toJson()) }
         })
         put("comparison", comparison?.toJson())
+        put("batchCart", batchCart?.toJson())
         put("actions", JSONArray().also { array ->
             actions.forEach { array.put(it.toJson()) }
         })
@@ -70,6 +75,7 @@ class ChatHistoryRepository @Inject constructor(
             imageUri = optString("imageUri").ifBlank { null },
             productRecommendations = optJSONArray("products").toProductList(),
             comparison = optJSONObject("comparison")?.toComparisonContent(),
+            batchCart = optJSONObject("batchCart")?.toBatchCartContent(),
             actions = optJSONArray("actions").toActionList(),
             cartItems = optJSONArray("cartItems").toCartItemList(),
             cartTotalAmount = if (isNull("cartTotalAmount")) null else optDouble("cartTotalAmount"),
@@ -109,6 +115,38 @@ class ChatHistoryRepository @Inject constructor(
         put("bullets", JSONArray().also { array -> bullets.forEach { array.put(it) } })
     }
 
+    private fun BatchCartContent.toJson(): JSONObject = JSONObject().apply {
+        put("batchId", batchId)
+        put("title", title)
+        put("message", message)
+        put("items", JSONArray().also { array ->
+            items.forEach { array.put(it.toJson()) }
+        })
+    }
+
+    private fun BatchCartItem.toJson(): JSONObject = JSONObject().apply {
+        put("productId", productId)
+        put("title", title)
+        put("brand", brand)
+        put("imageUrl", imageUrl)
+        put("price", price)
+        put("quantity", quantity)
+        put("position", position)
+        put("status", status)
+        put("selectedSkuId", selectedSkuId)
+        put("skus", JSONArray().also { array ->
+            skus.forEach { array.put(it.toJson()) }
+        })
+    }
+
+    private fun BatchCartSku.toJson(): JSONObject = JSONObject().apply {
+        put("skuId", skuId)
+        put("skuName", skuName)
+        put("label", label)
+        put("price", price)
+        put("stock", stock)
+    }
+
     private fun JSONObject.toComparisonContent(): ComparisonContent =
         ComparisonContent(
             title = optString("title"),
@@ -142,6 +180,42 @@ class ChatHistoryRepository @Inject constructor(
             title = optString("title"),
             productId = optString("productId").ifBlank { optString("product_id") }.ifBlank { null },
             bullets = optJSONArray("bullets").toStringList()
+        )
+
+    private fun JSONObject.toBatchCartContent(): BatchCartContent =
+        BatchCartContent(
+            batchId = optString("batchId").ifBlank { optString("batch_id") },
+            title = optString("title"),
+            message = optString("message"),
+            items = optJSONArray("items").toBatchCartItems()
+        )
+
+    private fun JSONObject.toBatchCartItem(index: Int): BatchCartItem {
+        val productId = optString("productId").ifBlank { optString("product_id") }
+        return BatchCartItem(
+            productId = productId,
+            title = optString("title"),
+            brand = optString("brand"),
+            imageUrl = batchCartThumbnailUrl(productId),
+            price = optDouble("price"),
+            quantity = optInt("quantity", 1),
+            position = optInt("position", index + 1),
+            status = optString("status"),
+            selectedSkuId = optString("selectedSkuId").ifBlank { optString("selected_sku_id") }.ifBlank { null },
+            skus = optJSONArray("skus").toBatchCartSkus()
+        )
+    }
+
+    private fun batchCartThumbnailUrl(productId: String): String =
+        "/api/product-thumbnails/$productId.jpg".toSmartShopAssetUrl()
+
+    private fun JSONObject.toBatchCartSku(): BatchCartSku =
+        BatchCartSku(
+            skuId = optString("skuId").ifBlank { optString("sku_id") },
+            skuName = optString("skuName").ifBlank { optString("sku_name") },
+            label = optString("label").ifBlank { optString("skuName").ifBlank { optString("sku_name") } },
+            price = optDouble("price"),
+            stock = optInt("stock")
         )
 
     private fun Product.toJson(): JSONObject = JSONObject().apply {
@@ -244,6 +318,16 @@ class ChatHistoryRepository @Inject constructor(
     private fun JSONArray?.toComparisonSections(): List<ComparisonSection> {
         if (this == null) return emptyList()
         return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toComparisonSection() }
+    }
+
+    private fun JSONArray?.toBatchCartItems(): List<BatchCartItem> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toBatchCartItem(index) }
+    }
+
+    private fun JSONArray?.toBatchCartSkus(): List<BatchCartSku> {
+        if (this == null) return emptyList()
+        return (0 until length()).mapNotNull { index -> optJSONObject(index)?.toBatchCartSku() }
     }
 
     private fun JSONArray?.toCartItemList(): List<CartItem> {
