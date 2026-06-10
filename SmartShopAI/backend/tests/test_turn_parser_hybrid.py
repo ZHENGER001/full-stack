@@ -114,6 +114,19 @@ async def semantic_printer_ink_llm(message, *args, **kwargs):
     )
 
 
+async def generic_earphone_llm(message, *args, **kwargs):
+    return ParsedTurnCandidate(
+        raw_message=message,
+        intent_type="product_search",
+        proposed_tool="search_products",
+        core_product_query="耳机",
+        product_mentions=["耳机"],
+        category_mentions=["数码电子"],
+        subcategory_mentions=["耳机"],
+        source="llm",
+    )
+
+
 def parse(message: str, state: dict | None = None):
     with patch("app.turn_parser_hybrid.parse_turn_with_llm", new=fail_llm):
         return asyncio.run(parse_turn_hybrid(message, chat_history=None, conversation_state=state or {}))
@@ -168,6 +181,16 @@ class TurnParserHybridTest(unittest.TestCase):
         self.assertEqual(parsed.route_hint, "no_tool")
         self.assertIn("真无线耳机", parsed.constraints.subcategories)
         self.assertEqual(parsed.constraints.required_terms, ["耳机"])
+        self.assertIn("降噪", parsed.clarification_question or "")
+        self.assertIn("续航", parsed.clarification_question or "")
+
+    def test_generic_llm_earphone_subcategory_still_asks_preference(self) -> None:
+        with patch("app.turn_parser_hybrid.parse_turn_with_llm", new=generic_earphone_llm):
+            parsed = asyncio.run(parse_turn_hybrid("推荐一款耳机", chat_history=None, conversation_state={}))
+
+        self.assertEqual(parsed.intent_type, "product_search")
+        self.assertTrue(parsed.needs_clarification)
+        self.assertEqual(parsed.route_hint, "no_tool")
         self.assertIn("降噪", parsed.clarification_question or "")
         self.assertIn("续航", parsed.clarification_question or "")
 

@@ -552,14 +552,14 @@ def _needs_preference_clarification(parsed: ParsedTurn, constraints: TurnConstra
         return False
     if parsed.intent_type not in {"product_search", "filter_refinement", "unknown"}:
         return False
-    if len(constraints.subcategories) != 1:
+    if not constraints.subcategories:
         return False
     if constraints.brands_include or constraints.attributes_include or constraints.scene_terms:
         return False
     if constraints.price.min is not None or constraints.price.max is not None:
         return _priced_query_still_needs_preference(constraints)
-    broad_subcategories = {"智能手机", "真无线耳机", "笔记本电脑", "篮球鞋", "跑步鞋"}
-    return constraints.subcategories[0] in broad_subcategories
+    broad_subcategories = {"智能手机", "手机", "真无线耳机", "耳机", "笔记本电脑", "篮球鞋", "跑步鞋"}
+    return any(subcategory in broad_subcategories for subcategory in constraints.subcategories)
 
 
 def _priced_query_still_needs_preference(constraints: TurnConstraints) -> bool:
@@ -594,7 +594,7 @@ def build_preference_clarification_question(constraints: TurnConstraints) -> str
     budget_suffix = "" if constraints.price.min is not None or constraints.price.max is not None else "预算大概多少？"
     if subcategory == "智能手机":
         return f"请问你更看重拍照、续航、性能还是性价比？{budget_suffix}".rstrip("？") + "？"
-    if subcategory == "真无线耳机":
+    if subcategory in {"真无线耳机", "耳机"}:
         return f"请问你更看重降噪、音质、续航还是佩戴舒适？{budget_suffix}".rstrip("？") + "？"
     if subcategory in {"篮球鞋", "跑步鞋"}:
         return f"请问你主要用于实战、跑步、通勤还是日常穿搭？{budget_suffix}".rstrip("？") + "？"
