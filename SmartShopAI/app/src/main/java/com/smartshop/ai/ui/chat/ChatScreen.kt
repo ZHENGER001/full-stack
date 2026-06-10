@@ -145,6 +145,8 @@ fun ChatScreen(
     var preferBackendVoice by remember { mutableStateOf(false) }
     var textToSpeech by remember { mutableStateOf<TextToSpeech?>(null) }
     var isTtsReady by remember { mutableStateOf(false) }
+    var ttsUnavailableMessage by remember { mutableStateOf<String?>(null) }
+    var ttsInitAttempt by remember { mutableStateOf(0) }
     var speakingMessageId by remember { mutableStateOf<String?>(null) }
     var shouldAutoSpeakVoiceReply by remember { mutableStateOf(false) }
     var voiceRequestStartedAt by remember { mutableStateOf<Long?>(null) }
@@ -185,15 +187,26 @@ fun ChatScreen(
         cameraLauncher.launch(uri)
     }
 
-    DisposableEffect(context) {
+    DisposableEffect(context, ttsInitAttempt) {
         var ttsRef: TextToSpeech? = null
         val tts = TextToSpeech(context.applicationContext) { status ->
             mainHandler.post {
                 if (status == TextToSpeech.SUCCESS) {
-                    ttsRef?.setLanguage(Locale.getDefault())
-                    isTtsReady = true
+                    val languageResult = ttsRef?.setLanguage(Locale.SIMPLIFIED_CHINESE) ?: TextToSpeech.ERROR
+                    val isChineseSupported = languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                        languageResult != TextToSpeech.LANG_NOT_SUPPORTED &&
+                        languageResult != TextToSpeech.ERROR
+                    isTtsReady = isChineseSupported
+                    ttsUnavailableMessage = if (isChineseSupported) {
+                        ttsRef?.setSpeechRate(0.95f)
+                        ttsRef?.setPitch(1.0f)
+                        null
+                    } else {
+                        "当前手机文字转语音不支持中文，请在系统 TTS 设置里安装中文语音包或更换引擎"
+                    }
                 } else {
                     isTtsReady = false
+                    ttsUnavailableMessage = "语音朗读初始化失败，请检查系统文字转语音引擎，或稍后再点一次重试"
                 }
             }
         }
@@ -230,6 +243,7 @@ fun ChatScreen(
             tts.shutdown()
             textToSpeech = null
             isTtsReady = false
+            ttsUnavailableMessage = null
             speakingMessageId = null
         }
     }
@@ -251,7 +265,15 @@ fun ChatScreen(
         if (text.isBlank()) return
         val tts = textToSpeech
         if (tts == null || !isTtsReady) {
-            coroutineScope.launch { snackbarHostState.showSnackbar("语音朗读初始化中，请稍后再试") }
+            val message = if (tts == null) {
+                "语音朗读初始化中，请稍后再试"
+            } else {
+                ttsUnavailableMessage ?: "语音朗读暂不可用，请稍后再试"
+            }
+            if (tts != null) {
+                ttsInitAttempt += 1
+            }
+            coroutineScope.launch { snackbarHostState.showSnackbar(message) }
             return
         }
         if (speakingMessageId == messageId) {
