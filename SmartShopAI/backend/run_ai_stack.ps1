@@ -94,8 +94,10 @@ function Wait-Embedding {
 }
 
 function Build-Index {
-    Write-Host "Building Milvus product embedding index..."
+    Write-Host "Building Milvus product text embedding index..."
     Invoke-Native -FilePath $PythonBin -Arguments @("scripts\build_milvus_index.py", "--recreate")
+    Write-Host "Building Milvus product visual embedding index..."
+    Invoke-Native -FilePath $PythonBin -Arguments @("scripts\build_visual_milvus_index.py", "--recreate")
 }
 
 function Assert-Port-Free {

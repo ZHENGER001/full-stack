@@ -108,6 +108,7 @@ def _policy_router_node(state: AgenticPlanState) -> dict[str, Any]:
 
 
 def _parse_filters_node(state: AgenticRetrievalState) -> dict[str, Any]:
+    # 将最终检索 query 解析为可执行过滤条件，供 diagnostics 和后续 verifier 使用。
     return {
         "parsed_filters": parse_user_filters(
             state["query"],
@@ -117,6 +118,7 @@ def _parse_filters_node(state: AgenticRetrievalState) -> dict[str, Any]:
 
 
 def _search_products_node(state: AgenticRetrievalState) -> dict[str, Any]:
+    # RAG 检索节点：合并 turn planner 产出的约束，先查 query cache，再调用商品搜索工具。
     plan = state.get("plan")
     query = state["query"]
     top_k = state.get("top_k") or 3
@@ -182,6 +184,7 @@ async def plan_agentic_turn(
     chat_history: list[dict[str, str]],
     conversation_state: dict[str, Any],
 ) -> AgenticTurnPlan:
+    # 第一阶段只做“理解当前轮”：解析意图、引用、约束，再由 policy 决定是否需要检索或澄清。
     graph = _compiled_plan_graph()
     if graph is not None:
         state = await graph.ainvoke(
@@ -211,6 +214,8 @@ def retrieve_products_for_turn(
     plan: AgenticTurnPlan | None,
     top_k: int = 3,
 ) -> AgenticRetrievalResult:
+    # 第二阶段执行 RAG：query -> filters -> search_products tool -> diagnostics/cache。
+    # 图片请求会传入 plan=None，避免文本 planner 约束覆盖 VLM query。
     graph = _compiled_retrieval_graph()
     if graph is not None:
         state = graph.invoke(

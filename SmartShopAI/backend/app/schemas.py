@@ -210,6 +210,8 @@ class ImageAnalyzeRequest(BaseModel):
 
 class ImageDetected(BaseModel):
     object_type: str
+    label: str = ""
+    attributes: dict[str, str] = Field(default_factory=dict)
     color: str | None = None
     style: str | None = None
     material: str | None = None
@@ -225,6 +227,8 @@ class ImageAnalyzeResponse(BaseModel):
     detected: ImageDetected
     query: str
     objects: list[ImageDetected] = Field(default_factory=list)
+    products: list[ProductCard] = Field(default_factory=list)
+    diagnostics: dict = Field(default_factory=dict)
     provider: str | None = None
     model: str | None = None
     fallback: bool = False

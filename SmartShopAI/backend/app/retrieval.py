@@ -66,9 +66,11 @@ def hybrid_search_products(conn, parsed_query: ParsedQuery, limit: int = 24) -> 
     lane_limit = max(limit, 20)
     include_evidence = parsed_query.filters.get("retrieval_scope") == "full_evidence"
     documents = {str(row["id"]): _build_document(row, include_evidence=include_evidence) for row in rows}
+    # 三路召回：Milvus dense 负责语义相似，BM25 负责词频相关，keyword 负责精确商品词命中。
     dense_hits, dense_diagnostics = _dense_search(parsed_query, lane_limit)
     bm25_hits = _bm25_search(parsed_query, rows, documents, lane_limit)
     keyword_hits = _keyword_search(parsed_query, rows, documents, lane_limit)
+    # RRF 融合只合并排序信号，不做最终业务过滤；硬过滤交给 rag.py 的 verifier。
     fused_hits = _rrf_fuse([dense_hits, bm25_hits, keyword_hits], top_k=lane_limit)
     candidates = hydrate_products(conn, fused_hits, limit=lane_limit)
 

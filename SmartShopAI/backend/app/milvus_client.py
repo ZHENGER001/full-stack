@@ -58,21 +58,34 @@ class MilvusSearchHit:
 
 
 class MilvusRestClient:
-    def __init__(self, base_url: str | None = None, token: str | None = None, timeout_seconds: float | None = None):
+    def __init__(
+        self,
+        base_url: str | None = None,
+        token: str | None = None,
+        timeout_seconds: float | None = None,
+        collection_name: str | None = None,
+        primary_field_name: str | None = None,
+        vector_field_name: str | None = None,
+        metric_type: str | None = None,
+    ):
         self.base_url = (base_url or milvus_base_url()).rstrip("/")
         self.token = token if token is not None else _milvus_token()
         self.timeout_seconds = timeout_seconds if timeout_seconds is not None else milvus_timeout_seconds()
+        self.collection_name = collection_name or milvus_collection_name()
+        self.primary_field_name = primary_field_name or milvus_primary_field_name()
+        self.vector_field_name = vector_field_name or milvus_vector_field_name()
+        self.metric_type = metric_type or milvus_metric_type()
 
     def create_collection(self, dimension: int, recreate: bool = False) -> None:
         if recreate:
             self.drop_collection(ignore_missing=True)
         payload = self._with_db(
             {
-                "collectionName": milvus_collection_name(),
+                "collectionName": self.collection_name,
                 "dimension": dimension,
-                "metricType": milvus_metric_type(),
-                "primaryFieldName": milvus_primary_field_name(),
-                "vectorFieldName": milvus_vector_field_name(),
+                "metricType": self.metric_type,
+                "primaryFieldName": self.primary_field_name,
+                "vectorFieldName": self.vector_field_name,
                 "idType": "VarChar",
                 "autoID": False,
                 "params": {"max_length": "128"},
@@ -81,13 +94,13 @@ class MilvusRestClient:
         self._post("/v2/vectordb/collections/create", payload, ignore_exists=True)
 
     def drop_collection(self, ignore_missing: bool = False) -> None:
-        payload = self._with_db({"collectionName": milvus_collection_name()})
+        payload = self._with_db({"collectionName": self.collection_name})
         self._post("/v2/vectordb/collections/drop", payload, ignore_missing=ignore_missing)
 
     def insert_vectors(self, items: list[dict[str, Any]]) -> int:
         if not items:
             return 0
-        payload = self._with_db({"collectionName": milvus_collection_name(), "data": items})
+        payload = self._with_db({"collectionName": self.collection_name, "data": items})
         data = self._post("/v2/vectordb/entities/insert", payload)
         result = data.get("data") if isinstance(data, dict) else None
         if isinstance(result, dict):
@@ -95,7 +108,7 @@ class MilvusRestClient:
         return len(items)
 
     def load_collection(self) -> None:
-        payload = self._with_db({"collectionName": milvus_collection_name()})
+        payload = self._with_db({"collectionName": self.collection_name})
         self._post("/v2/vectordb/collections/load", payload, ignore_exists=True)
 
     def search(self, vector: list[float], top_k: int = 20) -> list[MilvusSearchHit]:
@@ -103,13 +116,13 @@ class MilvusRestClient:
             return []
         payload = self._with_db(
             {
-                "collectionName": milvus_collection_name(),
+                "collectionName": self.collection_name,
                 "data": [vector],
-                "annsField": milvus_vector_field_name(),
+                "annsField": self.vector_field_name,
                 "limit": top_k,
-                "outputFields": [milvus_primary_field_name()],
+                "outputFields": [self.primary_field_name],
                 "searchParams": {
-                    "metricType": milvus_metric_type(),
+                    "metricType": self.metric_type,
                     "params": {},
                 },
             }
@@ -123,7 +136,7 @@ class MilvusRestClient:
             if not isinstance(item, dict):
                 continue
             entity = item.get("entity") if isinstance(item.get("entity"), dict) else item
-            product_id = entity.get(milvus_primary_field_name()) or entity.get("product_id") or entity.get("id")
+            product_id = entity.get(self.primary_field_name) or entity.get("product_id") or entity.get("id")
             if not product_id:
                 continue
             score = item.get("distance", item.get("score", 0.0))

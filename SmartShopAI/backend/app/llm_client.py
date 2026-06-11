@@ -125,6 +125,8 @@ def _build_chat_completion_request(
         "faq_context": faq_context or [],
         "chat_history": _compact_history(chat_history),
     }
+    # 导购回答 prompt 是 grounded writer：只能基于 retrieved_products/faq_context 写话术。
+    # 商品集合已经由 RAG 决定，LLM 不允许新增商品、价格、库存或功能事实。
     system_prompt = (
         "你是 SmartShop AI 导购助手。你只能基于系统提供的 retrieved_products 和 faq_context 回答。"
         "严格规则：只能推荐 retrieved_products 中的商品；不能编造商品、价格、库存、SKU、折扣、品牌、评分或功能；"
@@ -288,6 +290,7 @@ async def generate_product_presentations(
         }
         for item in products[:6]
     ]
+    # 商品卡片文案 prompt 只生成展示标签和推荐理由，不影响召回、排序或过滤结果。
     system_prompt = (
         "你是电商导购商品展示文案生成器。只能基于输入商品事实和用户需求生成。"
         "不要编造优惠、销量、库存、功能、品牌、价格或活动。"
@@ -381,6 +384,7 @@ async def generate_preference_answer_with_status(
             "回答不超过90个中文字符",
         ],
     }
+    # 偏好解释 prompt 只回答取舍问题，不推荐具体商品，避免绕过 RAG 商品集合。
     system_prompt = (
         "你是电商导购偏好取舍解释器。只基于输入的品类、问题和 fallback_answer 改写自然语言。"
         "不要输出商品清单、品牌对比、表格、JSON 或 Markdown。"

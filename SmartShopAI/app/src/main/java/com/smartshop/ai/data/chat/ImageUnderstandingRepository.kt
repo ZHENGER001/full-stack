@@ -52,8 +52,19 @@ class ImageUnderstandingRepository @Inject constructor(
         if (containsAny(lower, "shoe", "footwear", "sneaker", "running")) {
             terms += "鞋 运动 跑步"
         }
-        if (containsAny(lower, "clothing", "shirt", "jacket", "coat", "hoodie")) {
-            terms += "衣服 卫衣 外套"
+        val hasSpecificClothing =
+            containsAny(lower, "t-shirt", "tshirt", "tee shirt", "shirt", "hoodie", "sweatshirt", "jacket", "coat")
+        if (containsAny(lower, "t-shirt", "tshirt", "tee shirt", "shirt")) {
+            terms += "T恤 短袖 上衣"
+        }
+        if (containsAny(lower, "hoodie", "sweatshirt")) {
+            terms += "卫衣"
+        }
+        if (containsAny(lower, "jacket", "coat")) {
+            terms += "外套"
+        }
+        if ("clothing" in lower && !hasSpecificClothing) {
+            terms += "服饰 上衣"
         }
         if (containsAny(lower, "bag", "backpack", "handbag")) {
             terms += "包 背包 通勤"

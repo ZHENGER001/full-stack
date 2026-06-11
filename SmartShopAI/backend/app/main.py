@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .agent import analyze_image, save_upload, stream_chat
+from .agent import analyze_image, retrieve_image_match_products, save_upload, stream_chat
 from .asr_client import asr_model_name, asr_provider_name, transcribe_audio_bytes
 from .catalog import (
     first_sku,
@@ -722,9 +722,20 @@ def api_image_upload(file: UploadFile = File(...)):
 def api_image_analyze(payload: ImageAnalyzeRequest):
     try:
         with get_db() as conn:
-            detected, query = analyze_image(conn, payload.image_id, payload.user_hint)
+            analysis = analyze_image(conn, payload.image_id, payload.user_hint)
+            products, diagnostics = retrieve_image_match_products(conn, analysis, limit=12)
             record_image_analyze(True)
-            return ImageAnalyzeResponse(image_id=payload.image_id, detected=detected, query=query)
+            return ImageAnalyzeResponse(
+                image_id=payload.image_id,
+                detected=analysis.detected,
+                query=analysis.query,
+                objects=analysis.objects,
+                products=products,
+                diagnostics=diagnostics,
+                provider=analysis.provider,
+                model=analysis.model,
+                fallback=analysis.fallback,
+            )
     except Exception:
         record_image_analyze(False)
         raise
@@ -752,6 +763,9 @@ async def api_audio_transcribe(file: UploadFile = File(...)):
 def api_chat_stream(payload: ChatStreamRequest):
     def generate():
         with get_db() as conn:
+            # SSE responses may wait on LLM calls or client reads; autocommit
+            # keeps SQLite write locks from living for the whole stream.
+            conn.isolation_level = None
             user_message = payload.message or payload.voice_text or ""
             yield from stream_chat(
                 conn,

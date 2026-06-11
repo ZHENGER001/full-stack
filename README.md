@@ -76,7 +76,7 @@ ASR_MODEL=Qwen3.5-Omni-Flash
 adb reverse tcp:8000 tcp:8000
 cd J:\full-stack\SmartShopAI
 $gradle = "C:\Users\ROG\.gradle\wrapper\dists\gradle-8.5-bin\5t9huq95ubn472n8rpzujfbqh\gradle-8.5\bin\gradle.bat"
-& $gradle -PsmartshopBaseUrl=http://127.0.0.1:8000/ installDebug
+别让它改文字那一套推荐，我怕有别的bug别让它改文字那一套推荐，我怕有别的bug
 adb shell am start -n com.smartshop.ai/.MainActivity
 ```
 

@@ -52,6 +52,7 @@ async def parse_turn_with_llm(
         "catalog_summary": catalog_summary or {},
         "schema": ParsedTurnCandidate.model_json_schema(),
     }
+    # turn parser prompt 只输出结构化意图候选，不做商品推荐，也不生成自然语言回答。
     user_prompt = (
         "解析下面输入，只输出 JSON object，不要 markdown，不要解释。\n"
         f"{json.dumps(payload, ensure_ascii=False)}"

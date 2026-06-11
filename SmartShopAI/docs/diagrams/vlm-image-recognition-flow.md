@@ -75,7 +75,7 @@ flowchart TD
 
 - Android 侧入口在 `ChatScreen`：拍照成功后调用 `sendMessage(imageUri=...)`，不走独立识图页。
 - 图片上传先经过 `save_upload`，限制格式为 `jpeg/png/webp`，大小不超过 `8MB`。
-- VLM 入口在 `vision_client.analyze_image_file_with_vlm`，默认复用 `POE_API_KEY/POE_BASE_URL/LLM_MODEL`，也支持独立 `VLM_*` 配置。
+- VLM 入口在 `vision_client.analyze_image_file_with_vlm`，默认走 Poe 的 OpenAI-compatible 接口；当前通过独立 `VLM_MODEL=GPT-4o` 配置识图模型，`VLM_API_KEY/VLM_BASE_URL` 留空时复用 `POE_API_KEY/POE_BASE_URL`。
 - VLM 不直接推荐商品，只输出最多 3 个可购物物体候选和检索属性。
 - 随手拍场景使用 `image_wide_match`：VLM 类目参与加权，但不会在初始召回阶段硬过滤。
 - 商品匹配仍复用现有 `dense Milvus + BM25 + keyword -> RRF -> SQLite hydrate -> verifier`。

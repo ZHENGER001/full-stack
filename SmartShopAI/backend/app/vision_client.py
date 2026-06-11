@@ -5,6 +5,7 @@ import json
 import mimetypes
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -65,6 +66,22 @@ def _env_value(name: str, default: str | None = None) -> str | None:
     return os.getenv(name) or env_file.get(name) or default
 
 
+def debug_vlm_event(event: str, payload: dict[str, Any]) -> None:
+    data = {
+        "ts": round(time.time(), 3),
+        **payload,
+    }
+    data["event"] = event
+    print(f"[{event}] {json.dumps(data, ensure_ascii=True, default=str)}", flush=True)
+    try:
+        path = BASE_DIR / "data" / "vlm_debug.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as out:
+            out.write(json.dumps(data, ensure_ascii=False, default=str) + "\n")
+    except Exception:
+        pass
+
+
 def vlm_model_name() -> str:
     return _env_value("VLM_MODEL") or _env_value("LLM_MODEL") or "gemini-3.5-flash"
 
@@ -96,6 +113,7 @@ async def analyze_image_file_with_vlm(
 
     model = vlm_model_name()
     prompt = _build_prompt(user_hint, catalog_taxonomy)
+    # VLM prompt 只产出结构化 objects；最终商品推荐仍由后续 RAG 检索和 verifier 决定。
     payload = {
         "model": model,
         "messages": [
@@ -136,7 +154,15 @@ async def analyze_image_file_with_vlm(
         raise VLMAnalysisError("VLM network error") from exc
 
     content = _extract_content(response.json())
+    debug_vlm_event(
+        "VLM_RAW_RESPONSE",
+        {"provider": "poe", "model": model, "content": content},
+    )
     objects = parse_vlm_response_content(content)
+    debug_vlm_event(
+        "VLM_PARSED_OBJECTS",
+        {"provider": "poe", "model": model, "objects": [item.to_dict() for item in objects]},
+    )
     if not objects:
         raise VLMAnalysisError("VLM response has no objects")
     return VLMAnalysis(objects=objects, provider="poe", model=model)
@@ -145,9 +171,13 @@ async def analyze_image_file_with_vlm(
 def _build_prompt(user_hint: str | None, catalog_taxonomy: str | None) -> str:
     taxonomy_text = catalog_taxonomy or "无"
     hint_text = user_hint or "用户没有补充文字，只是随手拍图找相似商品。"
+    # 商品库 taxonomy 会约束 category/subcategory，减少 VLM 自由发挥和品牌型号臆测。
     return (
         "请识别图片里 1 到 3 个最可能用于电商找货的主要物品，按可能性从高到低排序。"
+        "object_type 必须是具体商品名词，例如 手机、跑步鞋、双肩包、洁面乳，不要写商品、物品、配件这类泛词。"
         "如果能匹配商品库类目，请使用商品库里的中文 category/subcategory；不能确定时对应字段填空字符串。"
+        "search_terms 输出 2 到 5 个适合商品检索的短中文词，优先使用商品库里的子类目、同义商品名和明显用途；"
+        "不要复制用户提示语，不要输出“可购物商品/检索关键词/类似款”等泛词，不要猜图片里看不清的品牌型号。"
         "confidence 取 0 到 1，低置信不要硬猜。\n"
         f"商品库类目候选：{taxonomy_text}\n"
         f"用户补充线索：{hint_text}\n"

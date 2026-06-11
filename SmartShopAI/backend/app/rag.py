@@ -66,6 +66,7 @@ def search_products_for_agent_with_diagnostics(
     constraints: dict[str, Any] | None = None,
     retrieval_policy: dict[str, Any] | None = None,
 ) -> tuple[list[ProductCard], dict[str, Any]]:
+    # 商品 RAG 主入口：先解析 query 和工具约束，再做混合召回，最后由 verifier 做硬过滤。
     known_brands = [
         str(row["brand"])
         for row in conn.execute("SELECT DISTINCT brand FROM products").fetchall()
@@ -74,6 +75,7 @@ def search_products_for_agent_with_diagnostics(
     parsed_query = parse_query(query, known_brands)
     parsed_query = apply_tool_constraints(parsed_query, constraints or {}, retrieval_policy or {})
     retrieval_result = hybrid_search_products(conn, parsed_query, limit=max(limit * 8, 20))
+    # verifier 负责价格、品类、品牌、必含词等硬约束，避免召回结果直接透出。
     verification = verify_products(retrieval_result.candidates, parsed_query.filters, limit)
     selected_products, confidence_diagnostics = apply_confidence_gate(verification.products, parsed_query.filters)
     fallback_used = False
@@ -87,6 +89,7 @@ def search_products_for_agent_with_diagnostics(
         and not confidence_rejected
         and not has_hard_filters(parsed_query.filters)
     ):
+        # 只有在没有硬过滤条件时才允许热门兜底；强约束查询宁可返回空/替代品。
         fallback_used = True
         cards = fallback_products(conn, QueryIntent(max_price=extract_max_price(query)), limit)
     else:

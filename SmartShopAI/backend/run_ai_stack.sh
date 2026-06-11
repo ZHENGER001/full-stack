@@ -80,8 +80,10 @@ wait_embedding() {
 }
 
 build_index() {
-  echo "Building Milvus product embedding index..."
+  echo "Building Milvus product text embedding index..."
   "$PYTHON_BIN" scripts/build_milvus_index.py --recreate
+  echo "Building Milvus product visual embedding index..."
+  "$PYTHON_BIN" scripts/build_visual_milvus_index.py --recreate
 }
 
 start_backend() {

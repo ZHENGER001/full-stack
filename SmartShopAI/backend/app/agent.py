@@ -8,6 +8,7 @@ import shutil
 import threading
 import time
 import uuid
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, AsyncIterator, Iterable
 
@@ -16,7 +17,7 @@ from fastapi import HTTPException, UploadFile
 from .agentic_rag import plan_agentic_turn, retrieve_products_for_turn
 from .bounded_agent_tools import BoundedToolResult, execute_bounded_turn, resolve_product_references
 from .bundle_recommendation import build_bundle_answer, retrieve_bundle_recommendations
-from .catalog import get_cart
+from .catalog import get_cart, row_to_product_card
 from .config import get_settings
 from .conversation_memory import (
     STRUCTURED_MEMORY_KEY,
@@ -37,6 +38,9 @@ from .observability import AgentTurnMetrics
 from .react_planner import has_checkout_signal, message_with_sku_hint, plan_react_transaction, product_reference_from_step
 from .schemas import ProductCard
 from .turn_schema import ParsedTurn
+from .visual_embedding_client import visual_match_min_score
+from .visual_retriever import visual_image_search_with_diagnostics
+from .vision_client import analyze_image_file_with_vlm, debug_vlm_event
 
 
 logger = logging.getLogger(__name__)
@@ -55,6 +59,110 @@ CHECKOUT_CONFIRM_LABEL = "确认下单并支付"
 CHECKOUT_SIGNATURE_FIELD = "checkout_signature"
 CHECKOUT_DETAIL_PREVIEW_LIMIT = 3
 HIGH_VALUE_ORDER_THRESHOLD = 5000.0
+GENERIC_IMAGE_OBJECT_TYPES = {"", "商品", "物品", "实物", "相似商品", "可购物商品", "主要物品", "配件", "用品"}
+GENERIC_IMAGE_HINT_FRAGMENTS = (
+    "识别图片中的可购物商品",
+    "生成适合商品检索的关键词",
+    "请根据这张图片推荐相关商品",
+    "帮我找这张图片里的类似商品",
+    "帮我找类似商品",
+    "随手拍图找相似商品",
+    "类似款",
+)
+LOW_SIGNAL_IMAGE_TERMS = {
+    "",
+    "未知",
+    "通用",
+    "日常使用",
+    "商品",
+    "物品",
+    "实物",
+    "可购物商品",
+    "主要物品",
+    "类似款",
+    "检索词",
+    "关键词",
+    "简约",
+}
+COMMON_IMAGE_BRAND_NOISE_TERMS = {
+    "apple",
+    "苹果",
+    "huawei",
+    "华为",
+    "xiaomi",
+    "小米",
+    "oppo",
+    "vivo",
+    "honor",
+    "荣耀",
+    "samsung",
+    "三星",
+    "redmi",
+    "红米",
+    "nike",
+    "耐克",
+    "adidas",
+    "阿迪达斯",
+    "lenovo",
+    "联想",
+    "dell",
+    "戴尔",
+    "hp",
+    "惠普",
+}
+MLKIT_HINT_MARKERS = {"图片识别标签", "推断品类"}
+MLKIT_CLOTHING_HINT_RULES = (
+    {
+        "labels": ("hoodie", "sweatshirt"),
+        "include": ("卫衣",),
+        "exclude": ("T恤", "短袖", "短袖T恤", "速干T恤", "外套"),
+    },
+    {
+        "labels": ("jacket", "coat"),
+        "include": ("外套",),
+        "exclude": ("T恤", "短袖", "短袖T恤", "速干T恤", "卫衣"),
+    },
+    {
+        "labels": ("t shirt", "t-shirt", "tshirt", "tee shirt", "shirt"),
+        "include": ("T恤", "短袖", "上衣"),
+        "exclude": ("卫衣", "外套"),
+    },
+    {
+        "labels": ("clothing",),
+        "include": ("上衣", "服饰"),
+        "exclude": ("卫衣", "外套"),
+    },
+)
+VISUAL_TERM_CONFLICTS = {
+    "T恤": {"卫衣", "外套", "夹克", "大衣", "风衣"},
+    "短袖": {"卫衣", "外套", "夹克", "大衣", "风衣"},
+    "短袖T恤": {"卫衣", "外套", "夹克", "大衣", "风衣"},
+    "速干T恤": {"卫衣", "外套", "夹克", "大衣", "风衣"},
+    "卫衣": {"T恤", "短袖", "短袖T恤", "速干T恤", "外套", "夹克"},
+    "外套": {"T恤", "短袖", "短袖T恤", "速干T恤", "卫衣"},
+}
+
+
+@dataclass(frozen=True)
+class ImageAnalysisResult:
+    detected: dict[str, Any]
+    query: str
+    objects: list[dict[str, Any]]
+    provider: str
+    model: str | None = None
+    fallback: bool = False
+    image_id: str | None = None
+    file_path: str | None = None
+
+    def to_cache_payload(self) -> dict[str, Any]:
+        return {
+            "detected": self.detected,
+            "objects": self.objects,
+            "provider": self.provider,
+            "model": self.model,
+            "fallback": self.fallback,
+            "image_id": self.image_id,
+        }
 
 
 def visible_chat_products(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -63,6 +171,27 @@ def visible_chat_products(products: list[dict[str, Any]]) -> list[dict[str, Any]
 
 def sse_event(event: str, payload: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def product_debug_summary(products: list[Any], limit: int = 5) -> list[dict[str, Any]]:
+    summary: list[dict[str, Any]] = []
+    for product in products[:limit]:
+        if hasattr(product, "model_dump"):
+            data = product.model_dump(mode="json")
+        elif isinstance(product, dict):
+            data = product
+        else:
+            data = {}
+        summary.append(
+            {
+                "id": data.get("id"),
+                "title": data.get("title") or data.get("name"),
+                "category": data.get("category"),
+                "subcategory": data.get("subcategory"),
+                "score": data.get("_image_match_score") or data.get("rerank_score"),
+            }
+        )
+    return summary
 
 
 def order_status_event(
@@ -92,8 +221,39 @@ def mock_detect_from_hint(user_hint: str | None, filename: str | None = None) ->
         return {"object_type": "鞋", "color": "黑色", "style": "运动", "material": "织物", "scene": "跑步通勤"}
     if any(word in text for word in ["耳机", "headphone", "earbud"]):
         return {"object_type": "耳机", "color": "黑色", "style": "简约", "material": "塑料", "scene": "通勤降噪"}
-    if any(word in text for word in ["外套", "jacket", "coat", "衣"]):
-        return {"object_type": "外套", "color": "黑色", "style": "休闲", "material": "皮革", "scene": "街拍"}
+    if any(word in text for word in ["t恤", "t-shirt", "tshirt", "tee shirt", "shirt", "短袖"]):
+        return {
+            "object_type": "T恤",
+            "category": "服饰运动",
+            "subcategory": "短袖T恤",
+            "color": "未知",
+            "style": "休闲",
+            "material": "棉质",
+            "scene": "日常穿搭",
+            "search_terms": ["短袖T恤", "T恤", "上衣"],
+        }
+    if any(word in text for word in ["卫衣", "hoodie", "sweatshirt"]):
+        return {
+            "object_type": "卫衣",
+            "category": "服饰运动",
+            "subcategory": "卫衣",
+            "color": "未知",
+            "style": "休闲",
+            "material": "棉质",
+            "scene": "日常穿搭",
+            "search_terms": ["卫衣", "连帽上衣"],
+        }
+    if any(word in text for word in ["外套", "jacket", "coat"]):
+        return {
+            "object_type": "外套",
+            "category": "服饰运动",
+            "subcategory": "外套",
+            "color": "未知",
+            "style": "休闲",
+            "material": "织物",
+            "scene": "日常穿搭",
+            "search_terms": ["外套", "夹克"],
+        }
     if any(word in text for word in ["洗面奶", "洁面", "护肤", "beauty"]):
         return {"object_type": "洁面产品", "color": "白色", "style": "护肤", "material": "乳液", "scene": "日常洁面"}
     return {"object_type": "相似商品", "color": "未知", "style": "通用", "material": "未知", "scene": "日常使用"}
@@ -104,7 +264,7 @@ def image_detection_intro(detected: dict[str, str]) -> str:
     color = detected.get("color") or "未知"
     style = detected.get("style") or "通用"
     material = detected.get("material") or "未知"
-    scene = detected.get("scene") or "日常使用"
+    scene = scene_to_text(detected.get("scene")) or "日常使用"
     if object_type == "相似商品" and color == "未知" and material == "未知":
         return "我会根据图片线索匹配相似商品。"
     description_parts = []
@@ -121,16 +281,201 @@ def image_detection_intro(detected: dict[str, str]) -> str:
     return "，".join(details) + "。"
 
 
-def detected_to_query(detected: dict[str, str], user_hint: str | None) -> str:
-    parts = [
-        detected["color"],
-        detected["style"],
-        detected["material"],
-        detected["object_type"],
-        detected["scene"],
-        user_hint or "类似款",
+def detected_to_query(
+    detected: dict[str, Any],
+    user_hint: str | None,
+    brand_terms: list[str] | None = None,
+) -> str:
+    parts: list[str] = []
+    hint = semantic_image_hint(user_hint)
+    for key in ("subcategory", "category"):
+        add_image_query_part(parts, detected.get(key))
+    search_terms = detected.get("search_terms")
+    if isinstance(search_terms, list):
+        for item in search_terms:
+            add_image_query_part(parts, item, brand_terms=brand_terms, brand_hint=hint)
+    add_image_query_part(parts, detected.get("object_type"), brand_terms=brand_terms, brand_hint=hint)
+    for key in ("color", "style"):
+        add_image_query_part(
+            parts,
+            detected.get(key),
+            allow_low_signal=False,
+            brand_terms=brand_terms,
+            brand_hint=hint,
+        )
+    add_image_query_part(parts, scene_to_text(detected.get("scene")), allow_low_signal=False)
+    if hint:
+        add_image_query_part(parts, hint)
+    return " ".join(resolve_visual_query_conflicts(parts, detected)[:10])
+
+
+def add_image_query_part(
+    parts: list[str],
+    value: Any,
+    *,
+    allow_low_signal: bool = True,
+    brand_terms: list[str] | None = None,
+    brand_hint: str | None = None,
+) -> None:
+    text = strip_unhinted_image_brand(str(value or "").strip(), brand_terms, brand_hint)
+    if not text:
+        return
+    for token in re.split(r"[,，、/；;\s]+", text):
+        normalized = token.strip()
+        if not normalized:
+            continue
+        if normalized in LOW_SIGNAL_IMAGE_TERMS:
+            continue
+        if not allow_low_signal and len(normalized) <= 1:
+            continue
+        parts.append(normalized)
+
+
+def strip_unhinted_image_brand(text: str, brand_terms: list[str] | None, brand_hint: str | None = None) -> str:
+    value = str(text or "").strip()
+    if not value:
+        return ""
+    hint_lower = str(brand_hint or "").lower()
+    for term in sorted(image_brand_noise_terms(brand_terms), key=len, reverse=True):
+        term_text = term.strip()
+        if not term_text or term_text.lower() in hint_lower:
+            continue
+        value = re.sub(re.escape(term_text), "", value, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", value).strip(" -_/，,、")
+
+
+def image_brand_noise_terms(brand_terms: list[str] | None) -> set[str]:
+    terms = set(COMMON_IMAGE_BRAND_NOISE_TERMS)
+    for brand in brand_terms or []:
+        brand_text = str(brand or "").strip()
+        if not brand_text:
+            continue
+        terms.add(brand_text)
+        for token in re.split(r"[\s/|&+·,，、()（）-]+", brand_text):
+            token = token.strip()
+            if token:
+                terms.add(token)
+    return {term for term in terms if len(term) >= 2}
+
+
+def semantic_image_hint(user_hint: str | None) -> str | None:
+    text = " ".join((user_hint or "").strip().split())
+    if not text:
+        return None
+    if "图片识别标签" in text or "推断品类" in text:
+        return sanitize_mlkit_image_hint(text)
+    cleaned = text
+    for fragment in GENERIC_IMAGE_HINT_FRAGMENTS:
+        cleaned = cleaned.replace(fragment, " ")
+    cleaned = re.sub(r"[，,。.;；:：]+", " ", cleaned)
+    cleaned = " ".join(cleaned.split())
+    if not cleaned or cleaned in LOW_SIGNAL_IMAGE_TERMS:
+        return None
+    if len(cleaned) > 60:
+        return None
+    return cleaned
+
+
+def sanitize_mlkit_image_hint(text: str) -> str | None:
+    label_text = extract_mlkit_section(text, "图片识别标签", ("推断品类",))
+    inferred_text = extract_mlkit_section(text, "推断品类", ())
+    clothing_terms = mlkit_clothing_terms(label_text)
+    if clothing_terms:
+        return " ".join(clothing_terms)
+
+    terms: list[str] = []
+    for token in split_image_terms(inferred_text):
+        if token in MLKIT_HINT_MARKERS or token in LOW_SIGNAL_IMAGE_TERMS:
+            continue
+        terms.append(token)
+    return " ".join(dict.fromkeys(terms)) or None
+
+
+def extract_mlkit_section(text: str, marker: str, stop_markers: tuple[str, ...]) -> str:
+    start = text.find(marker)
+    if start < 0:
+        return ""
+    start += len(marker)
+    while start < len(text) and text[start] in "：: ":
+        start += 1
+    end = len(text)
+    for stop in stop_markers:
+        stop_index = text.find(stop, start)
+        if stop_index >= 0:
+            end = min(end, stop_index)
+    return text[start:end].strip(" ：:")
+
+
+def mlkit_clothing_terms(label_text: str) -> list[str]:
+    if not label_text:
+        return []
+    for rule in MLKIT_CLOTHING_HINT_RULES:
+        if mlkit_label_matches(label_text, rule["labels"]):
+            excluded = set(rule["exclude"])
+            return [term for term in rule["include"] if term not in excluded]
+    return []
+
+
+def mlkit_label_matches(label_text: str, needles: tuple[str, ...]) -> bool:
+    normalized = re.sub(r"[-_/]+", " ", label_text.lower())
+    tokens = set(re.findall(r"[a-z0-9]+", normalized))
+    for needle in needles:
+        normalized_needle = re.sub(r"[-_/]+", " ", needle.lower()).strip()
+        if " " in normalized_needle:
+            if normalized_needle in normalized:
+                return True
+        elif normalized_needle in tokens:
+            return True
+    return False
+
+
+def split_image_terms(text: str) -> list[str]:
+    return [
+        token.strip()
+        for token in re.split(r"[,，、/；;:：\s]+", text or "")
+        if token.strip()
     ]
-    return " ".join(part for part in parts if part and part != "未知")
+
+
+def resolve_visual_query_conflicts(parts: list[str], detected: dict[str, Any] | None = None) -> list[str]:
+    unique_parts = list(dict.fromkeys(str(part).strip() for part in parts if str(part).strip()))
+    active_terms = visual_anchor_terms(detected, unique_parts)
+    if not active_terms:
+        return unique_parts
+    excluded: set[str] = set()
+    for term in active_terms:
+        excluded.update(VISUAL_TERM_CONFLICTS.get(term, set()))
+    excluded.difference_update(active_terms)
+    return [
+        part
+        for part in unique_parts
+        if not any(conflict and conflict in part for conflict in excluded)
+    ]
+
+
+def visual_anchor_terms(detected: dict[str, Any] | None, fallback_parts: list[str]) -> set[str]:
+    values: list[Any] = []
+    if detected:
+        values.extend([detected.get("subcategory"), detected.get("object_type")])
+        search_terms = detected.get("search_terms")
+        if isinstance(search_terms, list):
+            values.extend(search_terms)
+    if not values:
+        values = fallback_parts
+
+    anchors: set[str] = set()
+    for value in values:
+        text = str(value or "")
+        for term in VISUAL_TERM_CONFLICTS:
+            if term in text:
+                anchors.add(term)
+    return anchors
+
+
+def scene_to_text(scene: Any) -> str:
+    if isinstance(scene, list):
+        return " ".join(str(item).strip() for item in scene if str(item).strip())
+    return str(scene or "").strip()
 
 
 def save_upload(file: UploadFile) -> tuple[str, str, Path]:
@@ -145,19 +490,585 @@ def save_upload(file: UploadFile) -> tuple[str, str, Path]:
     return image_id, f"/uploads/{filename}", file_path
 
 
-def analyze_image(conn, image_id: str, user_hint: str | None = None) -> tuple[dict[str, str], str]:
+def analyze_image(conn, image_id: str, user_hint: str | None = None) -> ImageAnalysisResult:
     row = conn.execute("SELECT * FROM uploaded_images WHERE image_id = ?", (image_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Image not found")
+    known_brands = load_known_brands(conn)
+    debug_vlm_event(
+        "VLM_ANALYZE_START",
+        {
+            "image_id": image_id,
+            "has_cache": bool(row["detected_json"] and row["query"]),
+            "has_user_hint": bool(user_hint),
+            "file_path": row["file_path"],
+        },
+    )
     if row["detected_json"] and row["query"] and not user_hint:
-        return json.loads(row["detected_json"]), row["query"]
-    detected = mock_detect_from_hint(user_hint, row["file_path"])
-    query = detected_to_query(detected, user_hint)
+        analysis = cached_image_analysis(row["detected_json"], row["query"], image_id=image_id, file_path=row["file_path"])
+        sanitized_query = detected_to_query(analysis.detected, None, brand_terms=known_brands)
+        if sanitized_query and sanitized_query != analysis.query:
+            analysis = replace(analysis, query=sanitized_query)
+            conn.execute(
+                "UPDATE uploaded_images SET query = ? WHERE image_id = ?",
+                (analysis.query, image_id),
+            )
+        debug_vlm_event(
+            "VLM_CACHE_HIT",
+            {
+                "image_id": image_id,
+                "detected": analysis.detected,
+                "objects": analysis.objects,
+                "query": analysis.query,
+                "provider": analysis.provider,
+                "model": analysis.model,
+                "fallback": analysis.fallback,
+            },
+        )
+        return analysis
+
+    try:
+        vlm_result = run_async_blocking(
+            analyze_image_file_with_vlm(
+                Path(row["file_path"]),
+                user_hint=user_hint,
+                catalog_taxonomy=catalog_taxonomy_for_vlm(conn),
+            )
+        )
+        objects = [image_detected_payload(item.to_dict()) for item in vlm_result.objects]
+        if not objects:
+            raise ValueError("VLM returned no objects")
+        detected = objects[0]
+        analysis = ImageAnalysisResult(
+            detected=detected,
+            query=detected_to_query(detected, user_hint, brand_terms=known_brands),
+            objects=objects,
+            provider=vlm_result.provider,
+            model=vlm_result.model,
+            fallback=False,
+            image_id=image_id,
+            file_path=str(row["file_path"]),
+        )
+    except Exception as exc:
+        logger.info("vlm_image_analysis_failed=%s", exc.__class__.__name__)
+        detected = image_detected_payload(mock_detect_from_hint(user_hint, row["file_path"]))
+        debug_vlm_event(
+            "VLM_FALLBACK",
+            {
+                "image_id": image_id,
+                "error": exc.__class__.__name__,
+                "detected": detected,
+            },
+        )
+        analysis = ImageAnalysisResult(
+            detected=detected,
+            query=detected_to_query(detected, user_hint, brand_terms=known_brands),
+            objects=[detected],
+            provider="mock",
+            model=None,
+            fallback=True,
+            image_id=image_id,
+            file_path=str(row["file_path"]),
+        )
+
     conn.execute(
         "UPDATE uploaded_images SET detected_json = ?, query = ? WHERE image_id = ?",
-        (json.dumps(detected, ensure_ascii=False), query, image_id),
+        (json.dumps(analysis.to_cache_payload(), ensure_ascii=False), analysis.query, image_id),
     )
-    return detected, query
+    return analysis
+
+
+def cached_image_analysis(
+    raw_detected_json: str,
+    query: str,
+    image_id: str | None = None,
+    file_path: str | None = None,
+) -> ImageAnalysisResult:
+    payload = json.loads(raw_detected_json)
+    if isinstance(payload, dict) and isinstance(payload.get("detected"), dict):
+        detected = image_detected_payload(payload["detected"])
+        objects = [
+            image_detected_payload(item)
+            for item in payload.get("objects", [])
+            if isinstance(item, dict)
+        ] or [detected]
+        cached_image_id = payload.get("image_id") if isinstance(payload.get("image_id"), str) else None
+        return ImageAnalysisResult(
+            detected=detected,
+            query=query,
+            objects=objects,
+            provider=str(payload.get("provider") or "cache"),
+            model=payload.get("model") if isinstance(payload.get("model"), str) else None,
+            fallback=bool(payload.get("fallback", False)),
+            image_id=image_id or cached_image_id,
+            file_path=file_path,
+        )
+    detected = image_detected_payload(payload if isinstance(payload, dict) else {})
+    return ImageAnalysisResult(
+        detected=detected,
+        query=query,
+        objects=[detected],
+        provider="mock",
+        model=None,
+        fallback=True,
+        image_id=image_id,
+        file_path=file_path,
+    )
+
+
+def image_detected_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    object_type = str(raw.get("object_type") or raw.get("label") or "相似商品").strip() or "相似商品"
+    color = nullable_text(raw.get("color"))
+    style = nullable_text(raw.get("style"))
+    material = nullable_text(raw.get("material"))
+    scene = raw.get("scene") if raw.get("scene") is not None else []
+    scene_text = scene_to_text(scene)
+    attributes = {
+        key: value
+        for key, value in {
+            "color": color,
+            "style": style,
+            "material": material,
+            "scene": scene_text,
+        }.items()
+        if value
+    }
+    search_terms = raw.get("search_terms")
+    if not isinstance(search_terms, list):
+        search_terms = []
+    return {
+        "object_type": object_type,
+        "label": nullable_text(raw.get("label")) or object_type,
+        "attributes": attributes,
+        "color": color,
+        "style": style,
+        "material": material,
+        "scene": scene,
+        "category": nullable_text(raw.get("category")),
+        "subcategory": nullable_text(raw.get("subcategory")),
+        "search_terms": [str(item).strip() for item in search_terms if str(item).strip()],
+        "confidence": clamp_confidence(raw.get("confidence")),
+    }
+
+
+def normalize_image_object(raw: dict[str, Any]) -> dict[str, Any]:
+    return image_detected_payload(raw)
+
+
+def is_searchable_image_object(item: dict[str, Any]) -> bool:
+    normalized = normalize_image_object(item)
+    object_type = str(normalized.get("object_type") or "").strip()
+    if object_type in GENERIC_IMAGE_OBJECT_TYPES:
+        return False
+    if normalized.get("subcategory") or normalized.get("search_terms"):
+        return True
+    return float(normalized.get("confidence") or 0.0) >= 0.35
+
+
+def build_image_candidate_query(
+    item: dict[str, Any],
+    user_hint: str | None = None,
+    brand_terms: list[str] | None = None,
+) -> str:
+    normalized = normalize_image_object(item)
+    if not is_searchable_image_object(normalized):
+        return ""
+    return detected_to_query(normalized, user_hint, brand_terms=brand_terms)
+
+
+def score_image_product_match(
+    product: dict[str, Any],
+    item: dict[str, Any],
+    object_index: int = 0,
+) -> tuple[float, str, dict[str, Any]]:
+    normalized = normalize_image_object(item)
+    text = product_match_text(product)
+    score = 0.0
+    evidence: list[str] = []
+
+    if normalized.get("category") and product.get("category") == normalized["category"]:
+        score += 0.18
+        evidence.append("category")
+    if normalized.get("subcategory") and product.get("subcategory") == normalized["subcategory"]:
+        score += 0.42
+        evidence.append("subcategory")
+
+    lexical_hits = 0
+    terms = [normalized.get("object_type"), *(normalized.get("search_terms") or [])]
+    for term in dict.fromkeys(str(term or "").strip() for term in terms):
+        if not term or term in GENERIC_IMAGE_OBJECT_TYPES or term in LOW_SIGNAL_IMAGE_TERMS:
+            continue
+        if term.lower() in text:
+            lexical_hits += 1
+    if lexical_hits:
+        score += min(0.34, 0.18 + 0.08 * (lexical_hits - 1))
+        evidence.append("lexical")
+
+    color = str(normalized.get("color") or "").strip()
+    if color and color not in LOW_SIGNAL_IMAGE_TERMS and color.lower() in text:
+        score += 0.08
+        evidence.append("color")
+
+    visual_score = clamp_confidence(product.get("_visual_vector_score"))
+    if visual_score >= visual_match_min_score():
+        score += min(0.46, visual_score * 0.46)
+        evidence.append("visual_vector")
+
+    confidence = float(normalized.get("confidence") or 0.0)
+    score += min(confidence, 1.0) * 0.08
+    score -= max(object_index, 0) * 0.04
+    score = max(0.0, min(score, 1.0))
+
+    evidence_set = set(evidence)
+    if "subcategory" in evidence_set and ("lexical" in evidence_set or "visual_vector" in evidence_set) and score >= 0.62:
+        level = "exact_like"
+    elif "visual_vector" in evidence_set and score >= 0.50:
+        level = "similar"
+    elif "lexical" in evidence_set and score >= 0.48:
+        level = "similar"
+    elif evidence_set <= {"category"} or score < 0.48:
+        level = "weak"
+    else:
+        level = "similar"
+    return round(score, 3), level, {
+        "evidence": evidence,
+        "lexical_hits": lexical_hits,
+        "visual_vector_score": visual_score or None,
+    }
+
+
+def is_acceptable_image_match(score: float, level: str) -> bool:
+    return level in {"exact_like", "similar"} and score >= 0.48
+
+
+def filter_products_for_image_match(
+    products: list[dict[str, Any]],
+    analysis: ImageAnalysisResult | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if not analysis or not products:
+        return products, {"match_level": "not_applicable", "accepted_count": len(products), "rejected_count": 0}
+
+    objects = [
+        normalize_image_object(item)
+        for item in analysis.objects
+        if isinstance(item, dict) and is_searchable_image_object(item)
+    ]
+    if not objects:
+        return products, {"match_level": "not_searchable", "accepted_count": len(products), "rejected_count": 0}
+
+    accepted: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
+    for product_index, product in enumerate(products):
+        best: tuple[float, str, dict[str, Any], dict[str, Any]] | None = None
+        conflict_reasons: list[str] = []
+        for object_index, item in enumerate(objects):
+            if product_conflicts_with_visual_anchor(product, item):
+                conflict_reasons.append(str(item.get("subcategory") or item.get("object_type") or "visual_anchor"))
+                continue
+            score, level, evidence = score_image_product_match(product, item, object_index)
+            if best is None or score > best[0]:
+                best = (score, level, evidence, item)
+        if best and is_acceptable_image_match(best[0], best[1]):
+            enriched = dict(product)
+            enriched["_image_match_score"] = best[0]
+            enriched["_image_match_level"] = best[1]
+            enriched["_image_match_evidence"] = best[2]
+            enriched["_image_original_index"] = product_index
+            accepted.append(enriched)
+        else:
+            rejected.append(
+                {
+                    "id": product.get("id"),
+                    "reason": "visual_conflict" if conflict_reasons else "weak_visual_match",
+                    "visual_conflicts": conflict_reasons,
+                    "best_score": best[0] if best else 0.0,
+                    "best_level": best[1] if best else "weak",
+                }
+            )
+
+    accepted.sort(
+        key=lambda product: (
+            0 if product.get("_image_match_level") == "exact_like" else 1,
+            -float(product.get("_image_match_score") or 0.0),
+            int(product.get("_image_original_index") or 0),
+        )
+    )
+    for product in accepted:
+        product.pop("_image_original_index", None)
+
+    if not accepted:
+        return [], {
+            "match_level": "no_match",
+            "accepted_count": 0,
+            "rejected_count": len(rejected),
+            "rejected": rejected,
+        }
+    return accepted, {
+        "match_level": str(accepted[0].get("_image_match_level") or "similar"),
+        "accepted_count": len(accepted),
+        "rejected_count": len(rejected),
+        "rejected": rejected,
+        "top_score": accepted[0].get("_image_match_score"),
+    }
+
+
+def product_conflicts_with_visual_anchor(product: dict[str, Any], item: dict[str, Any]) -> bool:
+    anchors = visual_anchor_terms(item, [])
+    if not anchors:
+        return False
+    catalog_text = " ".join(
+        str(product.get(key) or "")
+        for key in ("title", "category", "subcategory")
+    )
+    for anchor in anchors:
+        conflicts = VISUAL_TERM_CONFLICTS.get(anchor) or set()
+        if any(conflict and conflict in catalog_text for conflict in conflicts):
+            return True
+    return False
+
+
+def retrieve_visual_image_candidates(
+    conn,
+    analysis: ImageAnalysisResult | None,
+    limit: int = 20,
+) -> tuple[list[ProductCard], dict[str, Any], dict[str, float]]:
+    if not analysis or not analysis.file_path:
+        return [], {"status": "skipped", "reason": "missing_analysis_file_path"}, {}
+
+    visual_result = visual_image_search_with_diagnostics(analysis.file_path, top_k=limit)
+    visual_scores = {
+        str(hit["product_id"]): float(hit.get("score") or 0.0)
+        for hit in visual_result.hits
+        if hit.get("product_id")
+    }
+    cards = load_product_cards_by_ids(conn, list(visual_scores))
+    diagnostics = {
+        **visual_result.diagnostics,
+        "candidate_ids": list(visual_scores)[:limit],
+    }
+    return cards, diagnostics, visual_scores
+
+
+def load_product_cards_by_ids(conn, product_ids: list[str]) -> list[ProductCard]:
+    ordered_ids = [str(product_id) for product_id in dict.fromkeys(product_ids) if str(product_id).strip()]
+    if not ordered_ids:
+        return []
+    placeholders = ", ".join("?" for _ in ordered_ids)
+    rows = conn.execute(
+        f"""
+        SELECT p.id, p.title, p.brand, p.category, p.subcategory, p.price, p.rating, p.image_path,
+               p.marketing_description,
+               COALESCE(rc.review_count, 0) AS review_count,
+               COALESCE(sc.sku_count, 0) AS sku_count,
+               COALESCE(fc.faq_count, 0) AS faq_count,
+               COALESCE(ss.stock, 0) AS stock,
+               ss.sku_summary AS sku_summary
+        FROM products p
+        LEFT JOIN (
+            SELECT product_id, COUNT(*) AS review_count
+            FROM product_reviews
+            GROUP BY product_id
+        ) rc ON rc.product_id = p.id
+        LEFT JOIN (
+            SELECT product_id, COUNT(*) AS sku_count
+            FROM product_skus
+            GROUP BY product_id
+        ) sc ON sc.product_id = p.id
+        LEFT JOIN (
+            SELECT product_id, COUNT(*) AS faq_count
+            FROM product_faqs
+            GROUP BY product_id
+        ) fc ON fc.product_id = p.id
+        LEFT JOIN (
+            SELECT product_id, SUM(stock) AS stock, GROUP_CONCAT(sku_name, ' / ') AS sku_summary
+            FROM product_skus
+            GROUP BY product_id
+        ) ss ON ss.product_id = p.id
+        WHERE p.id IN ({placeholders})
+        """,
+        ordered_ids,
+    ).fetchall()
+    by_id = {str(row["id"]): row_to_product_card(row) for row in rows}
+    return [by_id[product_id] for product_id in ordered_ids if product_id in by_id]
+
+
+def merge_product_cards(*groups: list[ProductCard]) -> list[ProductCard]:
+    merged: list[ProductCard] = []
+    seen: set[str] = set()
+    for group in groups:
+        for product in group:
+            if product.id in seen:
+                continue
+            seen.add(product.id)
+            merged.append(product)
+    return merged
+
+
+def apply_visual_match_metadata(products: list[dict[str, Any]], visual_scores: dict[str, float]) -> list[dict[str, Any]]:
+    for product in products:
+        product_id = str(product.get("id") or "")
+        score = visual_scores.get(product_id)
+        if score is None:
+            continue
+        product["_visual_vector_score"] = score
+        sources = set(product.get("_candidate_sources") or [])
+        sources.add("visual_milvus")
+        product["_candidate_sources"] = sorted(sources)
+    return products
+
+
+def image_match_diagnostics_with_visual(
+    image_match: dict[str, Any],
+    visual_diagnostics: dict[str, Any],
+    visual_scores: dict[str, float],
+) -> dict[str, Any]:
+    diagnostics = dict(image_match)
+    diagnostics["visual_search"] = visual_diagnostics
+    diagnostics["visual_candidate_count"] = len(visual_scores)
+    diagnostics["sources"] = ["visual_milvus", "vlm_attributes", "text_rag_fallback"]
+    return diagnostics
+
+
+def retrieve_image_match_products(
+    conn,
+    analysis: ImageAnalysisResult,
+    limit: int = 12,
+    query_override: str | None = None,
+) -> tuple[list[ProductCard], dict[str, Any]]:
+    query = query_override or analysis.query or detected_to_query(
+        analysis.detected,
+        None,
+        brand_terms=load_known_brands(conn),
+    )
+    top_k = min(20, max(limit * 2, 3))
+    visual_products, visual_diagnostics, visual_scores = retrieve_visual_image_candidates(conn, analysis, top_k)
+    retrieval_result = retrieve_products_for_turn(
+        conn,
+        query,
+        load_known_brands(conn),
+        plan=None,
+        top_k=top_k,
+    )
+    candidate_products = merge_product_cards(visual_products, retrieval_result.search_result.products)
+    grounded_products = apply_visual_match_metadata(
+        build_grounded_products(conn, candidate_products),
+        visual_scores,
+    )
+    filtered_products, image_match = filter_products_for_image_match(grounded_products, analysis)
+    image_match = image_match_diagnostics_with_visual(image_match, visual_diagnostics, visual_scores)
+
+    alternatives_match: dict[str, Any] | None = None
+    if not filtered_products and retrieval_result.search_result.alternatives:
+        grounded_alternatives = apply_visual_match_metadata(
+            build_grounded_products(conn, retrieval_result.search_result.alternatives),
+            visual_scores,
+        )
+        filtered_products, alternatives_match = filter_products_for_image_match(grounded_alternatives, analysis)
+        if filtered_products:
+            image_match = image_match_diagnostics_with_visual(alternatives_match, visual_diagnostics, visual_scores)
+
+    product_cards = [
+        ProductCard.model_validate(product)
+        for product in filtered_products[:limit]
+    ]
+    diagnostics = {
+        "query": query,
+        "retrieval_status": retrieval_result.search_result.status,
+        "parsed_filters": retrieval_result.parsed_filters,
+        "image_match": image_match,
+        "alternatives_match": alternatives_match,
+        "visual_search": visual_diagnostics,
+        "retrieval_sources": ["visual_milvus", "vlm_attributes", "text_rag_fallback"],
+        "candidate_count": len(candidate_products),
+        "text_candidate_count": len(retrieval_result.search_result.products),
+        "visual_candidate_count": len(visual_products),
+        "returned_count": len(product_cards),
+    }
+    debug_vlm_event(
+        "IMAGE_RETRIEVAL_RESULT",
+        {
+            "image_id": analysis.image_id,
+            "query": query,
+            "detected": analysis.detected,
+            "candidate_count": len(candidate_products),
+            "text_candidate_count": len(retrieval_result.search_result.products),
+            "visual_candidate_count": len(visual_products),
+            "returned_count": len(product_cards),
+            "products": product_debug_summary(product_cards, limit=8),
+            "image_match": image_match,
+        },
+    )
+    return product_cards, diagnostics
+
+
+def image_analysis_event_payload(analysis: dict[str, Any], diagnostics: dict[str, Any]) -> dict[str, Any]:
+    objects = analysis.get("objects") if isinstance(analysis, dict) else []
+    image_diagnostics = (diagnostics or {}).get("image_match") if isinstance(diagnostics, dict) else None
+    if not isinstance(image_diagnostics, dict):
+        image_diagnostics = diagnostics or {}
+    match_level = str(image_diagnostics.get("match_level") or "unknown")
+    if match_level == "no_match":
+        summary = "没有足够相似的商品，建议换个角度拍摄或补充品类。"
+    elif objects:
+        first = normalize_image_object(objects[0])
+        summary = f"识别到可能是{first.get('label') or first.get('object_type')}，正在匹配相似商品。"
+    else:
+        summary = "正在根据图片线索匹配相似商品。"
+    return {
+        "objects": objects or [],
+        "match_level": match_level,
+        "summary": summary,
+        "sources": image_diagnostics.get("sources") or [],
+        "visual_search": image_diagnostics.get("visual_search") or {},
+    }
+
+
+def product_match_text(product: dict[str, Any]) -> str:
+    return " ".join(
+        str(product.get(key) or "")
+        for key in (
+            "title",
+            "brand",
+            "category",
+            "subcategory",
+            "marketing_description",
+            "sku_text",
+            "sku_summary",
+            "reason",
+        )
+    ).lower()
+
+
+def nullable_text(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def clamp_confidence(value: Any) -> float:
+    try:
+        confidence = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, min(confidence, 1.0))
+
+
+def catalog_taxonomy_for_vlm(conn) -> str:
+    rows = conn.execute(
+        "SELECT DISTINCT category, subcategory FROM products ORDER BY category, subcategory"
+    ).fetchall()
+    grouped: dict[str, list[str]] = {}
+    for row in rows:
+        category = str(row["category"] or "").strip()
+        subcategory = str(row["subcategory"] or "").strip()
+        if not category:
+            continue
+        grouped.setdefault(category, [])
+        if subcategory and subcategory not in grouped[category]:
+            grouped[category].append(subcategory)
+    return "\n".join(
+        f"{category}: {'、'.join(subcategories)}"
+        for category, subcategories in grouped.items()
+    )
 
 
 def stream_chat(
@@ -174,6 +1085,7 @@ def stream_chat(
             metrics.observe_sse_chunk(chunk)
             yield chunk
     except Exception:
+        logger.exception("agent_stream_failed session_id=%s image_id=%s", session_id, image_id)
         for chunk in (
             sse_event("error", {"message": "AI 导购暂时遇到问题，请稍后再试。"}),
             sse_event("delta", {"text": "AI 导购暂时遇到问题，请稍后再试。"}),
@@ -183,6 +1095,14 @@ def stream_chat(
             yield chunk
     finally:
         metrics.finish()
+
+
+def commit_stream_progress(conn) -> None:
+    try:
+        conn.commit()
+    except Exception:
+        logger.exception("agent_stream_commit_failed")
+        raise
 
 
 def _stream_chat(
@@ -255,20 +1175,35 @@ def _stream_chat_legacy(
     if is_checkout_intent(message):
         yield from emit_checkout_turn(conn, session_id, message, image_id)
         return
+    # legacy 入口保持和 agent_orchestrator 一致：带图请求先做 VLM，再进入检索。
+    image_query = None
+    image_analysis = None
+    if image_id:
+        image_analysis = analyze_image(conn, image_id, message)
+        detected = image_analysis.detected
+        image_query = image_analysis.query
+        yield sse_event(
+            "delta",
+            {
+                "text": image_detection_intro(detected)
+            },
+        )
+
     turn_plan = None
     parsed_turn = None
     try:
         turn_plan = run_async_blocking(plan_agentic_turn(message, chat_history, conversation_state))
         parsed_turn = turn_plan.parsed_turn
         logger.info("agent_parsed_turn=%s", parsed_turn.model_dump(mode="json"))
-        if turn_plan.should_run_bounded_tool:
+        # 图片请求不允许被文本 planner 的工具路由或澄清分支提前截断。
+        if turn_plan.should_run_bounded_tool and not image_id:
             bounded_result = execute_bounded_turn(conn, parsed_turn, conversation_state)
             yield from emit_bounded_result(conn, session_id, message, image_id, bounded_result)
             return
-        if parsed_turn.intent_type == "bundle_recommendation":
+        if parsed_turn.intent_type == "bundle_recommendation" and not image_id:
             yield from emit_bundle_recommendation_turn(conn, session_id, message, image_id, turn_plan)
             return
-        if not turn_plan.should_search_products:
+        if not turn_plan.should_search_products and not image_id:
             assistant_content = turn_plan.policy.response_text or "这个操作我正在支持中。"
             llm_status = None
             if parsed_turn.intent_type == "preference_question":
@@ -337,18 +1272,10 @@ def _stream_chat_legacy(
             yield sse_event("done", {"session_id": session_id})
             return
 
-    image_query = None
-    if image_id:
-        detected, image_query = analyze_image(conn, image_id, message)
-        yield sse_event(
-            "delta",
-            {
-                "text": image_detection_intro(detected)
-            },
-        )
-
     final_user_query = build_final_user_query(conn, message, image_query, current_product_id, session_id)
-    retrieval_result = retrieve_products_for_turn(conn, final_user_query, load_known_brands(conn), turn_plan)
+    # 图片检索只使用最终 query 自身解析出的过滤条件，不沿用文本 planner 的约束。
+    retrieval_turn_plan = None if image_id else turn_plan
+    retrieval_result = retrieve_products_for_turn(conn, final_user_query, load_known_brands(conn), retrieval_turn_plan)
     parsed_filters = retrieval_result.parsed_filters
     logger.info("agent_final_user_query=%s parsed_filters=%s", final_user_query, parsed_filters)
     for waiting_text in build_waiting_deltas(message, parsed_filters, image_id, bool(chat_history)):
@@ -365,9 +1292,9 @@ def _stream_chat_legacy(
             "vector_backend": retrieval_result.vector_backend,
             "graph_backend": retrieval_result.graph_backend,
             "turn": {
-                "intent_type": parsed_turn.intent_type if parsed_turn else "unknown",
-                "route_hint": parsed_turn.route_hint if parsed_turn else "direct_tool",
-                "needs_clarification": parsed_turn.needs_clarification if parsed_turn else False,
+                "intent_type": "image_search" if image_id else parsed_turn.intent_type if parsed_turn else "unknown",
+                "route_hint": "direct_tool" if image_id else parsed_turn.route_hint if parsed_turn else "direct_tool",
+                "needs_clarification": False if image_id else parsed_turn.needs_clarification if parsed_turn else False,
                 "graph_backend": turn_plan.graph_backend if turn_plan else "langgraph_fallback",
             },
         },
@@ -376,9 +1303,48 @@ def _stream_chat_legacy(
     products = search_result.products
     alternatives = search_result.alternatives
     yield sse_event("retrieval_diagnostics", search_result.diagnostics)
-    grounded_products = build_grounded_products(conn, products)
+    visual_scores: dict[str, float] = {}
+    visual_diagnostics: dict = {"status": "skipped", "reason": "no_image"}
+    if image_analysis:
+        visual_products, visual_diagnostics, visual_scores = retrieve_visual_image_candidates(
+            conn,
+            image_analysis,
+            limit=max(20, len(products) + 8),
+        )
+        products = merge_product_cards(visual_products, products)
+    grounded_products = apply_visual_match_metadata(
+        build_grounded_products(conn, products),
+        visual_scores,
+    )
+    if image_analysis:
+        grounded_products, image_match_diagnostics = filter_products_for_image_match(
+            grounded_products,
+            image_analysis,
+        )
+        image_match_diagnostics = image_match_diagnostics_with_visual(
+            image_match_diagnostics,
+            visual_diagnostics,
+            visual_scores,
+        )
+        grounded_alternatives = build_grounded_products(conn, alternatives)
+        grounded_alternatives = apply_visual_match_metadata(grounded_alternatives, visual_scores)
+        grounded_alternatives, alternative_match_diagnostics = filter_products_for_image_match(
+            grounded_alternatives,
+            image_analysis,
+        )
+        if not grounded_products and grounded_alternatives:
+            image_match_diagnostics = image_match_diagnostics_with_visual(
+                alternative_match_diagnostics,
+                visual_diagnostics,
+                visual_scores,
+            )
+        yield sse_event(
+            "image_analysis",
+            image_analysis_event_payload(image_analysis.to_cache_payload(), image_match_diagnostics),
+        )
+    else:
+        grounded_alternatives = [] if grounded_products else build_grounded_products(conn, alternatives)
     visible_products_from_search = visible_chat_products(grounded_products)
-    grounded_alternatives = [] if grounded_products else build_grounded_products(conn, alternatives)
     visible_alternatives = visible_chat_products(grounded_alternatives)
     visible_products = visible_products_from_search or visible_alternatives
     enrich_product_presentations(message, visible_products)
@@ -1012,9 +1978,14 @@ def build_final_user_query(
     current_product_id: str | None,
     session_id: str,
 ) -> str:
+    # 图片线路以 VLM 结构化结果生成的 image_query 为主。
+    # message 只保留用户真实补充约束，避免 MLKit 原始标签和上一轮商品上下文污染检索。
+    if image_query and image_query.strip():
+        parts = [clean_user_text_for_image_query(message), image_query.strip()]
+        return " ".join(part for part in parts if part)
+
+    # 文本线路保留会话上下文能力：追问“这款/刚才/类似”时才补当前商品信息。
     parts = [message.strip()]
-    if image_query:
-        parts.append(image_query)
     if should_merge_last_query(message):
         row = conn.execute("SELECT last_query FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
         last_query = row["last_query"] if row else None
@@ -1040,6 +2011,26 @@ def build_final_user_query(
                 ]
             )
     return " ".join(part for part in parts if part)
+
+
+def clean_user_text_for_image_query(message: str) -> str:
+    # Android 端 MLKit hint 只是弱线索，不能直接进入最终检索 query。
+    # 这里截掉“图片识别标签/推断品类”后的原始标签，只保留用户手输的预算、颜色、场景等约束。
+    cleaned = " ".join((message or "").strip().split())
+    if not cleaned:
+        return ""
+
+    marker_positions = [cleaned.find(marker) for marker in MLKIT_HINT_MARKERS if cleaned.find(marker) >= 0]
+    if marker_positions:
+        cleaned = cleaned[: min(marker_positions)]
+
+    for fragment in GENERIC_IMAGE_HINT_FRAGMENTS:
+        cleaned = cleaned.replace(fragment, " ")
+    cleaned = re.sub(r"[，,。.;；:：]+", " ", cleaned)
+    cleaned = " ".join(cleaned.split())
+    if cleaned in LOW_SIGNAL_IMAGE_TERMS:
+        return ""
+    return cleaned
 
 
 def should_merge_last_query(message: str) -> bool:
@@ -1944,6 +2935,8 @@ def generate_grounded_answer(
     faq_context: list[dict[str, str]],
     chat_history: list[dict[str, str]],
 ) -> tuple[str, dict[str, str]]:
+    # LLM 只负责把已检索出的 grounded_products 写成导购话术，不参与决定商品集合。
+    # 检索为空或 LLM 不可用时，用模板回答保证链路可降级。
     if not grounded_products:
         return build_template_answer(grounded_products, message), {"mode": "fallback", "reason": "no_retrieved_products"}
     try:
@@ -1965,6 +2958,7 @@ def stream_grounded_answer_events(
     faq_context: list[dict[str, str]],
     chat_history: list[dict[str, str]],
 ):
+    # 流式回答同样遵守 grounded 约束：先发状态，再逐块输出 LLM 文本；失败时回退模板。
     if not grounded_products:
         answer = build_template_answer(grounded_products, message)
         status = {"mode": "fallback", "reason": "no_retrieved_products"}

@@ -69,6 +69,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.smartshop.ai.data.model.Product
+import com.smartshop.ai.data.remote.ImageAnalyzeDto
 import com.smartshop.ai.data.remote.ImageAnalyzeRequestDto
 import com.smartshop.ai.data.remote.SmartShopApi
 import com.smartshop.ai.data.remote.toProduct
@@ -385,14 +386,9 @@ class CameraViewModel @Inject constructor(
                         user_hint = "识别图片中的可购物商品，并生成适合商品检索的关键词"
                     )
                 )
-                val products = api.searchProducts(
-                    query = analysis.query.ifBlank { analysis.detected.label },
-                    limit = 12
-                ).items.map { it.toProduct() }
+                val products = analysis.products.map { it.toProduct() }
 
-                val providerText = listOfNotNull(analysis.provider, analysis.model)
-                    .filter { it.isNotBlank() }
-                    .joinToString(" / ")
+                val providerText = analysis.providerSummaryText()
 
                 CameraRecognition(
                     label = analysis.detected.label.ifBlank { analysis.query },
@@ -445,3 +441,29 @@ data class CameraRecognition(
     val query: String,
     val providerText: String
 )
+
+private fun ImageAnalyzeDto.providerSummaryText(): String {
+    val modelText = listOfNotNull(provider, model)
+        .filter { it.isNotBlank() }
+        .joinToString(" / ")
+    val sourceText = diagnostics.visualSourceText()
+    return listOf(modelText, sourceText)
+        .filter { it.isNotBlank() }
+        .joinToString(" · ")
+}
+
+private fun Map<String, Any>.visualSourceText(): String {
+    val sources = sourceList("retrieval_sources").ifEmpty {
+        val imageMatch = this["image_match"] as? Map<*, *> ?: return@ifEmpty emptyList()
+        (imageMatch["sources"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+    }
+    val labels = buildList {
+        if ("visual_milvus" in sources) add("视觉向量召回")
+        if ("vlm_attributes" in sources) add("VLM属性约束")
+        if ("text_rag_fallback" in sources) add("文本RAG兜底")
+    }
+    return labels.joinToString(" / ")
+}
+
+private fun Map<String, Any>.sourceList(key: String): List<String> =
+    (this[key] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()

@@ -27,8 +27,6 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
     early_delta_sent = False
 
     legacy.ensure_session(conn, session_id)
-    yield legacy.sse_event("delta", {"text": "收到，正在努力分析中。\n"})
-    early_delta_sent = True
     if current_product_id and legacy.product_exists(conn, current_product_id):
         legacy.update_session_state(conn, session_id, current_product_id=current_product_id)
     previous_chat_history = legacy.load_chat_history(conn, session_id)
@@ -37,6 +35,9 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
         "INSERT INTO chat_messages(id, session_id, role, content, image_id) VALUES (?, ?, ?, ?, ?)",
         (f"msg_{uuid.uuid4().hex[:12]}", session_id, "user", stored_user_message, image_id),
     )
+    legacy.commit_stream_progress(conn)
+    yield legacy.sse_event("delta", {"text": "收到，正在努力分析中。\n"})
+    early_delta_sent = True
     if legacy.is_batch_cart_confirm_message(message):
         yield from legacy.emit_batch_cart_confirm_turn(conn, session_id, message, image_id)
         return
@@ -81,13 +82,30 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
         yield from legacy.emit_checkout_turn(conn, session_id, message, image_id)
         return
 
+    # 图片请求先做 VLM 识别，后续检索以 VLM 生成的 image_query 为主。
+    # 这样可以避免用户消息或 MLKit 粗标签被文本澄清逻辑提前截断。
+    image_query = None
+    image_analysis = None
+    if image_id:
+        image_analysis = legacy.analyze_image(conn, image_id, message)
+        detected = image_analysis.detected
+        image_query = image_analysis.query
+        yield legacy.sse_event(
+            "delta",
+            {
+                "text": legacy.image_detection_intro(detected)
+            },
+        )
+
+    # 文本 planner 仍会运行，用来保留普通文本意图、诊断信息和无图澄清能力。
     try:
         state.turn_plan = legacy.run_async_blocking(
             plan_agentic_turn(message, state.chat_history, state.conversation_state)
         )
         state.parsed_turn = state.turn_plan.parsed_turn
         logger.info("agent_parsed_turn=%s", state.parsed_turn.model_dump(mode="json"))
-        if state.turn_plan.should_run_bounded_tool:
+        # 带图请求已经进入图片找货链路，不能被文本工具路由或澄清分支提前返回。
+        if state.turn_plan.should_run_bounded_tool and not image_id:
             bounded_result = DEFAULT_TOOL_REGISTRY.call(
                 "bounded_agent",
                 conn=conn,
@@ -96,10 +114,10 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
             )
             yield from legacy.emit_bounded_result(conn, session_id, message, image_id, bounded_result)
             return
-        if state.parsed_turn.intent_type == "bundle_recommendation":
+        if state.parsed_turn.intent_type == "bundle_recommendation" and not image_id:
             yield from legacy.emit_bundle_recommendation_turn(conn, session_id, message, image_id, state.turn_plan)
             return
-        if not state.turn_plan.should_search_products:
+        if not state.turn_plan.should_search_products and not image_id:
             assistant_content = state.turn_plan.policy.response_text or "这个操作我正在支持中。"
             llm_status = None
             if state.parsed_turn.intent_type == "preference_question":
@@ -171,23 +189,15 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
             yield legacy.sse_event("done", {"session_id": session_id})
             return
 
-    image_query = None
-    if image_id:
-        detected, image_query = legacy.analyze_image(conn, image_id, message)
-        yield legacy.sse_event(
-            "delta",
-            {
-                "text": legacy.image_detection_intro(detected)
-            },
-        )
-
     final_user_query = legacy.build_final_user_query(conn, message, image_query, current_product_id, session_id)
+    # 图片检索不复用文本 planner 的约束，防止“手机/拍照”等澄清条件污染 VLM query。
+    retrieval_turn_plan = None if image_id else state.turn_plan
     retrieval_result = DEFAULT_TOOL_REGISTRY.call(
         "search_products",
         conn=conn,
         query=final_user_query,
         known_brands=legacy.load_known_brands(conn),
-        turn_plan=state.turn_plan,
+        turn_plan=retrieval_turn_plan,
     )
     parsed_filters = retrieval_result.parsed_filters
     logger.info("agent_final_user_query=%s parsed_filters=%s", final_user_query, parsed_filters)
@@ -211,9 +221,9 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
             "vector_backend": retrieval_result.vector_backend,
             "graph_backend": retrieval_result.graph_backend,
             "turn": {
-                "intent_type": state.parsed_turn.intent_type if state.parsed_turn else "unknown",
-                "route_hint": state.parsed_turn.route_hint if state.parsed_turn else "direct_tool",
-                "needs_clarification": state.parsed_turn.needs_clarification if state.parsed_turn else False,
+                "intent_type": "image_search" if image_id else state.parsed_turn.intent_type if state.parsed_turn else "unknown",
+                "route_hint": "direct_tool" if image_id else state.parsed_turn.route_hint if state.parsed_turn else "direct_tool",
+                "needs_clarification": False if image_id else state.parsed_turn.needs_clarification if state.parsed_turn else False,
                 "graph_backend": state.turn_plan.graph_backend if state.turn_plan else "langgraph_fallback",
             },
         },
@@ -222,15 +232,70 @@ def stream_agent_turn(conn, request: AgentTurnRequest) -> Iterable[str]:
     products = search_result.products
     alternatives = search_result.alternatives
     yield legacy.sse_event("retrieval_diagnostics", search_result.diagnostics)
-    grounded_products = legacy.build_grounded_products(conn, products)
+    visual_scores: dict[str, float] = {}
+    visual_diagnostics: dict = {"status": "skipped", "reason": "no_image"}
+    if image_analysis:
+        visual_products, visual_diagnostics, visual_scores = legacy.retrieve_visual_image_candidates(
+            conn,
+            image_analysis,
+            limit=max(20, len(products) + 8),
+        )
+        products = legacy.merge_product_cards(visual_products, products)
+    grounded_products = legacy.apply_visual_match_metadata(
+        legacy.build_grounded_products(conn, products),
+        visual_scores,
+    )
+    if image_analysis:
+        grounded_products, image_match_diagnostics = legacy.filter_products_for_image_match(
+            grounded_products,
+            image_analysis,
+        )
+        image_match_diagnostics = legacy.image_match_diagnostics_with_visual(
+            image_match_diagnostics,
+            visual_diagnostics,
+            visual_scores,
+        )
+        grounded_alternatives = legacy.build_grounded_products(conn, alternatives)
+        grounded_alternatives = legacy.apply_visual_match_metadata(grounded_alternatives, visual_scores)
+        grounded_alternatives, alternative_match_diagnostics = legacy.filter_products_for_image_match(
+            grounded_alternatives,
+            image_analysis,
+        )
+        if not grounded_products and grounded_alternatives:
+            image_match_diagnostics = legacy.image_match_diagnostics_with_visual(
+                alternative_match_diagnostics,
+                visual_diagnostics,
+                visual_scores,
+            )
+        yield legacy.sse_event(
+            "image_analysis",
+            legacy.image_analysis_event_payload(image_analysis.to_cache_payload(), image_match_diagnostics),
+        )
+    else:
+        grounded_alternatives = [] if grounded_products else legacy.build_grounded_products(conn, alternatives)
     visible_products_from_search = legacy.visible_chat_products(grounded_products)
-    grounded_alternatives = [] if grounded_products else legacy.build_grounded_products(conn, alternatives)
     visible_alternatives = legacy.visible_chat_products(grounded_alternatives)
     visible_products = visible_products_from_search or visible_alternatives
     legacy.enrich_product_presentations(message, visible_products)
     faq_context = legacy.load_faq_context(conn, [product["id"] for product in visible_products_from_search])
     chat_history = legacy.load_chat_history(conn, session_id)
     actions = legacy.build_actions(conn, visible_products, final_user_query, parsed_filters)
+    if image_id:
+        legacy.debug_vlm_event(
+            "CHAT_PRODUCTS_EVENT",
+            {
+                "session_id": session_id,
+                "image_id": image_id,
+                "query": final_user_query,
+                "sse_event": "products" if visible_products_from_search else "alternatives" if visible_alternatives else "none",
+                "visible_count": len(visible_products),
+                "search_count": len(visible_products_from_search),
+                "alternative_count": len(visible_alternatives),
+                "products": legacy.product_debug_summary(visible_products, limit=8),
+                "parsed_filters": parsed_filters,
+                "image_match": image_match_diagnostics if image_analysis else None,
+            },
+        )
     if visible_products_from_search:
         yield legacy.sse_event("products", {"products": visible_products_from_search})
     elif visible_alternatives:

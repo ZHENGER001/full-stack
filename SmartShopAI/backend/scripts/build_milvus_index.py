@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sqlite3
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -91,7 +92,48 @@ def positive_int(value: str) -> int:
     return parsed
 
 
-def build_index(recreate: bool, batch_size: int) -> int:
+def positive_float(value: str) -> float:
+    parsed = float(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be positive")
+    return parsed
+
+
+def is_retryable_embedding_error(exc: EmbeddingError) -> bool:
+    message = str(exc)
+    return (
+        message in {"Embedding network error", "Embedding request timed out"}
+        or message.startswith("Embedding HTTP status 5")
+    )
+
+
+def embed_batch_with_retries(
+    texts: list[str],
+    batch_index: int,
+    attempts: int,
+    retry_delay_seconds: float,
+) -> list[list[float]]:
+    for attempt in range(1, attempts + 1):
+        try:
+            return embed_texts(texts)
+        except EmbeddingError as exc:
+            if attempt >= attempts or not is_retryable_embedding_error(exc):
+                raise SystemExit(f"Embedding failed on batch {batch_index}: {exc}") from exc
+            print(
+                f"Embedding failed on batch {batch_index} "
+                f"(attempt {attempt}/{attempts}): {exc}; "
+                f"retrying in {retry_delay_seconds:g}s"
+            )
+            time.sleep(retry_delay_seconds)
+    raise SystemExit(f"Embedding failed on batch {batch_index}: no attempts were run")
+
+
+def build_index(
+    recreate: bool,
+    batch_size: int,
+    embedding_attempts: int = 36,
+    embedding_retry_delay: float = 5.0,
+) -> int:
     init_db()
     settings = get_settings()
     documents = load_documents(settings.database_path)
@@ -106,10 +148,12 @@ def build_index(recreate: bool, batch_size: int) -> int:
     vector_field = milvus_vector_field_name()
 
     for batch_index, batch in enumerate(batched(documents, batch_size), start=1):
-        try:
-            vectors = embed_texts([item["text"] for item in batch])
-        except EmbeddingError as exc:
-            raise SystemExit(f"Embedding failed on batch {batch_index}: {exc}") from exc
+        vectors = embed_batch_with_retries(
+            [item["text"] for item in batch],
+            batch_index=batch_index,
+            attempts=embedding_attempts,
+            retry_delay_seconds=embedding_retry_delay,
+        )
         if not vectors:
             continue
         if not created:
@@ -147,9 +191,26 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build SmartShopAI product embeddings in Milvus.")
     parser.add_argument("--recreate", action="store_true", help="Drop and recreate the Milvus collection first.")
     parser.add_argument("--batch-size", type=positive_int, default=8)
+    parser.add_argument(
+        "--embedding-attempts",
+        type=positive_int,
+        default=36,
+        help="Maximum attempts for each embedding batch when the service is still warming up.",
+    )
+    parser.add_argument(
+        "--embedding-retry-delay",
+        type=positive_float,
+        default=5.0,
+        help="Seconds to wait between transient embedding retries.",
+    )
     args = parser.parse_args()
 
-    inserted = build_index(recreate=args.recreate, batch_size=args.batch_size)
+    inserted = build_index(
+        recreate=args.recreate,
+        batch_size=args.batch_size,
+        embedding_attempts=args.embedding_attempts,
+        embedding_retry_delay=args.embedding_retry_delay,
+    )
     print(f"Milvus index build complete. inserted={inserted}")
 
 

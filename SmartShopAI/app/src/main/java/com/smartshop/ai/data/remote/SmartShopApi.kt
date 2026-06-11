@@ -310,6 +310,8 @@ data class ImageAnalyzeDto(
     val detected: ImageDetectedDto,
     val query: String,
     val objects: List<ImageDetectedDto> = emptyList(),
+    val products: List<ProductCardDto> = emptyList(),
+    val diagnostics: Map<String, Any> = emptyMap(),
     val provider: String? = null,
     val model: String? = null,
     val fallback: Boolean = false

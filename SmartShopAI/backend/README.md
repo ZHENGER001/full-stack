@@ -34,10 +34,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_milvus.ps1
 # 2. 启动 GPU 版 Qwen3-Embedding-0.6B embedding 服务
 docker compose -f .\docker-compose.embedding.yml up -d
 
-# 3. 构建商品向量索引到 Milvus
+# 3. 构建商品文本向量索引到 Milvus
 python .\scripts\build_milvus_index.py --recreate
 
-# 4. 启动后端
+# 4. 构建商品图片视觉向量索引到独立 Milvus 集合
+python .\scripts\build_visual_milvus_index.py --recreate
+
+# 5. 启动后端
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -147,6 +150,7 @@ ASR_MODEL=Qwen3.5-Omni-Flash
 - App 显示 AI 导购服务不可用：确认后端在 `8000` 端口运行，并且真机执行过 `adb reverse tcp:8000 tcp:8000`。
 - 语音转写提示 ASR 未配置：手机系统语音服务不可用，且后端 `.env` 还没有配置 ASR。
 - Milvus 或 embedding 容器异常：先看 `docker ps` 和对应 `docker logs`。
+- 图片上传/随手拍推荐仍不准：先确认已执行 `python .\scripts\build_visual_milvus_index.py --recreate`，并检查 `.env` 中 `VISUAL_MILVUS_COLLECTION=smartshop_product_images`。
 
 ## 停止
 
