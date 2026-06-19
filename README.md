@@ -123,11 +123,18 @@ Invoke-RestMethod http://127.0.0.1:8000/metrics
 adb reverse tcp:8000 tcp:8000
 ```
 
-App 安装时使用：
+App 安装时使用本机可用的 Gradle。优先使用已加入 `PATH` 的 `gradle`：
 
 ```powershell
 cd J:\full-stack\SmartShopAI
-$gradle = "C:\Users\ROG\.gradle\wrapper\dists\gradle-8.5-bin\5t9huq95ubn472n8rpzujfbqh\gradle-8.5\bin\gradle.bat"
+gradle -PsmartshopBaseUrl=http://127.0.0.1:8000/ installDebug
+```
+
+如果没有把 Gradle 加到 `PATH`，把下面的占位路径替换成自己电脑上的 Gradle 8.5 `gradle.bat` 路径。不要直接复制 `C:\Users\ROG\...` 这类本机路径到自己的环境：
+
+```powershell
+cd J:\full-stack\SmartShopAI
+$gradle = "C:\path\to\gradle-8.5\bin\gradle.bat"
 & $gradle -PsmartshopBaseUrl=http://127.0.0.1:8000/ installDebug
 ```
 
